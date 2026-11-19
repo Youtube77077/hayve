@@ -259,10 +259,9 @@ export default function PropertyDetail() {
 function StayQuote({ q }: { q: NonNullable<ReturnType<typeof bookings.quoteStay>> }) {
   return (
     <View>
-      <KeyValue label={`${q.nights} nights`} value={money(q.baseCents)} />
-      {q.discountCents > 0 && <KeyValue label="Weekly discount" value={`−${money(q.discountCents)}`} tone={color.success} />}
-      <KeyValue label="Cleaning fee" value={money(q.cleaningFeeCents)} />
-      <KeyValue label="Hayve service fee" value={money(q.serviceFeeCents)} />
+      <KeyValue label={`${money(q.baseCents / q.nights)} × ${q.nights} ${q.nights === 1 ? 'night' : 'nights'}`} value={money(q.baseCents)} />
+      {q.discountCents > 0 && <KeyValue label="Weekly discount" value={`−${money(q.discountCents)}`} />}
+      <KeyValue label="Fees" value={money(q.feesCents)} />
       <KeyValue label="Taxes" value={money(q.taxesCents)} />
       <Divider style={{ marginVertical: 6 }} />
       <KeyValue label="Total" value={money(q.totalCents)} strong />

@@ -108,7 +108,7 @@ export default function FoodOrderTracking() {
               ))}
               <Divider style={{ marginVertical: 8 }} />
               <KeyValue label="Delivery" value={o.deliveryFeeCents ? money(o.deliveryFeeCents) : 'Free'} />
-              <KeyValue label="Service fee" value={money(o.serviceFeeCents)} />
+              <KeyValue label="Fees" value={money(o.serviceFeeCents)} />
               <KeyValue label="Total" value={money(o.totalCents)} strong />
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, alignItems: 'center' }}>
                 <Icon name="location-outline" size={16} color={color.textSecondary} />

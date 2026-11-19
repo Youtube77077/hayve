@@ -28,7 +28,7 @@ function RegisterDriver() {
   return (
     <View style={{ gap: 14, marginTop: 8 }}>
       <T variant="title2">Drive with Hayve Ride</T>
-      <T color={color.textSecondary}>Set your own hours. You keep 80% of every fare, paid to Hayve Pay after each trip.</T>
+      <T color={color.textSecondary}>Set your own hours. You keep €8 of every €10 fare, paid to Hayve Pay after each trip.</T>
       <View style={{ flexDirection: 'row', gap: 10 }}>
         <Input containerStyle={{ flex: 1 }} label="Car make" value={make} onChangeText={setMake} placeholder="Toyota" />
         <Input containerStyle={{ flex: 1 }} label="Model" value={model} onChangeText={setModel} placeholder="Prius" />

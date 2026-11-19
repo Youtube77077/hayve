@@ -10,39 +10,46 @@ export function Spec({ icon, text }: { icon: IconName; text: string }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
       <Icon name={icon} size={14} color={color.textSecondary} />
-      <T variant="footnote" color={color.textSecondary} style={{ textTransform: 'capitalize' }}>
+      <T variant="footnote" color={color.textSecondary}>
         {text}
       </T>
     </View>
   );
 }
 
-export function VehicleCard({ v, start, end }: { v: RentalVehicle; start?: string; end?: string }) {
+export function VehicleCard({ v, start, end, selected, onHover }: { v: RentalVehicle; start?: string; end?: string; selected?: boolean; onHover?: (on: boolean) => void }) {
   return (
-    <Pressable onPress={() => router.push(`/drive/${v.id}${start && end ? `?start=${start}&end=${end}` : ''}`)} style={({ pressed }) => ({ backgroundColor: color.surface, borderRadius: radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: color.line, opacity: pressed ? 0.92 : 1 })}>
-      <Photo uri={v.images[0]} style={{ width: '100%', height: 170 }} icon="car-sport-outline" label={`${v.make} ${v.model}`} />
-      <View style={{ padding: 14, gap: 6 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
-          <View style={{ flex: 1 }}>
-            <T variant="headline" numberOfLines={1}>
-              {v.make} {v.model}
-            </T>
-            <T variant="footnote" color={color.textSecondary}>
-              {v.year} · {v.location}
-            </T>
-          </View>
-          <Rating value={v.rating} count={v.trips} />
-        </View>
-        <View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap' }}>
-          <Spec icon="people-outline" text={`${v.seats} seats`} />
-          <Spec icon="cog-outline" text={v.transmission === 'automatic' ? 'Automatic' : 'Manual'} />
-          <Spec icon={v.fuel === 'electric' ? 'flash-outline' : 'water-outline'} text={v.fuel === 'electric' ? `${v.rangeKm} km range` : v.fuel} />
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 4 }}>
-          <T variant="title3">{money(v.pricePerDayCents)}</T>
-          <T variant="footnote" color={color.textSecondary}>
-            / day
+    <Pressable
+      onPress={() => router.push(`/drive/${v.id}${start && end ? `?start=${start}&end=${end}` : ''}`)}
+      onHoverIn={() => onHover?.(true)}
+      onHoverOut={() => onHover?.(false)}
+      accessibilityRole="link"
+      accessibilityLabel={`${v.make} ${v.model}, ${money(v.pricePerDayCents)} per day, ${v.location}`}
+      style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1, borderRadius: radius.lg })}
+    >
+      <View style={{ borderRadius: radius.lg, overflow: 'hidden', backgroundColor: color.grey100, borderWidth: selected ? 2 : 0, borderColor: color.black }}>
+        <Photo uri={v.images[0]} style={{ width: '100%', aspectRatio: 1.5 }} icon="car-sport-outline" label={`${v.make} ${v.model}`} contentFit="cover" />
+      </View>
+      <View style={{ paddingTop: 12, gap: 4 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
+          <T variant="headline" numberOfLines={1} style={{ flex: 1 }}>
+            {v.make} {v.model}
           </T>
+          <T variant="headline">
+            {money(v.pricePerDayCents)}
+            <T variant="footnote" color={color.textSecondary}> /day</T>
+          </T>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Icon name="location-outline" size={14} color={color.grey500} />
+          <T variant="footnote" color={color.textSecondary} numberOfLines={1} style={{ flex: 1 }}>
+            {v.location}
+          </T>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <Rating value={v.rating} count={v.trips} label="trips" />
+          <Spec icon="people-outline" text={`${v.seats}`} />
+          <Spec icon="cog-outline" text={v.transmission === 'automatic' ? 'Auto' : 'Manual'} />
         </View>
       </View>
     </Pressable>

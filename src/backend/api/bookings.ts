@@ -1,3 +1,4 @@
+import { locationCoord, PICKUP_POINTS } from '../places';
 import { accountIdFor, refundTransaction, releaseTransaction, SYSTEM } from '../ledger';
 import { assert, commit, find, getDb, HayveError, now, reference, uid } from '../store';
 import type { BookingStatus, ID, Property, PropertyType, Rental, RentalVehicle, StayBooking, VehicleType } from '../types';
@@ -52,6 +53,7 @@ export interface VehicleQuery {
   start?: string;
   end?: string;
   transmission?: 'automatic' | 'manual' | 'any';
+  minSeats?: number;
   sort?: 'recommended' | 'price_asc' | 'price_desc' | 'rating';
 }
 
@@ -78,6 +80,7 @@ export function listVehicles(q: VehicleQuery = {}) {
     if (q.type && q.type !== 'all' && v.type !== q.type) return false;
     if (q.maxPerDayCents && v.pricePerDayCents > q.maxPerDayCents) return false;
     if (q.transmission && q.transmission !== 'any' && v.transmission !== q.transmission) return false;
+    if (q.minSeats && v.seats < q.minSeats) return false;
     if (loc && !`${v.location} ${v.make} ${v.model}`.toLowerCase().includes(loc)) return false;
     if (q.start && q.end && q.end > q.start && !vehicleAvailable(v, q.start, q.end)) return false;
     return true;
@@ -86,7 +89,11 @@ export function listVehicles(q: VehicleQuery = {}) {
   else if (q.sort === 'price_desc') rows = rows.sort((a, b) => b.pricePerDayCents - a.pricePerDayCents);
   else if (q.sort === 'rating') rows = rows.sort((a, b) => b.rating - a.rating);
   else rows = rows.sort((a, b) => b.rating * Math.log(b.trips + 2) - a.rating * Math.log(a.trips + 2));
-  return rows;
+  return rows.map((v) => ({ ...v, ...locationCoord(v.location, v.id) }));
+}
+
+export function pickupPoints() {
+  return PICKUP_POINTS.map((p) => p.label);
 }
 
 export function getVehicle(id: ID) {
@@ -314,7 +321,7 @@ export function quoteStay(propertyId: ID, checkIn: string, checkOut: string) {
     serviceFeeCents: service,
     taxesCents: taxes,
     /** Shown to customers as one "Fees" line. */
-    feesCents: service,
+    feesCents: service + p.cleaningFeeCents,
     totalCents: base - weekly + p.cleaningFeeCents + service + taxes,
     waveBackCents: previewWaveBack(getSessionUserId(), 'services', base - weekly + p.cleaningFeeCents),
   };

@@ -17,7 +17,7 @@ export default function SellerDashboard() {
       onboarding={
         <View style={{ gap: 14, marginTop: 12 }}>
           <T variant="title2">Start selling on Hayve Shop</T>
-          <T color={color.textSecondary}>No listing fees. Buyers pay a small protection fee, and you keep 100% of the item price. Earnings arrive in Hayve Pay when the buyer confirms delivery.</T>
+          <T color={color.textSecondary}>No listing fees. Buyers pay a small fee on top, and you keep the full item price. Earnings arrive in Hayve Pay when the buyer confirms delivery.</T>
           <Button title="Activate Hayve Seller" size="lg" full onPress={() => run(() => business.becomeSeller(), { success: 'Hayve Seller activated' })} />
         </View>
       }

@@ -98,7 +98,7 @@ export default function Basket() {
               <Card>
                 <KeyValue label="Subtotal" value={money(priced.subtotalCents)} />
                 <KeyValue label="Delivery fee" value={priced.deliveryFeeCents ? money(priced.deliveryFeeCents) : 'Free'} />
-                <KeyValue label="Service fee" value={money(priced.serviceFeeCents)} />
+                <KeyValue label="Fees" value={money(priced.serviceFeeCents)} />
                 <Divider style={{ marginVertical: 8 }} />
                 <KeyValue label="Total" value={money(priced.totalCents)} strong />
               </Card>

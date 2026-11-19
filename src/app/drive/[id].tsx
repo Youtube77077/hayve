@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { bookings, type PayMethod, social } from '../../backend/api';
-import { addDays, Avatar, Badge, Button, Card, color, Divider, ErrorState, Gallery, Header, Input, KeyValue, prettyDate, radius, RangeCalendar, Rating, Screen, Section, Sheet, Split, Stepper, T, todayISO, useLayout } from '../../design';
+import { addDays, Avatar, Badge, Button, Card, color, Divider, ErrorState, Gallery, Header, Input, KeyValue, prettyDate, radius, RangeCalendar, Rating, Screen, Section, Sheet, Split, Stepper, T, todayISO, useLayout, VerifiedMark } from '../../design';
 import { PayMethodPicker } from '../../features/common';
 import { money } from '../../lib/format';
 import { useAction, useLive } from '../../lib/hooks';
@@ -42,22 +42,22 @@ export default function VehicleDetail() {
       <Split
         left={
           <View>
-            <Gallery images={v.images} aspect={1.6} rounded={radius.xl} icon="car-sport-outline" label={`${v.make} ${v.model}`} />
+            <Gallery images={v.images} aspect={1.6} rounded={radius.lg} icon="car-sport-outline" label={`${v.make} ${v.model}`} />
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-              <Badge label={bookings.VEHICLE_TYPES.find((t) => t.id === v.type)?.label ?? v.type} tone="primary" />
-              <Rating value={v.rating} count={v.trips} />
+              <Badge label={bookings.VEHICLE_TYPES.find((t) => t.id === v.type)?.label ?? v.type} />
+              <Rating value={v.rating} count={v.trips} label="trips" />
             </View>
             <View style={{ flexDirection: 'row', gap: 16, marginTop: 14, flexWrap: 'wrap' }}>
               <Spec icon="people-outline" text={`${v.seats} seats`} />
               <Spec icon="car-outline" text={`${v.doors} doors`} />
-              <Spec icon="cog-outline" text={v.transmission} />
-              <Spec icon={v.fuel === 'electric' ? 'flash-outline' : 'water-outline'} text={v.fuel === 'electric' ? `${v.rangeKm} km range` : v.fuel} />
+              <Spec icon="cog-outline" text={v.transmission === 'automatic' ? 'Automatic' : 'Manual'} />
+              <Spec icon={v.fuel === 'electric' ? 'flash-outline' : 'water-outline'} text={v.fuel === 'electric' ? `${v.rangeKm} km range` : v.fuel[0].toUpperCase() + v.fuel.slice(1)} />
             </View>
             <Section title="Features">
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 {v.features.map((f) => (
                   <View key={f} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 34, borderRadius: radius.pill, backgroundColor: color.surface, borderWidth: 1, borderColor: color.line }}>
-                    <Icon name="checkmark" size={15} color={color.primary} />
+                    <Icon name="checkmark" size={15} />
                     <T variant="subhead">{f}</T>
                   </View>
                 ))}
@@ -78,9 +78,12 @@ export default function VehicleDetail() {
             </Section>
             <Section title="Your host">
               <Card onPress={() => router.push(`/u/${host.username}`)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <Avatar uri={host.avatar} name={host.displayName} size={48} />
+                <Avatar uri={host.avatarThumb ?? host.avatar} name={host.displayName} size={48} />
                 <View style={{ flex: 1 }}>
-                  <T variant="headline">{host.displayName}</T>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <T variant="headline">{host.displayName}</T>
+                    {host.verified && <VerifiedMark />}
+                  </View>
                   <Rating value={hostRating.average} count={hostRating.count} />
                 </View>
                 <Button title="Message" size="sm" variant="secondary" onPress={() => run(() => social.startThread(host.id, { kind: 'vehicle', id: v.id, title: `${v.make} ${v.model}` }), { onDone: (tid) => router.push(`/messages/${tid}`) })} />
@@ -107,7 +110,7 @@ export default function VehicleDetail() {
         }
         right={
           isWide ? (
-            <Card style={{ gap: 4 }}>
+            <Card style={{ gap: 4, position: 'sticky' as never, top: 16 }}>
               <T variant="title2">
                 {money(v.pricePerDayCents)} <T color={color.textSecondary}>/ day</T>
               </T>
@@ -116,7 +119,7 @@ export default function VehicleDetail() {
               </T>
               {quote && <QuoteLines q={quote} />}
               {conflict && (
-                <T variant="footnote" color={color.danger}>
+                <T variant="footnote" weight="700">
                   Those dates overlap an existing booking.
                 </T>
               )}
@@ -149,7 +152,7 @@ export default function VehicleDetail() {
             </Card>
           )}
           <T variant="headline">Pay with</T>
-          <PayMethodPicker value={method} onChange={setMethod} totalCents={quote?.totalCents ?? 0} />
+          <PayMethodPicker value={method} onChange={setMethod} totalCents={quote?.totalCents ?? 0} waveBackCents={quote?.waveBackCents ?? 0} />
         </View>
       </Sheet>
     </Screen>
@@ -159,14 +162,14 @@ export default function VehicleDetail() {
 function QuoteLines({ q }: { q: NonNullable<ReturnType<typeof bookings.quoteRental>> }) {
   return (
     <View style={{ marginTop: 8 }}>
-      <KeyValue label={`${q.days} ${q.days === 1 ? 'day' : 'days'}`} value={money(q.baseCents)} />
-      {q.discountCents > 0 && <KeyValue label="Multi-day discount" value={`−${money(q.discountCents)}`} tone={color.success} />}
+      <KeyValue label={`${money(q.baseCents / q.days)} × ${q.days} ${q.days === 1 ? 'day' : 'days'}`} value={money(q.baseCents)} />
+      {q.discountCents > 0 && <KeyValue label="Multi-day discount" value={`−${money(q.discountCents)}`} />}
       <KeyValue label="Insurance (basic cover)" value={money(q.insuranceCents)} />
-      <KeyValue label="Service fee" value={money(q.serviceFeeCents)} />
+      <KeyValue label="Fees" value={money(q.feesCents)} />
       <Divider style={{ marginVertical: 6 }} />
       <KeyValue label="Total" value={money(q.totalCents)} strong />
-      <T variant="footnote" color={color.textTertiary}>
-        + {money(q.depositCents)} refundable deposit held at pickup (simulated)
+      <T variant="footnote" color={color.textSecondary}>
+        + {money(q.depositCents)} refundable deposit held at pickup (demo)
       </T>
     </View>
   );

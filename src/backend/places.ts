@@ -19,6 +19,27 @@ export const PLACES: Place[] = [
   { id: 'work', name: 'Studio', address: 'Reijnier Vinkeleskade 62', lng: 4.879, lat: 52.35 },
 ];
 
+/** Pickup points for Drive and other location-based listings. */
+export const PICKUP_POINTS: { label: string; placeId: string }[] = [
+  { label: 'Amsterdam Centraal', placeId: 'centraal' },
+  { label: 'Amsterdam Zuid', placeId: 'zuid' },
+  { label: 'Amsterdam Oost', placeId: 'oost' },
+  { label: 'Amsterdam Noord', placeId: 'noord' },
+  { label: 'Schiphol Airport', placeId: 'schiphol' },
+];
+
+/** Approximate coordinates for a listing's location text, spread a little per listing so pins don't stack. */
+export function locationCoord(location: string, seed: string): { lng: number; lat: number } {
+  const l = location.toLowerCase();
+  const hit = PICKUP_POINTS.find((p) => l.includes(p.label.toLowerCase().replace('amsterdam ', ''))) ?? PICKUP_POINTS[0];
+  const base = placeById(hit.placeId)!;
+  let h = 0;
+  for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const a = ((h % 360) * Math.PI) / 180;
+  const r = 0.002 + ((h >> 9) % 10) * 0.0004;
+  return { lng: base.lng + Math.cos(a) * r * 1.6, lat: base.lat + Math.sin(a) * r };
+}
+
 export function placeById(id: string) {
   return PLACES.find((p) => p.id === id);
 }

@@ -1,4 +1,5 @@
 import {
+  List,
   Waves,
   Archive,
   ArrowDown,
@@ -299,6 +300,7 @@ const ICONS = {
   'snow-outline': Snowflake,
   'sparkles-outline': Sparkles,
   wave: Waves,
+  'list-outline': List,
   'speedometer-outline': Gauge,
   square: Square,
   'square-outline': Square,
