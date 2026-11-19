@@ -1,0 +1,65 @@
+# Captures the native iOS app: public welcome screen, sign-in, then every tab.
+# Run by .github/workflows/ios-screenshots.yml on an iOS Simulator.
+appId: com.hayve.app
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+- extendedWaitUntil:
+    visible: "Sign in"
+    timeout: 90000
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: 01-welcome
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "Sam Rivera"
+    timeout: 20000
+- takeScreenshot: 02-sign-in
+- tapOn: "Sam Rivera"
+- extendedWaitUntil:
+    visible: "Recent activity"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: 03-home
+- openLink: "hayve:///explore"
+- tapOn:
+    text: "Open"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: 04-search
+- openLink: "hayve:///shop"
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: 05-shop
+- openLink: "hayve:///pay"
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: 06-pay
+- openLink: "hayve:///ride"
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 07-ride
+- openLink: "hayve:///bites"
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: 08-bites
+- openLink: "hayve:///drive"
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: 09-drive
+- openLink: "hayve:///stay"
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: 10-stay
+- openLink: "hayve:///profile"
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: 11-profile
+- openLink: "hayve:///services"
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: 12-more

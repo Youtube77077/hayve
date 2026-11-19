@@ -1,0 +1,106 @@
+# Builds Hayve for the iOS Simulator, signs in as the demo user with Maestro and
+# screenshots the native app. The PNGs are committed to docs/screenshots/ios/ and
+# uploaded as an artifact.
+name: iOS screenshots (Simulator)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['main', 'claude/**']
+    paths: ['.github/workflows/ios-screenshots.yml', '.maestro/**']
+
+concurrency:
+  group: ios-screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  screenshots:
+    runs-on: macos-26
+    timeout-minutes: 75
+    env:
+      EXPO_PUBLIC_MAPBOX_TOKEN: ${{ secrets.MAPBOX_PUBLIC_TOKEN }}
+      EXPO_PUBLIC_MAPBOX_STYLE_URL: ${{ secrets.MAPBOX_STYLE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Select the newest Xcode
+        run: |
+          XC=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -n 1)
+          if [ -n "$XC" ]; then sudo xcode-select -s "$XC/Contents/Developer"; fi
+          xcodebuild -version
+
+      - name: Generate native iOS project
+        run: npx expo prebuild --platform ios --clean --no-install
+        env:
+          CI: 1
+      - name: Install CocoaPods
+        working-directory: ios
+        run: pod install
+
+      - name: Build for the iOS Simulator (Release, JS bundled)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace ios/Hayve.xcworkspace -scheme Hayve -configuration Release \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO \
+            build 2>&1 | tee xcodebuild.log | xcbeautify --renderer github-actions
+      - name: Show Xcode errors
+        if: failure()
+        run: grep -nE "error:|BUILD FAILED" xcodebuild.log | head -60 || true
+
+      - name: Boot an iPhone simulator
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c "
+          import json, sys
+          d = json.load(sys.stdin)['devices']
+          c = [x for r, v in d.items() if 'iOS' in r for x in v if x['name'].startswith('iPhone')]
+          pro = [x for x in c if 'Pro' in x['name'] and 'Max' not in x['name']]
+          pick = sorted(pro or c, key=lambda x: x['name'])[-1]
+          print(pick['udid'])")
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3
+          xcrun simctl location "$UDID" set 52.3620,4.9330
+          APP=$(find build/Build/Products/Release-iphonesimulator -maxdepth 1 -name "*.app" | head -n 1)
+          xcrun simctl install "$UDID" "$APP"
+          xcrun simctl list devices | grep "$UDID"
+
+      - name: Install Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Capture screenshots
+        run: |
+          mkdir -p shots
+          cd shots
+          maestro --device "$UDID" test "$GITHUB_WORKSPACE/.maestro/screenshots.yaml"
+          ls -la
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hayve-ios-screenshots
+          path: shots
+          retention-days: 30
+
+      - name: Commit screenshots to the branch
+        run: |
+          mkdir -p docs/screenshots/ios
+          cp shots/*.png docs/screenshots/ios/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/screenshots/ios
+          git commit -m "iOS app screenshots from the Simulator [skip ci]" || exit 0
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
