@@ -65,7 +65,15 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            build | xcbeautify --renderer github-actions
+            build 2>&1 | tee xcodebuild.log | xcbeautify --renderer github-actions
+
+      - name: Show Xcode errors
+        if: failure()
+        run: |
+          echo "---- error lines ----"
+          grep -nE "error:|fatal error|BUILD FAILED|The following build commands failed" xcodebuild.log | head -80 || true
+          echo "---- last 60 lines ----"
+          tail -n 60 xcodebuild.log || true
 
       - name: Package .ipa
         run: |
