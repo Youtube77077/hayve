@@ -6,7 +6,7 @@ name: iOS IPA (unsigned, for sideloading)
 on:
   push:
     branches: ['main', 'claude/**']
-    paths-ignore: ['**.md', 'docs/**', 'supabase/**']
+    paths-ignore: ['**.md', 'docs/**', 'supabase/**', 'server/**', '.do/**']
   workflow_dispatch:
 
 concurrency:
@@ -20,6 +20,10 @@ jobs:
   build:
     runs-on: macos-15
     timeout-minutes: 75
+    # Public map keys (repository secrets). Without them the app uses its built-in map preview.
+    env:
+      EXPO_PUBLIC_MAPBOX_TOKEN: ${{ secrets.MAPBOX_PUBLIC_TOKEN }}
+      EXPO_PUBLIC_MAPBOX_STYLE_URL: ${{ secrets.MAPBOX_STYLE_URL }}
     steps:
       - uses: actions/checkout@v4
 

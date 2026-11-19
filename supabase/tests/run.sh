@@ -17,3 +17,4 @@ $PSQL -d hayve -f "$HERE/00_supabase_stub.sql"
 for f in "$HERE"/../migrations/*.sql; do echo "applying $(basename "$f")"; $PSQL -d hayve -f "$f"; done
 $PSQL -d hayve -f "$HERE/90_grants.sql"
 $PSQL -d hayve -f "$HERE/99_gifting_privacy_test.sql"
+$PSQL -d hayve -f "$HERE/98_redesign_test.sql"

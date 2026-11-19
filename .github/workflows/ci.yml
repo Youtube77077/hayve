@@ -25,8 +25,31 @@ jobs:
         run: bash supabase/tests/run.sh
       - name: Build website
         run: npx expo export --platform web
+        env:
+          EXPO_PUBLIC_MAPBOX_TOKEN: ${{ secrets.MAPBOX_PUBLIC_TOKEN }}
+          EXPO_PUBLIC_MAPBOX_STYLE_URL: ${{ secrets.MAPBOX_STYLE_URL }}
       - uses: actions/upload-artifact@v4
         with:
           name: hayve-web
           path: dist
           retention-days: 14
+
+  api:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      - name: Typecheck API
+        run: npm run typecheck
+      - name: API tests (unit + PostgreSQL integration with real migrations)
+        run: npx vitest run
+      - name: Build API
+        run: npm run build

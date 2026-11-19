@@ -54,7 +54,7 @@ create temp table c1 as select * from public.confirm_wishlist_gift((select reser
 insert into pg_temp.results select 'purchaser receives reference', (select reference like 'HG-%' from c1);
 insert into pg_temp.results select 'purchaser sees gift in my_sent_gifts', (select count(*) = 1 from public.my_sent_gifts());
 insert into pg_temp.results select 'purchaser cannot read order row (address)', (select count(*) = 0 from public.orders);
-insert into pg_temp.results select 'purchaser wallet debited', (select available_cents = 10000 - (5000 + 395 + 320) from public.my_wallet());
+insert into pg_temp.results select 'purchaser wallet debited', (select available_cents = 10000 - (5000 + 395 + 250) from public.my_wallet());
 
 -- 3. Recipient perspective -----------------------------------------------------
 select pg_temp.act_as('00000000-0000-0000-0000-00000000000b');

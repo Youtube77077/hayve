@@ -1,0 +1,115 @@
+# DigitalOcean App Platform spec for Hayve.
+# Create with:  doctl apps create --spec .do/app.yaml   (then set the SECRET values in the dashboard)
+# Web (static site) + API (Node) + Managed PostgreSQL. Auto-deploys on push, HTTPS by default.
+name: hayve
+region: ams
+features:
+  - buildpack-stack=ubuntu-22
+
+databases:
+  # Managed PostgreSQL 16 with daily backups (point-in-time recovery on production clusters).
+  - name: hayve-db
+    engine: PG
+    version: "16"
+    production: true
+    cluster_name: hayve-db
+
+jobs:
+  # Runs the SQL migrations before every deploy.
+  - name: migrate
+    kind: PRE_DEPLOY
+    github:
+      repo: Youtube77077/hayve
+      branch: main
+      deploy_on_push: true
+    source_dir: /
+    environment_slug: node-js
+    build_command: cd server && npm ci && npm run build
+    run_command: cd server && npm run migrate
+    envs:
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${hayve-db.DATABASE_URL}
+      - key: DATABASE_CA_CERT
+        scope: RUN_TIME
+        value: ${hayve-db.CA_CERT}
+      - key: JWT_SECRET
+        scope: RUN_TIME
+        type: SECRET
+        value: change-me
+
+services:
+  - name: api
+    github:
+      repo: Youtube77077/hayve
+      branch: main
+      deploy_on_push: true
+    # The API reads ../supabase/migrations, so it builds from the repository root.
+    source_dir: /
+    environment_slug: node-js
+    build_command: cd server && npm ci && npm run build
+    run_command: cd server && npm start
+    http_port: 8080
+    instance_count: 2
+    instance_size_slug: apps-s-1vcpu-1gb
+    health_check:
+      http_path: /health
+    routes:
+      - path: /api
+        preserve_path_prefix: false
+    envs:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${hayve-db.DATABASE_URL}
+      - key: DATABASE_CA_CERT
+        scope: RUN_TIME
+        value: ${hayve-db.CA_CERT}
+      - key: APP_ORIGINS
+        value: ${APP_URL}
+      - key: JWT_SECRET
+        type: SECRET
+        value: change-me
+      - key: SPACES_ENDPOINT
+        value: https://ams3.digitaloceanspaces.com
+      - key: SPACES_REGION
+        value: ams3
+      - key: SPACES_BUCKET
+        value: hayve-media
+      - key: SPACES_CDN_URL
+        value: https://hayve-media.ams3.cdn.digitaloceanspaces.com
+      - key: SPACES_KEY
+        type: SECRET
+        value: change-me
+      - key: SPACES_SECRET
+        type: SECRET
+        value: change-me
+      - key: POSTMARK_TOKEN
+        type: SECRET
+        value: change-me
+
+static_sites:
+  - name: web
+    github:
+      repo: Youtube77077/hayve
+      branch: main
+      deploy_on_push: true
+    source_dir: /
+    environment_slug: node-js
+    build_command: npm ci && npx expo export --platform web
+    output_dir: dist
+    catchall_document: index.html
+    routes:
+      - path: /
+    envs:
+      - key: EXPO_PUBLIC_API_URL
+        scope: BUILD_TIME
+        value: ${APP_URL}/api
+      - key: EXPO_PUBLIC_MAPBOX_TOKEN
+        scope: BUILD_TIME
+        type: SECRET
+        value: change-me
+      - key: EXPO_PUBLIC_MAPBOX_STYLE_URL
+        scope: BUILD_TIME
+        value: ""
