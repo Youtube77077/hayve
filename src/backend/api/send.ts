@@ -130,7 +130,7 @@ function setStatus(d: Delivery, s: DeliveryStatus) {
     in_transit: 'Your parcel is on its way',
     delivered: `Delivered to ${d.recipientName}`,
   };
-  if (msg[s]) notify(d.senderId, 'delivery', `Parcel ${d.trackingCode}`, msg[s]!, `/send/${d.id}`);
+  if (msg[s]) notify(d.senderId, 'delivery', `Parcel ${d.trackingCode}`, msg[s]!, `/track/${d.trackingCode}`);
   if (s === 'delivered' && d.courierId) {
     createTransaction({
       type: 'earning',

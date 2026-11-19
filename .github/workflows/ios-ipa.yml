@@ -18,7 +18,8 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-15
+    # Mapbox iOS SDK 11.33 ships binaries built with Swift 6.3, so this needs Xcode 26.4 or newer.
+    runs-on: macos-26
     timeout-minutes: 75
     # Public map keys (repository secrets). Without them the app uses its built-in map preview.
     env:
@@ -40,8 +41,12 @@ jobs:
           npx tsc --noEmit
           npx vitest run
 
-      - name: Show Xcode version
-        run: xcodebuild -version
+      - name: Select the newest Xcode
+        run: |
+          XC=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -n 1)
+          if [ -n "$XC" ]; then sudo xcode-select -s "$XC/Contents/Developer"; fi
+          xcodebuild -version
+          swift --version
 
       - name: Generate native iOS project (Expo prebuild)
         run: npx expo prebuild --platform ios --clean --no-install
