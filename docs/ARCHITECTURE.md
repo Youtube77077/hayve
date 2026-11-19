@@ -7,14 +7,14 @@ The brief suggested React Native + Expo for iOS and Next.js for the website. Ins
 
 - Business logic, data models, design tokens and components are shared **100%**, not just "where possible".
 - Every route works on the web as a real URL: `/u/noor`, `/product/:id`, `/paylink/:id`, `/track/:code`.
-- The layout adapts. Below 768px you get the iPhone floating tab bar with a centre **All services** launcher. At 768px and wider (iPad, desktop) you get a sidebar listing all ten destinations and the partner apps.
+- The layout adapts. Below 768px you get a bottom bar (Home, Shop, Ride, Bites, More). At 768px and wider (iPad, desktop) you get a sidebar with the logo, Home, Search, the six products and account items.
 
 If SEO-heavy marketing pages are needed later, a small Next.js site can be added for those pages only. It would consume the same Supabase backend.
 
 ### Navigation
-There are ten independent destinations: Home, Explore, Shop, Pay, Ride, Bites, Drive, Stay, Send and Profile. Each is its own tab route with its own screen structure (`src/app/(tabs)/*`).
+The products are Hayve Shop, Pay, Ride, Bites, Drive and Stay, plus Home, Search and Profile (`src/app/(tabs)/*`). Each product name uses an illustrated, animated second word (`src/features/nav/Wordmarks.tsx`, 150–250 ms, respects reduced motion). Hayve Send is not a destination: it only exists inside the Shop checkout and order page.
 
-- **iPhone:** Home, Shop, Pay and Profile sit in the bar. The centre button opens the **All services** launcher (`/services`). When you're inside Ride, Bites, Drive, Stay, Send or Explore, the centre button turns into that service's icon. Home also shows a service grid.
+- **iPhone:** Home, Shop, Ride and Bites sit in the bar; **More** (`/services`) opens Pay, Drive, Stay, account items and partner apps.
 - **iPad / desktop:** a permanent sidebar (`src/features/nav/TabBar.tsx`). It uses React Navigation's `tabBarPosition: 'left'` with a custom tab bar.
 - Detail screens (product, property, checkout, tracking…) are stack routes above the tabs. On wide screens they use two-column `Split` layouts.
 
@@ -77,5 +77,5 @@ A caveat for the offline simulation: all sample users' data lives on one device,
   - Layout: Screen, Header, Section, Group/ListRow, Grid, Split, HScroll
   - Feedback: Toast, Sheet, ConfirmSheet, EmptyState, ErrorState, Skeleton, Notice
   - Forms: Segmented, Stepper, SwitchRow, Select, RangeCalendar
-  - Visuals: CityMap, Gallery, BarChart, Timeline, SimQR, HayveLogo
-- Lime is reserved for primary positive actions (Send, Gift, Accept), selected states and success. Service accents appear only as small icon tints.
+  - Visuals: Gallery, BarChart, Timeline, SimQR; logo in `logo.tsx`; maps in `src/features/map` (HayveMap, RouteMap)
+- Colours are only indigo, black, white and three greys. Indigo marks the primary action, active navigation, links and selected items; everything else is black on white. No gradients or coloured tiles.

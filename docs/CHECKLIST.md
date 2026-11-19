@@ -28,7 +28,13 @@ Status: ✅ done · 🟡 first version / simulated · ⬜ not started
 - ✅ Bites: restaurants & groceries, cuisines, menus with options, basket, checkout, tracking, rating
 - ✅ Drive: search, filters, availability calendar, requirements, booking request, booking detail, cancel
 - ✅ Stay: destination/dates/guests search, filters, saved places, property detail, calendar, booking, cancel
-- ✅ Send: parcel sizes, weight, speed quotes, booking, tracking, public tracking, cancel/refund
+- ✅ Hayve Send inside Shop checkout: delivery choice, label creation, handover, tracking page
+- ✅ Fees: one config file, tiered, never lower for a higher price, one "Fees" line for buyers
+- ✅ Wave Back: balance payments only, Shop 1% (max €5), services 2%, new members 5% for 30 days (max €10), €20/month cap, reversed on refunds, admin-editable
+- ✅ Hayve Store: KVK/VAT/address/owner ID application, Pending → Verified/Rejected with reason, verified mark, store page, bulk upload, stock, sales, VAT invoices
+- ✅ Maps: Mapbox web + iOS with Hayve style, preview fallback without keys; Ride with centre pin, route, gliding cars, bottom sheet states
+- ✅ Admin: verifications, users (search, suspend, delete), content moderation, reports, fee and Wave Back settings, overview, audit log; 2FA required
+- ✅ Hosting foundation: DigitalOcean app spec, API server, migrations, database and API tests
 - ✅ Profile & settings: personal details, avatar, addresses, privacy, security, notifications, language, delete account
 - ✅ Messages (buyer/seller, host/guest, restaurant) and notifications
 - ✅ Auth: sign up, sign in, sign out, password reset (simulated code), email verification (simulated code)
