@@ -36,8 +36,8 @@ export default function PayLinkCheckout() {
       </Card>
       {paid ? (
         <View style={{ alignItems: 'center', gap: 12, marginTop: 24 }}>
-          <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: color.lime, alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="checkmark" size={38} color={color.ink} />
+          <View style={{ width: 72, height: 72, borderRadius: 36, borderWidth: 1, borderColor: color.line, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="checkmark" size={36} color={color.indigo} />
           </View>
           <T variant="title2">Paid</T>
           <Button title="View receipt" variant="outline" full onPress={() => router.replace(`/pay/tx/${paid}`)} />

@@ -2,9 +2,10 @@ import { Icon } from '../../../design/icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
-import { bites } from '../../../backend/api';
+import { bites, ride } from '../../../backend/api';
 import type { FoodOrderStatus } from '../../../backend/types';
-import { Button, Card, CityMap, color, Divider, ErrorState, Header, KeyValue, Photo, radius, Screen, Split, Stars, SwitchRow, T, Timeline, useLayout, useToast } from '../../../design';
+import { Button, Card, color, Divider, ErrorState, Header, KeyValue, Photo, radius, Screen, Split, Stars, SwitchRow, T, Timeline, useLayout, useToast } from '../../../design';
+import { RouteMap } from '../../../features/map';
 import { SimNote, StatusPill } from '../../../features/common';
 import { dateTime, money, time } from '../../../lib/format';
 import { useAction, useLive } from '../../../lib/hooks';
@@ -28,6 +29,8 @@ export default function FoodOrderTracking() {
   const [stars, setStars] = useState(0);
   const { run } = useAction();
   const live = o && !['delivered', 'rejected', 'cancelled'].includes(o.status);
+  const placeList = useLive(() => ride.places()).data;
+  const route = { from: placeList?.find((p) => p.id === 'pijp'), to: placeList?.find((p) => p.id === 'home') };
   const mine = useLive(() => bites.myFoodOrders().some((x) => x.id === id), [id]).data;
 
   useEffect(() => {
@@ -68,7 +71,7 @@ export default function FoodOrderTracking() {
                     {o.status === 'delivered' ? 'Delivered' : 'Estimated arrival'}
                   </T>
                   <T style={{ fontSize: 36, lineHeight: 36 + 8, fontWeight: '800', color: '#fff', letterSpacing: -1 }}>{o.status === 'delivered' ? time(o.timeline[o.timeline.length - 1].at) : time(eta)}</T>
-                  <T variant="footnote" color={color.lime}>
+                  <T variant="footnote" color={color.white} weight="700">
                     {STEPS[idx]?.label}
                     {o.courierName && o.status === 'picked_up' ? ` · ${o.courierName} on an e-bike` : ''}
                   </T>
@@ -77,7 +80,7 @@ export default function FoodOrderTracking() {
             </Card>
             {!failed && (
               <View style={{ marginTop: 12 }}>
-                <CityMap from={{ x: 0.55, y: 0.7 }} to={{ x: 0.62, y: 0.5 }} progress={PROGRESS[o.status]} vehicle="bike" height={isWide ? 300 : 200} />
+                {route.from && route.to && <RouteMap from={route.from} to={route.to} progress={PROGRESS[o.status]} height={isWide ? 300 : 200} />}
               </View>
             )}
             {!failed && (

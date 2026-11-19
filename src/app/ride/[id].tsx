@@ -1,11 +1,12 @@
 import { Icon } from '../../design/icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { View } from 'react-native';
 import { ride } from '../../backend/api';
 import type { RideStatus } from '../../backend/types';
-import { Avatar, Button, Card, CityMap, color, ConfirmSheet, ErrorState, Header, KeyValue, Rating, Screen, Split, Stars, SwitchRow, T, Timeline, useLayout, useToast } from '../../design';
+import { Avatar, Button, Card, color, ConfirmSheet, ErrorState, Header, KeyValue, Rating, Screen, Split, Stars, T, Timeline, useLayout } from '../../design';
 import { SimNote, StatusPill } from '../../features/common';
+import { RouteMap } from '../../features/map';
 import { dateTime, money } from '../../lib/format';
 import { useAction, useLive } from '../../lib/hooks';
 
@@ -22,28 +23,12 @@ const PROGRESS: Partial<Record<RideStatus, number>> = { requested: 0, accepted: 
 export default function RideTracking() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { isWide } = useLayout();
-  const toast = useToast();
   const { data: r, error } = useLive(() => ride.getRide(id), [id]);
-  const [auto, setAuto] = useState(true);
   const [cancel, setCancel] = useState(false);
   const [stars, setStars] = useState(0);
   const { run, busy } = useAction();
 
   const live = r && r.role === 'rider' && ['requested', 'accepted', 'arriving', 'in_progress'].includes(r.status);
-  useEffect(() => {
-    if (!live || !auto) return;
-    const t = setTimeout(
-      () => {
-        try {
-          ride.simulateRideStep(id);
-        } catch (e) {
-          toast((e as Error).message, 'error');
-        }
-      },
-      r?.status === 'requested' ? 3500 : 5000,
-    );
-    return () => clearTimeout(t);
-  }, [live, auto, r?.status, id, toast]);
 
   if (error || !r) return <Screen header={<Header back title="Trip" fallback="/ride" />}>{error && <ErrorState message={error.message} />}</Screen>;
   const idx = STEPS.findIndex((s) => s.key === r.status);
@@ -52,7 +37,7 @@ export default function RideTracking() {
     <Screen header={<Header back title={r.status === 'completed' ? 'Trip receipt' : 'Your trip'} subtitle={`${r.pickup.name} → ${r.dropoff.name}`} fallback="/ride" />}>
       <Split
         ratio={1}
-        left={<CityMap from={r.pickup} to={r.dropoff} progress={PROGRESS[r.status]} height={isWide ? 520 : 260} />}
+        left={<RouteMap from={r.pickup} to={r.dropoff} progress={live ? PROGRESS[r.status] : undefined} height={isWide ? 520 : 260} />}
         right={
           <View style={{ marginTop: isWide ? 0 : 16, gap: 12 }}>
             {r.status === 'cancelled' ? (
@@ -66,28 +51,28 @@ export default function RideTracking() {
             ) : (
               <>
                 {r.driver ? (
-                  <Card tone="dark">
+                  <Card>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                      <Avatar uri={r.driver.avatar} name={r.driver.displayName} size={54} ring />
+                      <Avatar uri={r.driver.avatarThumb ?? r.driver.avatar} name={r.driver.displayName} size={54} />
                       <View style={{ flex: 1 }}>
-                        <T variant="title3" color="#fff" numberOfLines={1}>
+                        <T variant="title3" numberOfLines={1}>
                           {r.driver.displayName}
                         </T>
-                        <Rating value={r.driver.rating} count={r.driver.trips} light />
+                        <Rating value={r.driver.rating} count={r.driver.trips} label="trips" />
                       </View>
-                      <View style={{ backgroundColor: color.lime, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
+                      <View style={{ borderWidth: 2, borderColor: color.black, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
                         <T variant="headline" style={{ letterSpacing: 1 }}>
                           {r.driver.vehicle.plate}
                         </T>
                       </View>
                     </View>
-                    <T variant="footnote" color={color.textOnDarkSecondary} style={{ marginTop: 10 }}>
+                    <T variant="footnote" color={color.textSecondary} style={{ marginTop: 10 }}>
                       {r.driver.vehicle.color} {r.driver.vehicle.make} {r.driver.vehicle.model}
                     </T>
                   </Card>
                 ) : (
                   <Card tone="soft" style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <Icon name="radio-outline" size={24} color={color.primary} />
+                    <Icon name="radio-outline" size={24} />
                     <View style={{ flex: 1 }}>
                       <T variant="headline">Matching you with a nearby driver</T>
                       <T variant="footnote" color={color.textSecondary}>
@@ -121,15 +106,12 @@ export default function RideTracking() {
 
             {live && (
               <>
-                <Card padded={false}>
-                  <SwitchRow icon="flask-outline" title="Live simulation" subtitle="Automatically advance the trip like a real driver would" value={auto} onChange={setAuto} />
-                </Card>
-                {!auto && <Button title="Advance trip (simulation)" variant="secondary" onPress={() => ride.simulateRideStep(r.id)} />}
-                {['requested', 'accepted', 'arriving'].includes(r.status) && <Button title="Cancel trip" variant="danger" onPress={() => setCancel(true)} />}
+                <Button title="Open live map" icon="map-outline" size="lg" onPress={() => router.navigate('/ride')} />
+                {['requested', 'accepted', 'arriving'].includes(r.status) && <Button title="Cancel trip" variant="outline" onPress={() => setCancel(true)} />}
                 <SimNote text="Dispatch and vehicle location are simulated. Drivers using Hayve Driver can also accept and update this trip." />
               </>
             )}
-            {r.status === 'completed' && <Button title="Book another ride" variant="dark" size="lg" onPress={() => router.replace('/ride')} />}
+            {r.status === 'completed' && <Button title="Book another ride" size="lg" onPress={() => router.replace('/ride')} />}
           </View>
         }
       />

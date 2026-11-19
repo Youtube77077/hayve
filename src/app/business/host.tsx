@@ -202,7 +202,7 @@ function AvailabilitySheet({ target, onClose }: { target: { kind: 'property' | '
           const on = blocked.includes(d);
           return (
             <Pressable key={d} onPress={() => target && bookings.toggleBlockedDate(target.kind, target.id, d)} style={{ width: 64, paddingVertical: 8, borderRadius: radius.sm, alignItems: 'center', backgroundColor: on ? color.ink : color.surface, borderWidth: 1, borderColor: on ? color.ink : color.line }}>
-              <T variant="caption" color={on ? color.lime : color.textTertiary}>
+              <T variant="caption" color={on ? color.grey200 : color.textTertiary}>
                 {prettyDate(d, { weekday: 'short' })}
               </T>
               <T variant="headline" color={on ? '#fff' : color.text}>

@@ -1,5 +1,5 @@
 import { accountIdFor, createTransaction, SYSTEM } from '../ledger';
-import { distanceKm, PLACES, placeById } from '../places';
+import { distanceKm, PLACES, type PlaceInput, resolvePlace } from '../places';
 import { assert, commit, find, getDb, HayveError, now, uid } from '../store';
 import type { DriverProfile, ID, Ride, RideCategory, RideStatus } from '../types';
 import { abortPayment, beginPayment, completePayment, displayName, notify, type PayMethod, previewWaveBack, publicUser, type PublicUser } from './common';
@@ -32,13 +32,30 @@ export function places() {
   return PLACES;
 }
 
-export function quoteRide(pickupId: string, dropoffId: string): RideOption[] {
-  const a = placeById(pickupId);
-  const b = placeById(dropoffId);
+/**
+ * Measured route from the Directions service. In production the API server calls
+ * Mapbox Directions itself; the client value is only accepted within a sane range of
+ * the straight-line estimate so it cannot be used to under-price a trip.
+ */
+export interface RouteMetrics {
+  km: number;
+  minutes: number;
+}
+
+function tripMetrics(a: { lng: number; lat: number }, b: { lng: number; lat: number }, route?: RouteMetrics) {
+  const est = distanceKm(a, b);
+  const km = route && route.km >= est * 0.6 && route.km <= est * 3 ? Math.round(route.km * 10) / 10 : est;
+  const minutes = route && route.minutes > 0 && route.minutes < 240 ? Math.max(Math.round(route.minutes), Math.round(km * 1.2)) : Math.round(4 + km * 2.3);
+  return { km, minutes };
+}
+
+export function quoteRide(pickupIn: PlaceInput, dropoffIn: PlaceInput, route?: RouteMetrics): RideOption[] {
+  const a = resolvePlace(pickupIn);
+  const b = resolvePlace(dropoffIn);
   assert(a && b, 'invalid', 'Choose a pickup and destination');
-  assert(a.id !== b.id, 'invalid', 'Pickup and destination must be different');
-  const km = distanceKm(a, b);
-  const minutes = Math.round(4 + km * 2.3);
+  assert(a.id !== b.id && distanceKm(a, b) > 0 && !(a.lng === b.lng && a.lat === b.lat), 'invalid', 'Pickup and destination must be different');
+  assert(distanceKm(a, b) < 150, 'invalid', 'That destination is too far for Hayve Ride');
+  const { km, minutes } = tripMetrics(a, b, route);
   return RIDE_CATEGORIES.map((c) => {
     const base = 320 + km * 145 + minutes * 30;
     const priceCents = Math.round((base * c.multiplier) / 10) * 10;
@@ -56,15 +73,15 @@ export function quoteRide(pickupId: string, dropoffId: string): RideOption[] {
   });
 }
 
-export function requestRide(pickupId: string, dropoffId: string, category: RideCategory, method: PayMethod) {
+export function requestRide(pickupIn: PlaceInput, dropoffIn: PlaceInput, category: RideCategory, method: PayMethod, route?: RouteMetrics) {
   const user = me();
   const db = getDb();
   const active = db.rides.find((r) => r.riderId === user.id && ['requested', 'accepted', 'arriving', 'in_progress'].includes(r.status));
   assert(!active, 'conflict', 'You already have a ride in progress');
-  const option = quoteRide(pickupId, dropoffId).find((o) => o.category === category);
+  const option = quoteRide(pickupIn, dropoffIn, route).find((o) => o.category === category);
   assert(option, 'invalid', 'Choose a ride type');
-  const pickup = placeById(pickupId)!;
-  const dropoff = placeById(dropoffId)!;
+  const pickup = resolvePlace(pickupIn)!;
+  const dropoff = resolvePlace(dropoffIn)!;
   const id = uid('r');
   // Rider pays Hayve (held until the trip completes); Hayve pays the driver on completion.
   const tx = beginPayment({
@@ -86,7 +103,7 @@ export function requestRide(pickupId: string, dropoffId: string, category: RideC
     dropoff,
     category,
     priceCents: option.priceCents,
-    distanceKm: distanceKm(pickup, dropoff),
+    distanceKm: tripMetrics(pickup, dropoff, route).km,
     durationMin: option.durationMin,
     status: 'requested',
     declinedBy: [],
@@ -306,4 +323,13 @@ export function driverAdvance(id: ID) {
   else if (r.status === 'in_progress') completeRide(r);
   else throw new HayveError('conflict', 'Nothing to update');
   commit();
+}
+
+/** Wave Back earned on a ride (0 when paid by card or capped). */
+export function waveBackForRide(id: ID) {
+  const user = me();
+  const db = getDb();
+  const r = db.rides.find((x) => x.id === id && x.riderId === user.id);
+  const tx = r && db.transactions.find((t) => t.id === r.paymentTxId);
+  return tx?.waveBackCents ?? 0;
 }

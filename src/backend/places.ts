@@ -1,31 +1,48 @@
 import type { Place } from './types';
 
-/** Places on the stylised Amsterdam map used by Ride, Bites and Send. */
+/** Saved and popular places in Amsterdam (real coordinates, WGS84). */
 export const PLACES: Place[] = [
-  { id: 'centraal', name: 'Amsterdam Centraal', address: 'Stationsplein, 1012 AB', x: 0.52, y: 0.33 },
-  { id: 'dam', name: 'Dam Square', address: 'Dam, 1012 JS', x: 0.48, y: 0.42 },
-  { id: 'rijks', name: 'Rijksmuseum', address: 'Museumstraat 1, 1071 XX', x: 0.44, y: 0.64 },
-  { id: 'vondel', name: 'Vondelpark', address: 'Vondelpark, 1071 AA', x: 0.33, y: 0.66 },
-  { id: 'pijp', name: 'De Pijp', address: 'Albert Cuypstraat, 1072 CT', x: 0.55, y: 0.7 },
-  { id: 'jordaan', name: 'Jordaan', address: 'Westerstraat 120, 1015 MN', x: 0.38, y: 0.4 },
-  { id: 'zuid', name: 'Amsterdam Zuid', address: 'Zuidplein, 1077 XV', x: 0.45, y: 0.86 },
-  { id: 'ndsm', name: 'NDSM Wharf', address: 'NDSM-Plein 28, 1033 WB', x: 0.3, y: 0.14 },
-  { id: 'amstel', name: 'Amstel Station', address: 'Julianaplein 1, 1097 DN', x: 0.74, y: 0.78 },
-  { id: 'westerpark', name: 'Westerpark', address: 'Haarlemmerweg 8, 1014 BE', x: 0.24, y: 0.32 },
-  { id: 'noord', name: 'Buiksloterweg', address: 'Buiksloterweg 5, 1031 CC', x: 0.56, y: 0.2 },
-  { id: 'oost', name: 'Oosterpark', address: "s-Gravesandestraat, 1092 AA", x: 0.7, y: 0.58 },
-  { id: 'schiphol', name: 'Schiphol Airport', address: 'Evert van de Beekstraat 202', x: 0.08, y: 0.94 },
-  { id: 'home', name: 'Home', address: 'Cornelis Dirkszoonlaan 51', x: 0.62, y: 0.5 },
-  { id: 'work', name: 'Studio', address: 'Reijnier Vinkeleskade 62', x: 0.4, y: 0.8 },
+  { id: 'centraal', name: 'Amsterdam Centraal', address: 'Stationsplein, 1012 AB', lng: 4.9003, lat: 52.3791 },
+  { id: 'dam', name: 'Dam Square', address: 'Dam, 1012 JS', lng: 4.8936, lat: 52.3731 },
+  { id: 'rijks', name: 'Rijksmuseum', address: 'Museumstraat 1, 1071 XX', lng: 4.8852, lat: 52.36 },
+  { id: 'vondel', name: 'Vondelpark', address: 'Vondelpark, 1071 AA', lng: 4.8686, lat: 52.358 },
+  { id: 'pijp', name: 'De Pijp', address: 'Albert Cuypstraat, 1072 CT', lng: 4.8936, lat: 52.3556 },
+  { id: 'jordaan', name: 'Jordaan', address: 'Westerstraat 120, 1015 MN', lng: 4.881, lat: 52.378 },
+  { id: 'zuid', name: 'Amsterdam Zuid', address: 'Zuidplein, 1077 XV', lng: 4.8721, lat: 52.3389 },
+  { id: 'ndsm', name: 'NDSM Wharf', address: 'NDSM-Plein 28, 1033 WB', lng: 4.895, lat: 52.4011 },
+  { id: 'amstel', name: 'Amstel Station', address: 'Julianaplein 1, 1097 DN', lng: 4.9178, lat: 52.3466 },
+  { id: 'westerpark', name: 'Westerpark', address: 'Haarlemmerweg 8, 1014 BE', lng: 4.879, lat: 52.3858 },
+  { id: 'noord', name: 'Buiksloterweg', address: 'Buiksloterweg 5, 1031 CC', lng: 4.902, lat: 52.3836 },
+  { id: 'oost', name: 'Oosterpark', address: "s-Gravesandestraat, 1092 AA", lng: 4.92, lat: 52.36 },
+  { id: 'schiphol', name: 'Schiphol Airport', address: 'Evert van de Beekstraat 202', lng: 4.7639, lat: 52.3105 },
+  { id: 'home', name: 'Home', address: 'Cornelis Dirkszoonlaan 51', lng: 4.933, lat: 52.362 },
+  { id: 'work', name: 'Studio', address: 'Reijnier Vinkeleskade 62', lng: 4.879, lat: 52.35 },
 ];
 
 export function placeById(id: string) {
   return PLACES.find((p) => p.id === id);
 }
 
-/** Approximate road distance in km between two map points (Amsterdam is ~16 km across). */
-export function distanceKm(a: Place, b: Place) {
-  const dx = (a.x - b.x) * 16;
-  const dy = (a.y - b.y) * 14;
-  return Math.max(0.8, Math.round(Math.hypot(dx, dy) * 1.3 * 10) / 10);
+/** Great-circle distance in km. */
+export function haversineKm(a: { lng: number; lat: number }, b: { lng: number; lat: number }) {
+  const R = 6371;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+/** Approximate road distance in km (straight line × 1.3 detour factor), at least 0.8 km. */
+export function distanceKm(a: { lng: number; lat: number }, b: { lng: number; lat: number }) {
+  return Math.max(0.8, Math.round(haversineKm(a, b) * 1.3 * 10) / 10);
+}
+
+/** Pickup/destination input: a saved place id or any point picked on the map. */
+export type PlaceInput = string | Place;
+
+export function resolvePlace(input: PlaceInput): Place | undefined {
+  if (typeof input === 'string') return placeById(input);
+  const ok = input && Number.isFinite(input.lng) && Number.isFinite(input.lat) && Math.abs(input.lat) <= 90 && Math.abs(input.lng) <= 180;
+  if (!ok) return undefined;
+  return { id: input.id || `pt_${input.lng.toFixed(5)}_${input.lat.toFixed(5)}`, name: String(input.name || 'Dropped pin').slice(0, 80), address: String(input.address || '').slice(0, 120), lng: input.lng, lat: input.lat };
 }

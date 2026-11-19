@@ -1,30 +1,31 @@
-import { Icon, type IconName } from '../../design/icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Share, View } from 'react-native';
-import { social, wishlist } from '../../backend/api';
-import { Avatar, Badge, Button, Card, color, EmptyState, ErrorState, Grid, Header, IconButton, Rating, Screen, Segmented, Skeleton, T, useLayout } from '../../design';
+import { Pressable, Share, View } from 'react-native';
+import { business, social, wishlist } from '../../backend/api';
+import { Avatar, Button, Card, color, EmptyState, ErrorState, Grid, Header, Icon, IconButton, Input, Photo, radius, Rating, Screen, Section, Sheet, Skeleton, T, useLayout, VerifiedMark, type IconName } from '../../design';
 import { ProductTile } from '../../features/common';
 import { WishlistCard } from '../../features/wishlist';
 import { ago, memberSince } from '../../lib/format';
 import { useAction, useLive, useSessionId } from '../../lib/hooks';
 
-/** Public profile with listings, reviews and the public wishlist. */
+/** Public profile / store page. Section order: Listings, Reviews, Wishlist. */
 export default function PublicProfile() {
-  const { username, tab: initialTab } = useLocalSearchParams<{ username: string; tab?: string }>();
+  const { username, w } = useLocalSearchParams<{ username: string; w?: string }>();
   const sessionId = useSessionId();
   const { isWide } = useLayout();
   const { data: profile, error } = useLive(() => social.getPublicProfile(username), [username]);
-  const wl = useLive(() => wishlist.getWishlistByUsername(username), [username]).data;
-  const [tab, setTab] = useState<'wishlist' | 'listings' | 'reviews'>((initialTab as 'wishlist') ?? 'wishlist');
-  const { run } = useAction();
+  const wl = useLive(() => wishlist.getWishlistByUsername(username, w), [username, w]).data;
+  const store = useLive(() => (profile?.verified ? business.storeFor(profile.user.id) : null), [profile?.user.id, profile?.verified]).data;
+  const [reporting, setReporting] = useState(false);
+  const [reason, setReason] = useState('');
+  const { run, busy } = useAction();
 
   if (error) return <Screen header={<Header back fallback="/" />}><ErrorState message={error.message} /></Screen>;
   if (!profile) {
     return (
       <Screen header={<Header back fallback="/" />}>
-        <View style={{ gap: 12 }}>
-          <Skeleton height={80} width={80} radius={40} />
+        <View style={{ gap: 16 }}>
+          <Skeleton height={88} width={88} radius={44} />
           <Skeleton height={24} width="60%" />
           <Skeleton height={200} />
         </View>
@@ -32,39 +33,42 @@ export default function PublicProfile() {
     );
   }
 
-  const share = () => void Share.share({ message: `${profile.user.displayName}'s wishlist on Hayve: https://hayve.app/u/${profile.user.username}` });
-  const available = wl?.items.filter((i) => i.status !== 'sold').length ?? 0;
+  const name = store?.name ?? profile.user.displayName;
+  const share = () => void Share.share({ message: `${name} on Hayve: https://hayve.app/u/${profile.user.username}` });
+  const showWishlist = profile.isMe || (wl?.visible && (profile.wishlistOnProfile || !!w));
+  const avatarSize = isWide ? 112 : 88;
 
   return (
     <Screen header={<Header back fallback="/" right={<IconButton icon="share-outline" label="Share profile" onPress={share} />} />}>
-      <View style={{ flexDirection: isWide ? 'row' : 'column', gap: isWide ? 24 : 0, alignItems: isWide ? 'center' : 'flex-start' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-          <Avatar uri={profile.user.avatar} name={profile.user.displayName} size={isWide ? 104 : 84} ring />
-          <View style={{ flex: 1, gap: 2 }}>
-            <T variant="title2">{profile.user.displayName}</T>
-            <T variant="callout" color={color.textSecondary}>
-              @{profile.user.username}
-            </T>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-              <Rating value={profile.rating.average} count={profile.rating.count} />
-              {profile.roles.seller && <Badge label="Seller" tone="primary" />}
-              {profile.roles.host && <Badge label="Host" tone="primary" />}
-              {profile.accountType === 'business' && <Badge label="Business" tone="dark" />}
+      {store?.banner ? <Photo uri={store.banner} style={{ width: '100%', height: isWide ? 220 : 140 }} rounded={radius.lg} icon="storefront-outline" /> : null}
+
+      <View style={{ flexDirection: isWide ? 'row' : 'column', gap: isWide ? 24 : 16, alignItems: isWide ? 'flex-end' : 'flex-start', marginTop: store?.banner ? -avatarSize / 3 : 8, paddingHorizontal: store?.banner ? 16 : 0 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 16, flex: isWide ? 1 : undefined }}>
+          <View style={{ borderRadius: avatarSize, borderWidth: store?.banner ? 4 : 0, borderColor: color.white, backgroundColor: color.white }}>
+            <Avatar uri={store?.logo ?? profile.user.avatar} name={name} size={avatarSize} />
+          </View>
+          <View style={{ flex: 1, gap: 4, paddingBottom: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <T variant="title2" numberOfLines={1} style={{ flexShrink: 1 }}>{name}</T>
+              {profile.verified && <VerifiedMark size={20} />}
             </View>
+            <T variant="callout" color={color.textSecondary}>
+              @{profile.user.username}{profile.verified ? ' · Verified business' : ''}
+            </T>
+            <Rating value={profile.rating.average} count={profile.rating.count} />
           </View>
         </View>
-        {isWide && <View style={{ flex: 1 }} />}
-        <View style={{ flexDirection: 'row', gap: 10, marginTop: isWide ? 0 : 16 }}>
+        <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
           {profile.isMe ? (
             <>
               <Button title="Edit profile" variant="outline" icon="create-outline" onPress={() => router.push('/settings/profile')} />
-              <Button title="Manage wishlist" icon="gift-outline" onPress={() => router.push('/wishlist')} />
+              <Button title="Manage wishlist" variant="secondary" icon="gift-outline" onPress={() => router.push('/wishlist')} />
             </>
           ) : (
             sessionId && (
               <>
                 <Button title="Message" variant="outline" icon="chatbubble-outline" onPress={() => run(() => social.startThread(profile.user.id), { onDone: (id) => router.push(`/messages/${id}`) })} />
-                <Button title="Send money" icon="paper-plane-outline" onPress={() => router.push(`/pay/send?to=${profile.user.id}`)} />
+                <IconButton icon="flag-outline" label="Report this profile" onPress={() => setReporting(true)} />
               </>
             )
           )}
@@ -73,102 +77,110 @@ export default function PublicProfile() {
 
       {profile.visible ? (
         <>
-          {profile.bio ? (
-            <T color={color.textSecondary} style={{ marginTop: 16, maxWidth: 640 }}>
-              {profile.bio}
+          {profile.bio || store?.description ? (
+            <T color={color.textSecondary} style={{ marginTop: 16, maxWidth: 640, lineHeight: 24 }}>
+              {store?.description || profile.bio}
             </T>
           ) : null}
-          <View style={{ flexDirection: 'row', gap: 18, marginTop: 14, flexWrap: 'wrap' }}>
-            <Meta icon="location-outline" text={profile.user.city} />
+          <View style={{ flexDirection: 'row', gap: 16, marginTop: 16, flexWrap: 'wrap' }}>
+            {(store?.city ?? profile.user.city) ? <Meta icon="location-outline" text={store?.city ?? profile.user.city} /> : null}
             <Meta icon="calendar-outline" text={`Member since ${memberSince(profile.memberSince)}`} />
             <Meta icon="bag-check-outline" text={`${profile.soldCount} sold`} />
+            {store?.kvk ? <Meta icon="briefcase-outline" text={`KVK ${store.kvk}`} /> : null}
           </View>
 
-          <View style={{ marginTop: 22, maxWidth: 520 }}>
-            <Segmented
-              value={tab}
-              onChange={setTab}
-              options={[
-                { key: 'wishlist', label: `Wishlist${wl?.visible ? ` · ${available}` : ''}`, icon: 'gift-outline' },
-                { key: 'listings', label: `Listings · ${profile.listings.length}` },
-                { key: 'reviews', label: `Reviews · ${profile.reviews.length}` },
-              ]}
-            />
-          </View>
+          <Section title="Listings" subtitle={profile.listings.length ? `${profile.listings.length} active` : undefined}>
+            {profile.listings.length === 0 ? (
+              <EmptyState icon="pricetags-outline" title="No active listings" body={profile.isMe ? 'Items you sell on Hayve Shop show up here.' : undefined} action={profile.isMe ? 'Sell an item' : undefined} onAction={() => router.push('/sell')} />
+            ) : (
+              <Grid min={isWide ? 200 : 150} gap={16}>
+                {profile.listings.map((p) => (
+                  <ProductTile key={p.id} p={p} />
+                ))}
+              </Grid>
+            )}
+          </Section>
 
-          <View style={{ marginTop: 18 }}>
-            {tab === 'wishlist' &&
-              (!wl?.visible ? (
-                <EmptyState icon="lock-closed-outline" title="This wishlist is private" body={`${profile.user.displayName} has chosen not to share their wishlist.`} />
-              ) : wl.items.length === 0 ? (
-                <EmptyState icon="gift-outline" title={profile.isMe ? 'Your wishlist is empty' : 'Nothing here yet'} body={profile.isMe ? 'Tap the gift button on any Hayve Shop item to add it.' : `${profile.user.displayName} hasn't added anything yet.`} action={profile.isMe ? 'Browse Hayve Shop' : undefined} onAction={() => router.push('/shop')} />
+          <Section title="Reviews" subtitle={profile.rating.count ? `★ ${profile.rating.average.toFixed(1)} (${profile.rating.count} reviews)` : undefined}>
+            {profile.reviews.length === 0 ? (
+              <EmptyState icon="star-outline" title="No reviews yet" />
+            ) : (
+              <Grid min={320} gap={12}>
+                {profile.reviews.map((r) => (
+                  <Card key={r.id}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <Avatar uri={r.avatar} name={r.author} size={36} />
+                      <View style={{ flex: 1 }}>
+                        <T variant="headline">{r.author}</T>
+                        <T variant="footnote" color={color.textSecondary}>
+                          {ago(r.createdAt)}
+                        </T>
+                      </View>
+                      <Rating value={r.rating} label={false} />
+                    </View>
+                    <T color={color.textSecondary} style={{ marginTop: 8 }}>
+                      {r.text}
+                    </T>
+                  </Card>
+                ))}
+              </Grid>
+            )}
+          </Section>
+
+          {showWishlist && wl ? (
+            <Section title="Wishlist" subtitle={profile.isMe ? visibilityLabel(wl.visibility) : undefined} action={profile.isMe ? 'Manage' : undefined} onAction={() => router.push('/wishlist')}>
+              {wl.items.length === 0 ? (
+                <EmptyState icon="gift-outline" title={profile.isMe ? 'Your wishlist is empty' : 'Nothing here yet'} body={profile.isMe ? 'Tap the heart on any Hayve Shop item to add it.' : undefined} action={profile.isMe ? 'Browse Hayve Shop' : undefined} onAction={() => router.push('/shop')} />
               ) : (
                 <>
                   {!profile.isMe && (
-                    <Card tone="soft" style={{ marginBottom: 14, flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-                      <Icon name="gift" size={22} color={color.primary} />
-                      <T variant="footnote" color={color.inkSoft} style={{ flex: 1 }}>
-                        <T variant="footnote" weight="700">
-                          Gift anonymously.{' '}
-                        </T>
-                        It's delivered to {profile.user.displayName.split(' ')[0]} and they'll only see the item as sold, never who bought it.
+                    <Card tone="soft" style={{ marginBottom: 16, flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                      <Icon name="gift-outline" size={20} />
+                      <T variant="footnote" style={{ flex: 1 }}>
+                        <T variant="footnote" weight="700">Gift anonymously. </T>
+                        It&apos;s delivered to {profile.user.displayName.split(' ')[0]}, who only sees the item as sold, never who bought it.
                       </T>
                     </Card>
                   )}
                   <Grid min={isWide ? 220 : 160} gap={12}>
                     {wl.items.map((item) => (
-                      <WishlistCard key={item.id} item={item} ownerUsername={profile.user.username} ownerView={profile.isMe} onRemove={() => run(() => wishlist.removeFromWishlist(item.id), { success: 'Removed' })} />
+                      <WishlistCard key={item.id} item={item} ownerUsername={profile.user.username} ownerView={profile.isMe} token={w} onRemove={() => run(() => wishlist.removeFromWishlist(item.id), { success: 'Removed' })} />
                     ))}
                   </Grid>
                 </>
-              ))}
-            {tab === 'listings' &&
-              (profile.listings.length === 0 ? (
-                <EmptyState icon="pricetags-outline" title="No active listings" />
-              ) : (
-                <Grid min={isWide ? 190 : 150} gap={14}>
-                  {profile.listings.map((p) => (
-                    <ProductTile key={p.id} p={p} />
-                  ))}
-                </Grid>
-              ))}
-            {tab === 'reviews' &&
-              (profile.reviews.length === 0 ? (
-                <EmptyState icon="star-outline" title="No reviews yet" />
-              ) : (
-                <View style={{ gap: 10 }}>
-                  {profile.reviews.map((r) => (
-                    <Card key={r.id}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                        <Avatar uri={r.avatar} name={r.author} size={34} />
-                        <View style={{ flex: 1 }}>
-                          <T variant="headline">{r.author}</T>
-                          <T variant="footnote" color={color.textTertiary}>
-                            {ago(r.createdAt)}
-                          </T>
-                        </View>
-                        <Rating value={r.rating} />
-                      </View>
-                      <T color={color.textSecondary} style={{ marginTop: 8 }}>
-                        {r.text}
-                      </T>
-                    </Card>
-                  ))}
-                </View>
-              ))}
-          </View>
+              )}
+            </Section>
+          ) : null}
         </>
       ) : (
         <EmptyState icon="lock-closed-outline" title="This profile is private" body="Only basic information is visible." />
       )}
+
+      <Sheet visible={reporting} onClose={() => setReporting(false)} title="Report profile" footer={<Button title="Send report" size="lg" full loading={busy} onPress={() => run(() => social.report('user', profile.user.id, reason), { success: 'Thanks, our team will review it', onDone: () => { setReporting(false); setReason(''); } })} />}>
+        <View style={{ gap: 12 }}>
+          <T color={color.textSecondary}>Tell us what&apos;s wrong. Reports are confidential.</T>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {['Fake or scam', 'Offensive picture or bio', 'Counterfeit items', 'Harassment'].map((r) => (
+              <Pressable key={r} onPress={() => setReason(r)} style={{ borderWidth: 1, borderColor: reason === r ? color.black : color.grey200, backgroundColor: reason === r ? color.black : color.white, borderRadius: 999, paddingHorizontal: 12, height: 36, justifyContent: 'center' }}>
+                <T variant="subhead" color={reason === r ? color.white : color.black}>{r}</T>
+              </Pressable>
+            ))}
+          </View>
+          <Input label="Details" multiline value={reason} onChangeText={setReason} maxLength={500} />
+        </View>
+      </Sheet>
     </Screen>
   );
+}
+
+function visibilityLabel(v: 'public' | 'link' | 'private' | null) {
+  return v === 'public' ? 'Public' : v === 'link' ? 'Anyone with the link' : 'Private';
 }
 
 function Meta({ icon, text }: { icon: IconName; text: string }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-      <Icon name={icon} size={16} color={color.textTertiary} />
+      <Icon name={icon} size={16} color={color.grey500} />
       <T variant="footnote" color={color.textSecondary}>
         {text}
       </T>

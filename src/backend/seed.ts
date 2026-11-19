@@ -16,7 +16,7 @@ import type {
   User,
 } from './types';
 
-export const DB_VERSION = 5;
+export const DB_VERSION = 6;
 export const DEMO_PASSWORD = 'hayve123';
 
 export const DEMO_ACCOUNTS = [

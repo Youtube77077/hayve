@@ -84,8 +84,8 @@ export default function Bites() {
         <HScroll style={{ marginTop: 16 }} gap={14}>
           {bites.CUISINES.filter((c) => c !== 'Groceries').map((c) => (
             <Pressable key={c} onPress={() => setTag(tag === c ? null : c)} style={{ alignItems: 'center', gap: 6, width: 70 }}>
-              <View style={{ width: 62, height: 62, borderRadius: 20, backgroundColor: tag === c ? color.ink : color.surface, borderWidth: 1, borderColor: color.line, alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name={CUISINE_ICON[c] ?? 'restaurant-outline'} size={26} color={tag === c ? color.lime : color.ink} />
+              <View style={{ width: 62, height: 62, borderRadius: 16, backgroundColor: tag === c ? color.black : color.white, borderWidth: 1, borderColor: tag === c ? color.black : color.line, alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name={CUISINE_ICON[c] ?? 'restaurant-outline'} size={26} color={tag === c ? color.white : color.black} />
               </View>
               <T variant="caption" weight={tag === c ? '800' : '600'}>
                 {c}

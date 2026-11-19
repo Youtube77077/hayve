@@ -19,9 +19,9 @@ export function EarningsCard({ role, label = 'Earnings' }: { role: PartnerRole; 
           <T variant="subhead" color={color.textOnDarkSecondary}>
             {label} (settled)
           </T>
-          <T style={{ fontSize: 34, lineHeight: 34 + 8, fontWeight: '800', color: '#fff', letterSpacing: -1 }}>{money(e.totalCents)}</T>
+          <T weight="800" style={{ fontSize: 34, lineHeight: 42, color: color.white, letterSpacing: -1 }}>{money(e.totalCents)}</T>
         </View>
-        <Pressable onPress={() => router.push('/pay/withdraw')} style={{ backgroundColor: color.lime, borderRadius: radius.pill, paddingHorizontal: 14, height: 34, justifyContent: 'center' }}>
+        <Pressable onPress={() => router.push('/pay/withdraw')} style={{ backgroundColor: color.white, borderRadius: radius.pill, paddingHorizontal: 16, height: 36, justifyContent: 'center' }}>
           <T variant="subhead" weight="800">
             Payout
           </T>
@@ -46,7 +46,7 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
       <T variant="caption" color={color.textOnDarkSecondary}>
         {label}
       </T>
-      <T variant="headline" color={accent ? color.lime : '#fff'}>
+      <T variant="headline" color={accent ? color.white : color.grey200}>
         {value}
       </T>
     </View>

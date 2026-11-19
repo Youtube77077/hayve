@@ -27,8 +27,8 @@ export function BasketBar() {
         accessibilityRole="button"
         accessibilityLabel={`View basket, ${count} items`}
       >
-        <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: color.lime, alignItems: 'center', justifyContent: 'center' }}>
-          <T variant="headline">{count}</T>
+        <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: color.indigo, alignItems: 'center', justifyContent: 'center' }}>
+          <T variant="headline" color={color.white}>{count}</T>
         </View>
         <View style={{ flex: 1 }}>
           <T variant="headline" color="#fff">

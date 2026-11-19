@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { ride } from '../../backend/api';
 import type { RideCategory } from '../../backend/types';
-import { Avatar, Button, Card, CityMap, color, Group, Header, Input, ListRow, Screen, Section, Select, SwitchRow, T, useLayout } from '../../design';
+import { Avatar, Button, Card, color, Group, Header, Input, ListRow, Screen, Section, Select, SwitchRow, T, useLayout } from '../../design';
+import { RouteMap } from '../../features/map';
 import { Empty, EarningsCard, MetricRow, RoleGate } from '../../features/business';
 import { SimNote, StatusPill } from '../../features/common';
 import { money, shortDate } from '../../lib/format';
@@ -57,7 +58,7 @@ function Dashboard() {
 
   return (
     <Screen header={<Header back title="Hayve Driver" subtitle={`${profile.vehicle.color} ${profile.vehicle.make} ${profile.vehicle.model} · ${profile.vehicle.plate}`} fallback="/business" />}>
-      <Card padded={false} style={{ marginBottom: 12, backgroundColor: profile.online ? color.limeSoft : color.surface }}>
+      <Card padded={false} style={{ marginBottom: 12, borderColor: profile.online ? color.black : color.line }}>
         <SwitchRow icon="radio-outline" title={profile.online ? "You're online" : "You're offline"} subtitle={profile.online ? 'Receiving ride requests nearby' : 'Go online to receive ride requests'} value={profile.online} onChange={(v) => run(() => ride.setDriverOnline(v), { success: v ? 'Online, looking for trips' : 'Offline' })} />
       </Card>
       <View style={{ flexDirection: isWide ? 'row' : 'column', gap: 12 }}>
@@ -79,7 +80,7 @@ function Dashboard() {
       {current && (
         <Section title="Current trip">
           <Card style={{ gap: 12 }}>
-            <CityMap from={current.pickup} to={current.dropoff} progress={{ accepted: 0.05, arriving: 0.15, in_progress: 0.6 }[current.status as 'accepted']} height={180} />
+            <RouteMap from={current.pickup} to={current.dropoff} progress={{ accepted: 0.05, arriving: 0.15, in_progress: 0.6 }[current.status as 'accepted']} height={180} />
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <Avatar uri={current.rider.avatar} name={current.rider.displayName} size={44} />
               <View style={{ flex: 1 }}>
@@ -104,7 +105,7 @@ function Dashboard() {
         ) : (
           <View style={{ gap: 10 }}>
             {queue.map((r) => (
-              <Card key={r.id} style={{ gap: 10, borderWidth: 2, borderColor: color.lime }}>
+              <Card key={r.id} style={{ gap: 10, borderWidth: 1, borderColor: color.black }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                   <Avatar uri={r.rider.avatar} name={r.rider.displayName} size={40} />
                   <View style={{ flex: 1 }}>

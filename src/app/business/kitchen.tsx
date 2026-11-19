@@ -113,7 +113,7 @@ function Orders({ live, past }: { live: ReturnType<typeof bites.kitchenOrders>; 
         ) : (
           <View style={{ gap: 10 }}>
             {live.map((o) => (
-              <Card key={o.id} style={{ gap: 10, borderWidth: o.status === 'placed' ? 2 : undefined, borderColor: o.status === 'placed' ? color.lime : undefined }}>
+              <Card key={o.id} style={{ gap: 10, borderColor: o.status === 'placed' ? color.black : color.line }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <T variant="title3" style={{ flex: 1 }}>
                     {o.reference}

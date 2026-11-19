@@ -70,10 +70,10 @@ export default function Stay() {
         <Section title="Your upcoming stays">
           <HScroll>
             {upcoming.map((b) => (
-              <Pressable key={b.id} onPress={() => router.push(`/stay/booking/${b.id}`)} style={{ width: 280, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.lg, backgroundColor: color.ink }}>
-                <Icon name="bed" size={22} color={color.lime} />
+              <Pressable key={b.id} onPress={() => router.push(`/stay/booking/${b.id}`)} style={{ width: 280, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.lg, borderWidth: 1, borderColor: color.line }}>
+                <Icon name="bed-outline" size={22} />
                 <View style={{ flex: 1 }}>
-                  <T variant="headline" color="#fff" numberOfLines={1}>
+                  <T variant="headline" numberOfLines={1}>
                     {b.property.city}
                   </T>
                   <T variant="footnote" color={color.textOnDarkSecondary}>

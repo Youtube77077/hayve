@@ -32,8 +32,8 @@ export default function SendMoney() {
     return (
       <Screen header={<Header title="Sent" />} maxWidth={520}>
         <View style={{ alignItems: 'center', gap: 12, marginTop: 32 }}>
-          <View style={{ width: 84, height: 84, borderRadius: 42, backgroundColor: color.lime, alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="paper-plane" size={38} color={color.ink} />
+          <View style={{ width: 84, height: 84, borderRadius: 42, borderWidth: 1, borderColor: color.line, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="checkmark" size={36} color={color.indigo} />
           </View>
           <T variant="title2" center>
             {money(cents)} sent to {person.displayName.split(' ')[0]}

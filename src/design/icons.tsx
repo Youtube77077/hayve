@@ -1,4 +1,5 @@
 import {
+  Waves,
   Archive,
   ArrowDown,
   ArrowLeftRight,
@@ -297,6 +298,7 @@ const ICONS = {
   'shirt-outline': Shirt,
   'snow-outline': Snowflake,
   'sparkles-outline': Sparkles,
+  wave: Waves,
   'speedometer-outline': Gauge,
   square: Square,
   'square-outline': Square,

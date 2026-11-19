@@ -266,9 +266,8 @@ export interface Place {
   id: string;
   name: string;
   address: string;
-  /** Normalised position on the stylised Hayve map (0..1). */
-  x: number;
-  y: number;
+  lng: number;
+  lat: number;
 }
 
 export type RideCategory = 'go' | 'green' | 'comfort' | 'xl' | 'priority';

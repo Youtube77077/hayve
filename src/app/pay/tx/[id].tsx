@@ -36,13 +36,13 @@ export default function Receipt() {
   return (
     <Screen header={<Header back title="Receipt" fallback="/pay" />} maxWidth={520}>
       <View style={{ alignItems: 'center', gap: 8, marginTop: 12, marginBottom: 20 }}>
-        <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: t.direction === 'in' ? color.limeSoft : color.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name={t.direction === 'in' ? 'arrow-down' : 'arrow-up'} size={28} color={t.direction === 'in' ? color.limeInk : color.primary} />
+        <View style={{ width: 64, height: 64, borderRadius: 32, borderWidth: 1, borderColor: color.line, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name={t.type === 'wave_back' ? 'wave' : t.direction === 'in' ? 'arrow-down' : 'arrow-up'} size={28} color={t.type === 'wave_back' ? color.indigo : color.black} />
         </View>
         <T variant="callout" color={color.textSecondary}>
-          {t.counterparty}
+          {t.type === 'wave_back' ? 'Wave Back' : t.counterparty}
         </T>
-        <T style={{ fontSize: 40, lineHeight: 40 + 8, fontWeight: '800', letterSpacing: -1, color: color.ink }}>
+        <T style={{ fontSize: 40, lineHeight: 40 + 8, letterSpacing: -1, color: color.ink }} weight="800">
           {t.direction === 'in' ? '+' : '−'}
           {money(t.amountCents)}
         </T>

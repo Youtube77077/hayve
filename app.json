@@ -48,6 +48,12 @@
           "cameraPermission": "Hayve uses the camera so you can photograph items you want to sell."
         }
       ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Hayve uses your location to set your pickup point and show nearby rides, restaurants and cars."
+        }
+      ],
       "@rnmapbox/maps"
     ],
     "experiments": {

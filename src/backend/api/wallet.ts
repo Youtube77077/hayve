@@ -1,7 +1,7 @@
 import { accountIdFor, balancesFor, createTransaction, SYSTEM, type TxView, viewTransaction } from '../ledger';
 import { assert, commit, find, getDb, HayveError, now, uid } from '../store';
 import type { ID, MoneyRequest, PaymentMethod } from '../types';
-import { audit, displayName, notify, publicUser, type PublicUser } from './common';
+import { audit, displayName, monthStart, notify, publicUser, settings, type PublicUser } from './common';
 import { me } from './session';
 
 /**
@@ -237,4 +237,26 @@ export function weeklySpend() {
     days.push({ label: d.toLocaleDateString('en-GB', { weekday: 'narrow' }), cents });
   }
   return days;
+}
+
+/** Wave Back earned by the signed-in user (this month, all time) and the limits that apply. */
+export function waveBackSummary() {
+  const user = me();
+  const db = getDb();
+  const acc = accountIdFor(user.id);
+  const s = settings().waveBack;
+  const mine = db.transactions.filter((t) => t.type === 'wave_back' && t.toAccountId === acc && t.status === 'completed');
+  const start = monthStart();
+  const thisMonthCents = mine.filter((t) => t.createdAt >= start).reduce((a, t) => a + t.amountCents, 0);
+  const totalCents = mine.reduce((a, t) => a + t.amountCents, 0);
+  const welcomeEnds = user.createdAt + s.newUserDays * 86_400_000;
+  const welcomePaid = mine.filter((t) => t.meta?.newUser).reduce((a, t) => a + t.amountCents, 0);
+  return {
+    thisMonthCents,
+    totalCents,
+    monthlyMaxCents: s.monthlyMaxCents,
+    welcomeActive: now() < welcomeEnds && welcomePaid < s.newUserMaxTotalCents,
+    welcomeEndsAt: welcomeEnds,
+    welcomeLeftCents: Math.max(0, s.newUserMaxTotalCents - welcomePaid),
+  };
 }

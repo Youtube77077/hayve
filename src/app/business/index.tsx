@@ -27,12 +27,12 @@ export default function BusinessHub() {
         {business.PARTNER_APPS.map((a) => {
           const active = roles.includes(a.role);
           return (
-            <Pressable key={a.role} onPress={() => router.push(a.route as never)} style={({ pressed }) => ({ backgroundColor: active ? color.ink : color.surface, borderRadius: radius.xl, padding: 18, gap: 12, borderWidth: 1, borderColor: active ? color.ink : color.line, opacity: pressed ? 0.9 : 1, minHeight: 180 })}>
+            <Pressable key={a.role} onPress={() => router.push(a.route as never)} style={({ pressed }) => ({ backgroundColor: active ? color.ink : color.surface, borderRadius: radius.xl, padding: 18, gap: 12, borderWidth: 1, borderColor: active ? color.ink : color.line, opacity: pressed ? 0.92 : 1, minHeight: 180 })}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <View style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: active ? color.lime : color.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name={ICON[a.role]} size={24} color={active ? color.ink : color.primary} />
+                <View style={{ width: 48, height: 48, borderRadius: 16, borderWidth: 1, borderColor: active ? 'rgba(255,255,255,0.3)' : color.line, alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name={ICON[a.role]} size={24} color={active ? color.white : color.black} />
                 </View>
-                {active ? <Badge label="Active" tone="lime" /> : <Badge label="Get started" tone="primary" />}
+                {active ? <Badge label="Active" style={{ backgroundColor: color.white }} /> : <Badge label="Get started" />}
               </View>
               <View style={{ gap: 4 }}>
                 <T variant="title3" color={active ? '#fff' : color.text}>
@@ -42,7 +42,7 @@ export default function BusinessHub() {
                   {BLURB[a.role]}
                 </T>
               </View>
-              <T variant="subhead" weight="700" color={active ? color.lime : color.primary}>
+              <T variant="subhead" weight="700" color={active ? color.white : color.indigo}>
                 {active ? 'Open dashboard →' : 'Register →'}
               </T>
             </Pressable>

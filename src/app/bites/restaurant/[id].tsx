@@ -1,5 +1,4 @@
 import { Icon, type IconName } from '../../../design/icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
@@ -29,7 +28,6 @@ export default function RestaurantScreen() {
       <Screen edges={[]} padded={false}>
         <View style={{ height: isWide ? 320 : 250 }}>
           <Photo uri={r.image} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} icon="restaurant-outline" label={r.name} />
-          <LinearGradient colors={['rgba(17,13,46,0.35)', 'transparent', 'rgba(17,13,46,0.55)']} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
           <View style={{ position: 'absolute', top: insets.top + 8, left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between' }}>
             <IconButton icon="chevron-back" label="Back" tone="glass" onPress={() => goBack('/bites')} />
             <IconButton icon="chatbubble-outline" label="Contact restaurant" tone="glass" onPress={() => run(() => social.startThread(r.ownerId, { kind: 'restaurant', id: r.id, title: r.name }), { onDone: (tid) => router.push(`/messages/${tid}`) })} />
@@ -38,8 +36,8 @@ export default function RestaurantScreen() {
         <View style={{ width: '100%', maxWidth: layout.maxContent, alignSelf: 'center', paddingHorizontal: gutter, marginTop: -36 }}>
           <Card>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View style={{ width: 54, height: 54, borderRadius: 16, backgroundColor: r.logoColor, alignItems: 'center', justifyContent: 'center' }}>
-                <T variant="title3" color="#fff">
+              <View style={{ width: 54, height: 54, borderRadius: 16, backgroundColor: color.black, alignItems: 'center', justifyContent: 'center' }}>
+                <T variant="title3" color={color.white}>
                   {r.name[0]}
                 </T>
               </View>
@@ -66,7 +64,7 @@ export default function RestaurantScreen() {
             )}
             {r.promo && r.isOpen && (
               <View style={{ marginTop: 12 }}>
-                <Badge label={r.promo} tone="lime" icon="pricetag" />
+                <Badge label={r.promo} icon="pricetag" />
               </View>
             )}
           </Card>

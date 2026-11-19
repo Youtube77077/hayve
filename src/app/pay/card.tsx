@@ -1,8 +1,7 @@
 import { Icon } from '../../design/icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { View } from 'react-native';
 import { social } from '../../backend/api';
-import { Button, Card, color, Header, radius, Screen, T, useToast } from '../../design';
+import { Button, Card, color, HayveLogo, Header, radius, Screen, T, useToast } from '../../design';
 import { useLive } from '../../lib/hooks';
 
 /** Future Hayve Card (physical + virtual debit card linked to Hayve Pay). */
@@ -11,21 +10,21 @@ export default function HayveCard() {
   const toast = useToast();
   return (
     <Screen header={<Header back title="Hayve Card" fallback="/pay" />} maxWidth={560}>
-      <LinearGradient colors={[color.ink, color.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: radius.xl, padding: 22, aspectRatio: 1.586, justifyContent: 'space-between', marginTop: 8 }}>
+      <View style={{ backgroundColor: color.black, borderRadius: radius.xl, padding: 22, aspectRatio: 1.586, justifyContent: 'space-between', marginTop: 8 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <T style={{ fontSize: 26, fontWeight: '900', color: '#fff', letterSpacing: -1 }}>hayve</T>
-          <Icon name="wifi" size={24} color="#fff" style={{ transform: [{ rotate: '90deg' }] }} />
+          <HayveLogo height={28} tone="light" />
+          <Icon name="wifi" size={24} color={color.white} style={{ transform: [{ rotate: '90deg' }] }} />
         </View>
         <View>
-          <View style={{ width: 46, height: 34, borderRadius: 7, backgroundColor: color.lime, marginBottom: 18 }} />
-          <T variant="title3" color="#fff" style={{ letterSpacing: 3 }}>
+          <View style={{ width: 46, height: 34, borderRadius: 7, backgroundColor: color.grey200, marginBottom: 18 }} />
+          <T variant="title3" color={color.white} style={{ letterSpacing: 3 }}>
             •••• •••• •••• 2026
           </T>
           <T variant="subhead" color={color.textOnDarkSecondary} style={{ marginTop: 6 }}>
             {me?.displayName.toUpperCase()}
           </T>
         </View>
-      </LinearGradient>
+      </View>
       <T variant="title2" style={{ marginTop: 24 }}>
         Spend your Hayve balance anywhere
       </T>

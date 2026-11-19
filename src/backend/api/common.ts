@@ -83,7 +83,7 @@ export function marketplaceFee(priceCents: number) {
 
 /* ------------------------------------------------------------ Wave Back -- */
 
-function monthStart(t = now()) {
+export function monthStart(t = now()) {
   const d = new Date(t);
   return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
 }

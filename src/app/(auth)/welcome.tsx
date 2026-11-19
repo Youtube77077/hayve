@@ -1,10 +1,10 @@
-import { Icon } from '../../design/icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { media } from '../../backend/media';
-import { Button, color, HayveLogo, layout, Photo, radius, SERVICES, ServiceTile, T, useLayout } from '../../design';
+import { Button, color, HayveLogo, Icon, layout, Photo, PRODUCTS, radius, service, T, useLayout } from '../../design';
+import { ProductWordmark } from '../../features/nav/Wordmarks';
 
 /**
  * Onboarding on iPhone/iPad and the public landing page on the website.
@@ -12,87 +12,89 @@ import { Button, color, HayveLogo, layout, Photo, radius, SERVICES, ServiceTile,
 export default function Welcome() {
   const insets = useSafeAreaInsets();
   const { isWide, gutter, isDesktop } = useLayout();
-  const products = SERVICES.filter((s) => !['home', 'explore', 'profile'].includes(s.key));
+  const headline = isDesktop ? 60 : isWide ? 48 : 38;
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: color.ink }} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
-      <View style={{ minHeight: isWide ? 640 : 560 }}>
-        <Photo uri={media.city.amsterdam} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} plain />
-        <LinearGradient colors={['rgba(17,13,46,0.35)', 'rgba(17,13,46,0.75)', color.ink]} locations={[0, 0.55, 1]} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
-        <View style={{ width: '100%', maxWidth: layout.maxContent, alignSelf: 'center', paddingHorizontal: gutter + 4, paddingTop: insets.top + 16, flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <HayveLogo height={32} tone="light" />
-            <View style={{ flex: 1 }} />
-            {isWide && (
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <Button title="Sign in" variant="glass" onPress={() => router.push('/sign-in')} />
-                <Button title="Create account" variant="accent" onPress={() => router.push('/sign-up')} />
-              </View>
-            )}
-          </View>
-          <View style={{ flex: 1, justifyContent: 'flex-end', paddingBottom: 36, maxWidth: 680 }}>
-            <View style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(200,245,66,0.16)', paddingHorizontal: 12, height: 30, borderRadius: radius.pill, marginBottom: 18 }}>
-              <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: color.lime }} />
-              <T variant="caption" color={color.lime} weight="700">
-                Now in Amsterdam
-              </T>
+    <ScrollView style={{ flex: 1, backgroundColor: color.white }} contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
+      <View style={{ width: '100%', maxWidth: layout.maxContent, alignSelf: 'center', paddingHorizontal: gutter, paddingTop: insets.top + 16 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', height: 56 }}>
+          <HayveLogo height={30} />
+          <View style={{ flex: 1 }} />
+          {isWide && (
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Button title="Sign in" variant="ghost" onPress={() => router.push('/sign-in')} />
+              <Button title="Create account" variant="dark" onPress={() => router.push('/sign-up')} />
             </View>
-            <T style={{ fontSize: isDesktop ? 64 : isWide ? 52 : 40, lineHeight: isDesktop ? 68 : isWide ? 56 : 44, fontWeight: '800', letterSpacing: -1.6, color: '#fff' }}>
-              One account.{'\n'}One wallet.{'\n'}
-              <T style={{ fontSize: isDesktop ? 64 : isWide ? 52 : 40, lineHeight: isDesktop ? 68 : isWide ? 56 : 44, fontWeight: '800', letterSpacing: -1.6, color: color.lime }}>Everything connected.</T>
+          )}
+        </View>
+
+        <View style={{ flexDirection: isWide ? 'row' : 'column', gap: isWide ? 48 : 24, alignItems: isWide ? 'center' : 'stretch', marginTop: isWide ? 48 : 24 }}>
+          <View style={{ flex: 1, maxWidth: 560 }}>
+            <T variant="subhead" weight="700" color={color.indigo} style={{ marginBottom: 16 }}>
+              Now in Amsterdam
             </T>
-            <T variant="body" color={color.textOnDarkSecondary} style={{ marginTop: 16, maxWidth: 520 }}>
-              Shop and sell, pay friends, get a ride, order dinner, rent a car, book a stay and send a parcel — all in Hayve.
+            <T weight="800" style={{ fontSize: headline, lineHeight: headline * 1.08, letterSpacing: -1.4 }}>
+              One account for everything you need.
             </T>
-            {!isWide && (
-              <View style={{ gap: 10, marginTop: 28 }}>
-                <Button title="Create your Hayve account" variant="accent" size="lg" full onPress={() => router.push('/sign-up')} />
-                <Button title="Sign in" variant="glass" size="lg" full onPress={() => router.push('/sign-in')} />
-              </View>
-            )}
+            <T variant="body" color={color.textSecondary} style={{ marginTop: 16, maxWidth: 480, lineHeight: 24 }}>
+              Shop and sell, pay friends, get a ride, order dinner, rent a car and book a stay. One login, one wallet.
+            </T>
+            <View style={{ gap: 8, marginTop: 32, flexDirection: isWide ? 'row' : 'column' }}>
+              <Button title="Create your account" size="lg" full={!isWide} onPress={() => router.push('/sign-up')} />
+              <Button title="Sign in" variant="outline" size="lg" full={!isWide} onPress={() => router.push('/sign-in')} />
+            </View>
+          </View>
+          <View style={{ flex: isWide ? 1 : undefined }}>
+            <Photo uri={media.city.amsterdam} style={{ width: '100%', aspectRatio: isWide ? 1.1 : 1.5 }} rounded={radius.lg} icon="location-outline" />
           </View>
         </View>
-      </View>
 
-      <View style={{ width: '100%', maxWidth: layout.maxContent, alignSelf: 'center', paddingHorizontal: gutter + 4, gap: 14 }}>
-        <T variant="overline" color={color.textOnDarkSecondary}>
-          The Hayve ecosystem
+        <T variant="title2" style={{ marginTop: isWide ? 80 : 48, marginBottom: 16 }}>
+          Everything in Hayve
         </T>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6, rowGap: 12 }}>
-          {products.map((s) => (
-            <View key={s.key} style={{ width: isDesktop ? '25%' : isWide ? '33.33%' : '50%', paddingHorizontal: 6 }}>
-              <View style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: radius.lg, padding: 16, gap: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', minHeight: 132 }}>
-                <ServiceTile icon={s.iconActive} accent={color.lime} size={42} />
-                <View>
-                  <T variant="headline" color="#fff">
-                    {s.name}
-                  </T>
-                  <T variant="footnote" color={color.textOnDarkSecondary}>
-                    {s.tagline}
-                  </T>
-                </View>
-              </View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -8, rowGap: 16 }}>
+          {PRODUCTS.map((key) => (
+            <View key={key} style={{ width: isDesktop ? '33.33%' : isWide ? '50%' : '100%', paddingHorizontal: 8 }}>
+              <ProductCard product={key} />
             </View>
           ))}
-          <View style={{ width: isDesktop ? '25%' : isWide ? '33.33%' : '50%', paddingHorizontal: 6 }}>
-            <Pressable onPress={() => router.push('/sign-up')} style={{ backgroundColor: color.lime, borderRadius: radius.lg, padding: 16, gap: 12, minHeight: 132, justifyContent: 'space-between' }}>
-              <Icon name="briefcase" size={24} color={color.ink} />
-              <View>
-                <T variant="headline">Hayve for Business</T>
-                <T variant="footnote" color={color.limeInk}>
-                  Sell, host, drive, deliver or accept Hayve Pay →
-                </T>
-              </View>
-            </Pressable>
-          </View>
         </View>
-        <View style={{ marginTop: 18, padding: 16, borderRadius: radius.lg, backgroundColor: 'rgba(255,255,255,0.06)', flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-          <Icon name="flask-outline" size={20} color={color.lime} />
-          <T variant="footnote" color={color.textOnDarkSecondary} style={{ flex: 1 }}>
-            Preview build. Payments, rides, rentals, stays and deliveries are simulated. No real money or services are involved.
+
+        <Pressable onPress={() => router.push('/sign-up')} accessibilityRole="button" style={({ pressed }) => ({ marginTop: 32, borderRadius: radius.lg, padding: 24, backgroundColor: color.black, flexDirection: isWide ? 'row' : 'column', gap: 16, alignItems: isWide ? 'center' : 'flex-start', opacity: pressed ? 0.92 : 1 })}>
+          <View style={{ flex: 1, gap: 4 }}>
+            <T variant="title3" color={color.white}>Hayve for Business</T>
+            <T color={color.grey200}>Open a verified Hayve Store, drive, deliver, host or accept Hayve Pay.</T>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <T variant="headline" color={color.white}>Get started</T>
+            <Icon name="arrow-forward" size={18} color={color.white} />
+          </View>
+        </Pressable>
+
+        <View style={{ marginTop: 24, flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
+          <Icon name="information-circle" size={18} color={color.grey500} />
+          <T variant="footnote" color={color.textSecondary} style={{ flex: 1 }}>
+            Preview build. Payments, rides, rentals, stays and deliveries are simulated and marked Demo. No real money or services are involved.
           </T>
         </View>
       </View>
     </ScrollView>
+  );
+}
+
+function ProductCard({ product }: { product: (typeof PRODUCTS)[number] }) {
+  const s = service(product);
+  const [hovered, setHovered] = useState(false);
+  return (
+    <Pressable onPress={() => router.push('/sign-up')} onHoverIn={() => setHovered(true)} onHoverOut={() => setHovered(false)} accessibilityRole="button" accessibilityLabel={s.name} style={{ borderWidth: 1, borderColor: hovered ? color.black : color.line, borderRadius: radius.lg, padding: 20, gap: 16, minHeight: 128, justifyContent: 'space-between' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6 }}>
+          <T weight="800" style={{ fontSize: 20, lineHeight: 26 }}>Hayve</T>
+          <ProductWordmark product={product as never} hovered={hovered} size={20} />
+        </View>
+        <Icon name={s.icon} size={22} />
+      </View>
+      <T color={color.textSecondary}>{s.tagline}</T>
+    </Pressable>
   );
 }

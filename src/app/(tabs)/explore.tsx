@@ -1,27 +1,26 @@
 import { Icon } from '../../design/icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { bites, bookings, shop } from '../../backend/api';
 import { media } from '../../backend/media';
-import { alpha, Chip, color, EmptyState, Grid, HScroll, Input, Photo, radius, Rating, Screen, Section, service, T, tap, type IconName } from '../../design';
+import { Chip, color, EmptyState, Grid, HScroll, Input, Photo, radius, Rating, Screen, Section, T, tap, type IconName } from '../../design';
 import { ProductTile, TabHeader } from '../../features/common';
 import { money } from '../../lib/format';
 import { useLive } from '../../lib/hooks';
 
-const CATEGORIES: { label: string; icon: IconName; to: string; accent: string }[] = [
-  { label: 'Shopping', icon: 'bag-handle', to: '/shop', accent: service('shop').accent },
-  { label: 'Fashion', icon: 'shirt', to: '/shop?category=fashion', accent: service('shop').accent },
-  { label: 'Electronics', icon: 'headset', to: '/shop?category=electronics', accent: service('shop').accent },
-  { label: 'Home & furniture', icon: 'home', to: '/shop?category=home', accent: service('shop').accent },
-  { label: 'Restaurants', icon: 'restaurant', to: '/bites', accent: service('bites').accent },
-  { label: 'Groceries', icon: 'basket', to: '/bites?groceries=1', accent: service('bites').accent },
-  { label: 'Rides', icon: 'car-sport', to: '/ride', accent: service('ride').accent },
-  { label: 'Car rentals', icon: 'key', to: '/drive', accent: service('drive').accent },
-  { label: 'Accommodation', icon: 'bed', to: '/stay', accent: service('stay').accent },
-  { label: 'Courier', icon: 'cube', to: '/send', accent: service('send').accent },
-  { label: 'Local businesses', icon: 'storefront', to: '/business/merchant', accent: color.primary },
-  { label: 'Pay & transfer', icon: 'wallet', to: '/pay', accent: service('pay').accent },
+const CATEGORIES: { label: string; icon: IconName; to: string }[] = [
+  { label: 'Shopping', icon: 'bag-handle', to: '/shop' },
+  { label: 'Fashion', icon: 'shirt', to: '/shop?category=fashion' },
+  { label: 'Electronics', icon: 'headset', to: '/shop?category=electronics' },
+  { label: 'Home & furniture', icon: 'home', to: '/shop?category=home' },
+  { label: 'Restaurants', icon: 'restaurant', to: '/bites' },
+  { label: 'Groceries', icon: 'basket', to: '/bites?groceries=1' },
+  { label: 'Rides', icon: 'car-sport', to: '/ride' },
+  { label: 'Car rentals', icon: 'key', to: '/drive' },
+  { label: 'Accommodation', icon: 'bed', to: '/stay' },
+  { label: 'Local businesses', icon: 'storefront', to: '/business/merchant' },
+  { label: 'Pay & transfer', icon: 'wallet', to: '/pay' },
 ];
 
 const DESTINATIONS = [
@@ -35,7 +34,8 @@ const DESTINATIONS = [
 type Scope = 'all' | 'products' | 'food' | 'stays' | 'cars';
 
 export default function Explore() {
-  const [q, setQ] = useState('');
+  const params = useLocalSearchParams<{ q?: string }>();
+  const [q, setQ] = useState(params.q ?? '');
   const [scope, setScope] = useState<Scope>('all');
   const [sort, setSort] = useState<'recommended' | 'price_asc' | 'price_desc'>('recommended');
   const term = q.trim();
@@ -70,8 +70,8 @@ export default function Explore() {
             ))}
             <View style={{ width: 1, backgroundColor: color.line, marginHorizontal: 4 }} />
             <Chip label="Recommended" selected={sort === 'recommended'} onPress={() => setSort('recommended')} />
-            <Chip label="Price ↑" selected={sort === 'price_asc'} onPress={() => setSort('price_asc')} />
-            <Chip label="Price ↓" selected={sort === 'price_desc'} onPress={() => setSort('price_desc')} />
+            <Chip label="Lowest price" selected={sort === 'price_asc'} onPress={() => setSort('price_asc')} />
+            <Chip label="Highest price" selected={sort === 'price_desc'} onPress={() => setSort('price_desc')} />
           </HScroll>
           {total === 0 && <EmptyState icon="search-outline" title={`No results for “${term}”`} body="Try a different word, a city or a category below." />}
           {show('products') && products.length > 0 && (
@@ -147,11 +147,9 @@ export default function Explore() {
                     tap();
                     router.push(c.to as never);
                   }}
-                  style={({ pressed }) => ({ backgroundColor: color.surface, borderRadius: radius.lg, padding: 14, gap: 12, borderWidth: 1, borderColor: color.line, opacity: pressed ? 0.85 : 1, minHeight: 104, justifyContent: 'space-between' })}
+                  style={({ pressed }) => ({ backgroundColor: color.surface, borderRadius: radius.lg, padding: 16, gap: 12, borderWidth: 1, borderColor: pressed ? color.black : color.line, minHeight: 104, justifyContent: 'space-between' })}
                 >
-                  <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: alpha(c.accent, 0.1), alignItems: 'center', justifyContent: 'center' }}>
-                    <Icon name={c.icon} size={21} color={c.accent} />
-                  </View>
+                  <Icon name={c.icon} size={24} />
                   <T variant="headline">{c.label}</T>
                 </Pressable>
               ))}
@@ -171,8 +169,8 @@ export default function Explore() {
               {DESTINATIONS.map((d) => (
                 <Pressable key={d.city} onPress={() => router.push(`/stay?destination=${d.city}`)} style={{ width: 160 }}>
                   <Photo uri={d.image} style={{ width: 160, height: 200 }} rounded={radius.lg} icon="location-outline" label={d.city} />
-                  <View style={{ position: 'absolute', left: 12, bottom: 12, backgroundColor: 'rgba(17,13,46,0.75)', borderRadius: radius.pill, paddingHorizontal: 12, height: 30, justifyContent: 'center' }}>
-                    <T variant="subhead" color="#fff" weight="700">
+                  <View style={{ position: 'absolute', left: 12, bottom: 12, backgroundColor: color.white, borderRadius: radius.pill, paddingHorizontal: 12, height: 30, justifyContent: 'center' }}>
+                    <T variant="subhead" weight="700">
                       {d.city}
                     </T>
                   </View>
@@ -191,7 +189,7 @@ export default function Explore() {
                     <T variant="footnote" color={color.textSecondary}>
                       {r.cuisine}
                     </T>
-                    <T variant="footnote" color={color.primary} weight="700">
+                    <T variant="footnote" weight="700">
                       {r.etaMin} min · {r.deliveryFeeCents ? money(r.deliveryFeeCents) : 'Free'} delivery
                     </T>
                   </View>

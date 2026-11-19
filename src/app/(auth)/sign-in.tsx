@@ -58,7 +58,7 @@ export default function SignIn() {
             style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.md, backgroundColor: pressed ? color.primarySoft : color.surface, borderWidth: 1, borderColor: color.line })}
           >
             <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: color.ink, alignItems: 'center', justifyContent: 'center' }}>
-              <T variant="caption" color={color.lime} weight="800">
+              <T variant="caption" color={color.white} weight="800">
                 {a.label
                   .split(' ')
                   .map((s) => s[0])

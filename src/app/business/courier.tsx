@@ -56,7 +56,7 @@ function Dashboard() {
 
   return (
     <Screen header={<Header back title="Hayve Courier" subtitle={`Delivering by ${profile.vehicle}`} fallback="/business" />}>
-      <Card padded={false} style={{ marginBottom: 12, backgroundColor: profile.online ? color.limeSoft : color.surface }}>
+      <Card padded={false} style={{ marginBottom: 12, borderColor: profile.online ? color.black : color.line }}>
         <SwitchRow icon="radio-outline" title={profile.online ? "You're online" : "You're offline"} subtitle="Go online to receive delivery requests" value={profile.online} onChange={(v) => run(() => send.setCourierOnline(v), { success: v ? 'Online' : 'Offline' })} />
       </Card>
       <View style={{ flexDirection: isWide ? 'row' : 'column', gap: 12 }}>
@@ -112,7 +112,7 @@ function Dashboard() {
             ) : (
               <View style={{ gap: 10 }}>
                 {queue.map((d) => (
-                  <Card key={d.id} style={{ gap: 8, borderWidth: 2, borderColor: color.lime }}>
+                  <Card key={d.id} style={{ gap: 8, borderWidth: 1, borderColor: color.black }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       <T variant="headline" style={{ flex: 1 }}>
                         {d.size} parcel · {d.weightKg} kg · {d.speed.replace('_', ' ')}

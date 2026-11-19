@@ -57,8 +57,8 @@ export default function Shop() {
         <View style={{ flex: 1 }}>
           <Input icon="search" placeholder="Search for items or members" value={q} onChangeText={setQ} returnKeyType="search" autoCorrect={false} />
         </View>
-        <Pressable onPress={() => setFiltersOpen(true)} accessibilityLabel="Filters and sorting" style={{ height: 50, paddingHorizontal: 16, borderRadius: radius.md, backgroundColor: activeFilters ? color.ink : color.surface, borderWidth: 1.5, borderColor: activeFilters ? color.ink : color.line, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Icon name="options-outline" size={20} color={activeFilters ? color.lime : color.ink} />
+        <Pressable onPress={() => setFiltersOpen(true)} accessibilityLabel="Filters and sorting" style={{ height: 50, paddingHorizontal: 16, borderRadius: radius.md, backgroundColor: activeFilters ? color.ink : color.surface, borderWidth: 1, borderColor: activeFilters ? color.ink : color.line, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Icon name="options-outline" size={20} color={activeFilters ? color.white : color.black} />
           {activeFilters > 0 && (
             <T variant="subhead" color="#fff" weight="700">
               {activeFilters}
@@ -74,19 +74,15 @@ export default function Shop() {
       </HScroll>
 
       {!isWide && (
-        <Pressable onPress={() => router.push('/sell')} style={{ marginTop: 16, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: radius.lg, backgroundColor: color.primary }}>
-          <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: color.lime, alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="camera" size={20} color={color.ink} />
-          </View>
+        <Pressable onPress={() => router.push('/sell')} accessibilityRole="button" style={({ pressed }) => ({ marginTop: 16, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: radius.lg, borderWidth: 1, borderColor: pressed ? color.black : color.line })}>
+          <Icon name="camera-outline" size={22} />
           <View style={{ flex: 1 }}>
-            <T variant="headline" color="#fff">
-              Sell an item
-            </T>
-            <T variant="footnote" color={color.primaryTint}>
+            <T variant="headline">Sell an item</T>
+            <T variant="footnote" color={color.textSecondary}>
               Snap, price, list. Earnings land in Hayve Pay.
             </T>
           </View>
-          <Icon name="arrow-forward" size={20} color="#fff" />
+          <Icon name="arrow-forward" size={20} />
         </Pressable>
       )}
 
