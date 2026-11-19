@@ -4,56 +4,11 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { wallet } from '../../backend/api';
-import type { TxView } from '../../backend/ledger';
 import { Avatar, BarChart, Card, color, EmptyState, IconButton, radius, Screen, Section, Segmented, SimBadge, Split, T, tap, useLayout, type IconName } from '../../design';
-import { StatusPill, TabHeader } from '../../features/common';
-import { ago, money } from '../../lib/format';
+import { TabHeader } from '../../features/common';
+import { TxRow } from '../../features/pay';
+import { money } from '../../lib/format';
 import { useLive } from '../../lib/hooks';
-
-const TX_ICON: Record<string, IconName> = {
-  deposit: 'add-circle',
-  withdrawal: 'arrow-up-circle',
-  p2p: 'swap-horizontal',
-  purchase: 'bag-handle',
-  sale: 'pricetag',
-  gift_purchase: 'gift',
-  food_order: 'fast-food',
-  ride: 'car-sport',
-  rental: 'key',
-  stay: 'bed',
-  delivery: 'cube',
-  earning: 'trending-up',
-  refund: 'return-down-back',
-  merchant_payment: 'storefront',
-  fee: 'receipt',
-};
-
-export function TxRow({ t, first }: { t: TxView; first?: boolean }) {
-  const failed = t.status === 'failed';
-  return (
-    <Pressable onPress={() => router.push(`/pay/tx/${t.id}`)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14, borderTopWidth: first ? 0 : 1, borderTopColor: color.line, backgroundColor: pressed ? color.surfaceSunken : 'transparent' })}>
-      <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: t.direction === 'in' ? color.limeSoft : color.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
-        <Ionicons name={TX_ICON[t.type] ?? 'ellipse'} size={19} color={t.direction === 'in' ? color.limeInk : color.primary} />
-      </View>
-      <View style={{ flex: 1, gap: 1 }}>
-        <T variant="headline" numberOfLines={1}>
-          {t.counterparty}
-        </T>
-        <T variant="footnote" color={color.textSecondary} numberOfLines={1}>
-          {t.note ? `${t.note} · ` : ''}
-          {ago(t.createdAt)}
-        </T>
-      </View>
-      <View style={{ alignItems: 'flex-end', gap: 4 }}>
-        <T variant="headline" color={failed ? color.textTertiary : t.direction === 'in' ? color.success : color.text} style={failed || t.status === 'refunded' ? { textDecorationLine: 'line-through' } : undefined}>
-          {t.direction === 'in' ? '+' : '−'}
-          {money(t.amountCents)}
-        </T>
-        {t.status !== 'completed' && <StatusPill status={t.status} />}
-      </View>
-    </Pressable>
-  );
-}
 
 export default function Pay() {
   const { isWide } = useLayout();

@@ -7,7 +7,7 @@ import { Badge, Button, Card, Chip, color, Group, Header, HScroll, Input, ListRo
 import { Empty, EarningsCard, MetricRow, RoleGate } from '../../features/business';
 import { SimNote, StatusPill } from '../../features/common';
 import { money, time } from '../../lib/format';
-import { useAction, useLive } from '../../lib/hooks';
+import { useAction, NONE, useLive } from '../../lib/hooks';
 
 export default function KitchenDashboard() {
   return (
@@ -42,7 +42,7 @@ function RegisterRestaurant() {
 
 function Dashboard() {
   const { isWide } = useLayout();
-  const restaurants = useLive(() => bites.myRestaurants()).data ?? [];
+  const restaurants = useLive(() => bites.myRestaurants()).data ?? NONE;
   const [rid, setRid] = useState<string | null>(null);
   const [tab, setTab] = useState<'orders' | 'menu' | 'settings'>('orders');
   const [registering, setRegistering] = useState(false);

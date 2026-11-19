@@ -6,7 +6,6 @@ import type { VehicleType } from '../../backend/types';
 import { addDays, Button, Chip, color, EmptyState, Grid, HScroll, Input, Photo, prettyDate, radius, RangeCalendar, Screen, Section, Sheet, T, todayISO, useLayout } from '../../design';
 import { VehicleCard } from '../../features/cards';
 import { StatusPill, TabHeader } from '../../features/common';
-import { money } from '../../lib/format';
 import { useLive } from '../../lib/hooks';
 
 export default function Drive() {

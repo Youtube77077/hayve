@@ -145,6 +145,14 @@ describe('wishlists and anonymous gifting', () => {
     expect(inesSale.shipTo?.line1).toBe('Prinsengracht 412-2');
     expect(contains(inesSale, 'Jonas')).toBe(false);
     expect(contains(api.wallet.transactions(), 'Jonas')).toBe(false);
+    // The seller is paid from escrow: no transaction touching the seller references the purchaser's account.
+    const sellerAcc = accountIdFor('u_ines');
+    const jonasAcc = accountIdFor('u_jonas');
+    const db = getDb();
+    const sellerTxIds = new Set(db.entries.filter((e) => e.accountId === sellerAcc).map((e) => e.txId));
+    for (const id of sellerTxIds) {
+      expect(db.entries.filter((e) => e.txId === id).some((e) => e.accountId === jonasAcc)).toBe(false);
+    }
     expect(ledgerIsBalanced()).toBe(true);
   });
 

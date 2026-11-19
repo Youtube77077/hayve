@@ -3,6 +3,9 @@ import { getSessionUserId, onSessionChange } from '../backend/api/session';
 import { getVersion, HayveError, subscribe } from '../backend/store';
 import { useToast } from '../design/components/feedback';
 
+/** Stable empty array for `useLive(...).data ?? NONE` defaults. */
+export const NONE: never[] = [];
+
 /** Re-renders whenever backend data changes. */
 export function useDataVersion() {
   return useSyncExternalStore(subscribe, getVersion, getVersion);

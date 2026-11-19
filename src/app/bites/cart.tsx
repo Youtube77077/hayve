@@ -6,13 +6,13 @@ import { Button, Card, color, Divider, EmptyState, Header, Input, KeyValue, Noti
 import { PayMethodPicker } from '../../features/common';
 import { cart, useCart } from '../../lib/cart';
 import { money } from '../../lib/format';
-import { useAction, useLive } from '../../lib/hooks';
+import { useAction, NONE, useLive } from '../../lib/hooks';
 
 export default function Basket() {
   const c = useCart();
   const priced = useLive(() => (c.restaurantId && c.lines.length ? bites.priceCart(c.restaurantId, c.lines) : null), [c]).data;
   const restaurant = useLive(() => (c.restaurantId ? bites.getRestaurant(c.restaurantId).restaurant : null), [c.restaurantId]).data;
-  const addresses = useLive(() => social.addresses()).data ?? [];
+  const addresses = useLive(() => social.addresses()).data ?? NONE;
   const [address, setAddress] = useState('');
   const [note, setNote] = useState('');
   const [method, setMethod] = useState<PayMethod>('wallet');

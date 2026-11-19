@@ -7,13 +7,13 @@ import type { RideCategory } from '../../backend/types';
 import { Button, Card, CityMap, color, Input, radius, Screen, Section, Sheet, Split, T, tap, useLayout } from '../../design';
 import { PayMethodPicker, StatusPill, TabHeader } from '../../features/common';
 import { money, shortDate, time } from '../../lib/format';
-import { useAction, useLive } from '../../lib/hooks';
+import { useAction, NONE, useLive } from '../../lib/hooks';
 
 const CAR_ICON: Record<RideCategory, React.ComponentProps<typeof Ionicons>['name']> = { go: 'car-outline', green: 'leaf-outline', priority: 'flash-outline', comfort: 'car-sport-outline', xl: 'bus-outline' };
 
 export default function Ride() {
   const { isWide } = useLayout();
-  const places = useLive(() => ride.places()).data ?? [];
+  const places = useLive(() => ride.places()).data ?? NONE;
   const active = useLive(() => ride.activeRide()).data;
   const history = useLive(() => ride.myRides().filter((r) => r.status === 'completed' || r.status === 'cancelled').slice(0, 5)).data ?? [];
   const [pickup, setPickup] = useState('home');

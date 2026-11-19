@@ -6,14 +6,14 @@ import { type PayMethod, shop, social } from '../../backend/api';
 import { Button, Card, color, Divider, ErrorState, Header, KeyValue, Photo, radius, Screen, Section, Split, T } from '../../design';
 import { PayMethodPicker } from '../../features/common';
 import { money } from '../../lib/format';
-import { useAction, useLive } from '../../lib/hooks';
+import { useAction, NONE, useLive } from '../../lib/hooks';
 
 /** Ordinary Hayve Shop purchase: the buyer receives the item themselves. */
 export default function Checkout() {
   const { productId } = useLocalSearchParams<{ productId: string }>();
   const { data: p, error } = useLive(() => shop.getProduct(productId), [productId]);
   const quote = useLive(() => shop.quote(productId), [productId]).data;
-  const addresses = useLive(() => social.addresses()).data ?? [];
+  const addresses = useLive(() => social.addresses()).data ?? NONE;
   const [addressId, setAddressId] = useState<string | null>(null);
   const [method, setMethod] = useState<PayMethod>('wallet');
   const [done, setDone] = useState<{ orderId: string; reference: string } | null>(null);
