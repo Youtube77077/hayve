@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "Hayve",
+    "slug": "hayve",
+    "version": "0.1.0",
+    "orientation": "default",
+    "icon": "./assets/images/icon.png",
+    "scheme": "hayve",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "backgroundColor": "#F6F5FF",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.hayve.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Hayve uses your photo library so you can add photos to listings and your profile.",
+        "NSCameraUsageDescription": "Hayve uses the camera so you can photograph items you want to sell.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.hayve.app",
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "output": "single",
+      "favicon": "./assets/images/favicon.png",
+      "name": "Hayve",
+      "themeColor": "#3A1FD1",
+      "backgroundColor": "#F6F5FF"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 180,
+          "resizeMode": "contain",
+          "backgroundColor": "#3A1FD1"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Hayve uses your photo library so you can add photos to listings and your profile.",
+          "cameraPermission": "Hayve uses the camera so you can photograph items you want to sell."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}
