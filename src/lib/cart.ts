@@ -1,14 +1,31 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 import type { CartLine } from '../backend/api/bites';
 
-/** Hayve Bites basket: one restaurant at a time, kept in memory for the session. */
+const KEY = 'hayve.cart.v1';
+
+/** Hayve Bites basket: one restaurant at a time, persisted on the device. */
 interface CartState {
   restaurantId: string | null;
   lines: CartLine[];
 }
 let state: CartState = { restaurantId: null, lines: [] };
 const listeners = new Set<() => void>();
-const emit = () => listeners.forEach((l) => l());
+const emit = () => {
+  listeners.forEach((l) => l());
+  AsyncStorage.setItem(KEY, JSON.stringify(state)).catch(() => {});
+};
+
+/** Restores the basket after an app restart or page refresh. */
+export async function hydrateCart() {
+  try {
+    const raw = await AsyncStorage.getItem(KEY);
+    if (raw) {
+      state = JSON.parse(raw) as CartState;
+      listeners.forEach((l) => l());
+    }
+  } catch {}
+}
 
 export const cart = {
   get: () => state,

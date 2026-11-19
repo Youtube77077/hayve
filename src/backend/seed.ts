@@ -15,7 +15,7 @@ import type {
   User,
 } from './types';
 
-export const DB_VERSION = 3;
+export const DB_VERSION = 4;
 export const DEMO_PASSWORD = 'hayve123';
 
 export const DEMO_ACCOUNTS = [
@@ -52,6 +52,7 @@ export function emptyDatabase(): Database {
     paymentMethods: [],
     products: [],
     favourites: [],
+    savedProperties: [],
     wishlistItems: [],
     orders: [],
     giftOrders: [],

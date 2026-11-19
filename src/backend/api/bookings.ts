@@ -14,7 +14,7 @@ import {
   publicUser,
 } from './common';
 import { ratingFor } from './shop';
-import { me, requireRole } from './session';
+import { getSessionUserId, me, requireRole } from './session';
 
 /** Hayve Drive (car rentals), Hayve Stay (accommodation) and Hayve Host. */
 
@@ -60,6 +60,14 @@ export function vehicleAvailable(v: RentalVehicle, start: string, end: string, i
   return !db.rentals.some(
     (r) => r.vehicleId === v.id && r.id !== ignoreRentalId && ['requested', 'confirmed', 'active'].includes(r.status) && overlaps(start, end, r.start, r.end),
   );
+}
+
+export function vehicleBookedDates(vehicleId: ID) {
+  const db = getDb();
+  const v = find(db.vehicles, (x) => x.id === vehicleId, 'Vehicle');
+  const set = new Set(v.blockedDates);
+  for (const r of db.rentals) if (r.vehicleId === vehicleId && ['requested', 'confirmed', 'active'].includes(r.status)) datesInRange(r.start, r.end, true).forEach((d) => set.add(d));
+  return Array.from(set);
 }
 
 export function listVehicles(q: VehicleQuery = {}) {
@@ -259,6 +267,23 @@ export function getProperty(id: ID) {
   const reviews = db.reviews.filter((r) => r.targetKind === 'property' && r.targetId === id).map((r) => ({ ...r, author: displayName(r.authorId), avatar: publicUser(r.authorId).avatar }));
   const hostSince = db.users.find((u) => u.id === p.hostId)?.createdAt ?? now();
   return { property: p, host: publicUser(p.hostId), hostSince, hostListings: db.properties.filter((x) => x.hostId === p.hostId).length, reviews, booked: bookedDates(id) };
+}
+
+export function toggleSavedProperty(propertyId: ID) {
+  const user = me();
+  const db = getDb();
+  find(db.properties, (x) => x.id === propertyId, 'Property');
+  const i = db.savedProperties.findIndex((s) => s.userId === user.id && s.propertyId === propertyId);
+  if (i >= 0) db.savedProperties.splice(i, 1);
+  else db.savedProperties.push({ userId: user.id, propertyId, createdAt: now() });
+  commit();
+  return i < 0;
+}
+
+export function savedPropertyIds(): ID[] {
+  const id = getSessionUserId();
+  if (!id) return [];
+  return getDb().savedProperties.filter((s) => s.userId === id).map((s) => s.propertyId);
 }
 
 export function quoteStay(propertyId: ID, checkIn: string, checkOut: string) {

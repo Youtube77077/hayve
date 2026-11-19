@@ -571,6 +571,7 @@ export interface Database {
   paymentMethods: PaymentMethod[];
   products: Product[];
   favourites: Favourite[];
+  savedProperties: { userId: ID; propertyId: ID; createdAt: number }[];
   wishlistItems: WishlistItem[];
   orders: Order[];
   /** PRIVATE table. Never returned to recipient-facing queries. */

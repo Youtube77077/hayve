@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useMemo } from 'react';
-import { type StyleProp, View, type ViewStyle } from 'react-native';
+import { useMemo, useState } from 'react';
+import { ScrollView, type StyleProp, View, type ViewStyle } from 'react-native';
 import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
 import { OFFICIAL_LOGO, OFFICIAL_LOGO_ASPECT } from '../brand';
 import { alpha, color, type IconName, radius } from '../tokens';
-import { T } from './primitives';
+import { Photo, T } from './primitives';
 
 /* ------------------------------------------------------------------ Logo -- */
 
@@ -234,6 +234,34 @@ export function ProgressBar({ value, tone = color.primary }: { value: number; to
   return (
     <View style={{ height: 8, borderRadius: 4, backgroundColor: color.surfaceSunken, overflow: 'hidden' }}>
       <View style={{ width: `${Math.max(0, Math.min(1, value)) * 100}%`, height: '100%', backgroundColor: tone, borderRadius: 4 }} />
+    </View>
+  );
+}
+
+/* -------------------------------------------------------------- Gallery -- */
+
+/** Swipeable photo gallery that sizes itself to its container. */
+export function Gallery({ images, aspect = 1, rounded = 0, icon = 'image-outline', label, overlay }: { images: string[]; aspect?: number; rounded?: number; icon?: IconName; label?: string; overlay?: React.ReactNode }) {
+  const [w, setW] = useState(0);
+  const [index, setIndex] = useState(0);
+  return (
+    <View onLayout={(e) => setW(e.nativeEvent.layout.width)} style={{ width: '100%', borderRadius: rounded, overflow: 'hidden', backgroundColor: color.surfaceSunken }}>
+      {w > 0 && (
+        <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} onMomentumScrollEnd={(e) => setIndex(Math.round(e.nativeEvent.contentOffset.x / w))} onScroll={(e) => setIndex(Math.round(e.nativeEvent.contentOffset.x / w))} scrollEventThrottle={64}>
+          {(images.length ? images : ['']).map((uri, i) => (
+            <Photo key={`${uri}${i}`} uri={uri || undefined} style={{ width: w, height: w / aspect }} icon={icon} label={label} />
+          ))}
+        </ScrollView>
+      )}
+      {w === 0 && <View style={{ height: 300 }} />}
+      {images.length > 1 && (
+        <View style={{ position: 'absolute', bottom: 14, alignSelf: 'center', flexDirection: 'row', gap: 6, backgroundColor: 'rgba(17,13,46,0.5)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill }}>
+          {images.map((_, i) => (
+            <View key={i} style={{ width: i === index ? 18 : 6, height: 6, borderRadius: 3, backgroundColor: i === index ? color.lime : 'rgba(255,255,255,0.6)' }} />
+          ))}
+        </View>
+      )}
+      {overlay}
     </View>
   );
 }
