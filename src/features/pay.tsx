@@ -66,7 +66,7 @@ export function AmountInput({ value, onChange }: { value: string; onChange: (v: 
   return (
     <View style={{ alignItems: 'center', paddingVertical: 18, gap: 4 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <T style={{ fontSize: 44, fontWeight: '800', color: value ? color.ink : color.lineStrong }}>€</T>
+        <T style={{ fontSize: 44, lineHeight: 44 + 8, fontWeight: '800', color: value ? color.ink : color.lineStrong }}>€</T>
         <Input
           value={value}
           onChangeText={(t) => onChange(t.replace(/[^\d.,]/g, '').slice(0, 9))}

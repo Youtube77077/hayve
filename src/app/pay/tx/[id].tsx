@@ -42,7 +42,7 @@ export default function Receipt() {
         <T variant="callout" color={color.textSecondary}>
           {t.counterparty}
         </T>
-        <T style={{ fontSize: 40, fontWeight: '800', letterSpacing: -1, color: color.ink }}>
+        <T style={{ fontSize: 40, lineHeight: 40 + 8, fontWeight: '800', letterSpacing: -1, color: color.ink }}>
           {t.direction === 'in' ? '+' : '−'}
           {money(t.amountCents)}
         </T>

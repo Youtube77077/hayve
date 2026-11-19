@@ -530,6 +530,8 @@ export function updateOrder(id: ID, action: OrderView['actions'][number]) {
       order.status = 'refunded';
       push(action === 'cancel' ? 'cancelled' : 'refunded');
       refundTransaction(order.paymentTxId, action === 'cancel' ? 'Order cancelled' : 'Delivery failed');
+      // Gifts pay the seller from escrow in a separate transaction: reverse it too.
+      if (order.sellerTxId !== order.paymentTxId) refundTransaction(order.sellerTxId, 'Gift cancelled');
       restoreAfterCancel(order);
       const party = buyerOrPurchaser();
       notify(party, 'refund', 'Refund issued', `${title}: ${(order.totalCents / 100).toFixed(2)} EUR returned to your Hayve Pay balance.`, `/orders/${order.id}`);

@@ -50,7 +50,7 @@ function Console() {
             <T variant="subhead" color={color.textOnDarkSecondary}>
               Gross volume (simulated)
             </T>
-            <T style={{ fontSize: 34, fontWeight: '800', color: '#fff' }}>{money(o.gmvCents)}</T>
+            <T style={{ fontSize: 34, lineHeight: 34 + 8, fontWeight: '800', color: '#fff' }}>{money(o.gmvCents)}</T>
             <Badge label={o.ledgerBalanced ? 'Ledger balanced ✓' : 'Ledger imbalance!'} tone={o.ledgerBalanced ? 'lime' : 'danger'} style={{ marginTop: 6 }} />
           </Card>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>

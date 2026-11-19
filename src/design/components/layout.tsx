@@ -202,16 +202,9 @@ export function ListRow({
   danger?: boolean;
   chevron?: boolean;
 }) {
-  return (
-    <Pressable
-      disabled={!onPress}
-      onPress={() => {
-        tap();
-        onPress?.();
-      }}
-      accessibilityRole={onPress ? 'button' : undefined}
-      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 13, paddingHorizontal: space.lg, backgroundColor: pressed ? color.surfaceSunken : 'transparent' })}
-    >
+  const rowStyle = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 14, paddingVertical: 13, paddingHorizontal: space.lg };
+  const content = (
+    <>
       {left}
       {icon && !left && (
         <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: danger ? color.dangerSoft : color.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
@@ -235,6 +228,20 @@ export function ListRow({
       ) : null}
       {right}
       {onPress && chevron && !right && <Ionicons name="chevron-forward" size={18} color={color.textTertiary} />}
+    </>
+  );
+  // Rows without their own action render as a plain View so that buttons inside them stay interactive.
+  if (!onPress) return <View style={rowStyle}>{content}</View>;
+  return (
+    <Pressable
+      onPress={() => {
+        tap();
+        onPress();
+      }}
+      accessibilityRole="button"
+      style={({ pressed }) => ({ ...rowStyle, backgroundColor: pressed ? color.surfaceSunken : 'transparent' })}
+    >
+      {content}
     </Pressable>
   );
 }

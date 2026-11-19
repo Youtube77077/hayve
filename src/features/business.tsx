@@ -19,7 +19,7 @@ export function EarningsCard({ role, label = 'Earnings' }: { role: PartnerRole; 
           <T variant="subhead" color={color.textOnDarkSecondary}>
             {label} (settled)
           </T>
-          <T style={{ fontSize: 34, fontWeight: '800', color: '#fff', letterSpacing: -1 }}>{money(e.totalCents)}</T>
+          <T style={{ fontSize: 34, lineHeight: 34 + 8, fontWeight: '800', color: '#fff', letterSpacing: -1 }}>{money(e.totalCents)}</T>
         </View>
         <Pressable onPress={() => router.push('/pay/withdraw')} style={{ backgroundColor: color.lime, borderRadius: radius.pill, paddingHorizontal: 14, height: 34, justifyContent: 'center' }}>
           <T variant="subhead" weight="800">

@@ -31,7 +31,7 @@ export default function PayLinkCheckout() {
           {c.merchant}
           {c.verified ? ' ✓' : ''}
         </T>
-        <T style={{ fontSize: 44, fontWeight: '800', letterSpacing: -1, color: color.ink }}>{money(c.amountCents)}</T>
+        <T style={{ fontSize: 44, lineHeight: 44 + 8, fontWeight: '800', letterSpacing: -1, color: color.ink }}>{money(c.amountCents)}</T>
         <T variant="headline">{c.title}</T>
       </Card>
       {paid ? (

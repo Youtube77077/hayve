@@ -67,7 +67,7 @@ export default function FoodOrderTracking() {
                   <T variant="subhead" color={color.textOnDarkSecondary}>
                     {o.status === 'delivered' ? 'Delivered' : 'Estimated arrival'}
                   </T>
-                  <T style={{ fontSize: 36, fontWeight: '800', color: '#fff', letterSpacing: -1 }}>{o.status === 'delivered' ? time(o.timeline[o.timeline.length - 1].at) : time(eta)}</T>
+                  <T style={{ fontSize: 36, lineHeight: 36 + 8, fontWeight: '800', color: '#fff', letterSpacing: -1 }}>{o.status === 'delivered' ? time(o.timeline[o.timeline.length - 1].at) : time(eta)}</T>
                   <T variant="footnote" color={color.lime}>
                     {STEPS[idx]?.label}
                     {o.courierName && o.status === 'picked_up' ? ` · ${o.courierName} on an e-bike` : ''}

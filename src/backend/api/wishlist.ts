@@ -1,4 +1,4 @@
-import { accountIdFor, SYSTEM } from '../ledger';
+import { accountIdFor, createTransaction, SYSTEM } from '../ledger';
 import { assert, commit, find, getDb, HayveError, now, reference, uid } from '../store';
 import type { GiftReservation, ID, Order, WishlistItem } from '../types';
 import {
@@ -310,19 +310,31 @@ export function confirmGift(reservationId: ID, method: PayMethod): GiftReceipt {
     const total = product.priceCents + SHIPPING_CENTS + fee;
     const orderId = uid('o');
 
+    // 1) Purchaser → Hayve Gift escrow (held, then captured).
     tx = beginPayment({
       payerId: user.id,
       method,
       type: 'gift_purchase',
-      credits: [
-        { accountId: accountIdFor(product.sellerId), amountCents: product.priceCents, status: 'pending' },
-        { accountId: SYSTEM.fees, amountCents: SHIPPING_CENTS + fee },
-      ],
-      // The seller's ledger line shows "Hayve Gift", never the purchaser.
+      credits: [{ accountId: SYSTEM.giftEscrow, amountCents: total }],
       labelForPayer: `Gift for ${displayName(item.ownerId)}`,
       labelForPayee: 'Hayve Gift',
       note: product.title,
       ref: { kind: 'order', id: orderId },
+    });
+    completePayment(tx, 'posted');
+    // 2) Escrow → seller (pending until delivery). The seller's ledger never references the purchaser.
+    const sellerTx = createTransaction({
+      type: 'sale',
+      fromAccountId: SYSTEM.giftEscrow,
+      credits: [
+        { accountId: accountIdFor(product.sellerId), amountCents: product.priceCents, status: 'pending' },
+        { accountId: SYSTEM.fees, amountCents: SHIPPING_CENTS + fee },
+      ],
+      labelForFrom: 'Hayve Gift',
+      labelForTo: 'Hayve Gift',
+      note: product.title,
+      ref: { kind: 'order', id: orderId },
+      method: 'system',
     });
 
     const order: Order = {
@@ -339,13 +351,12 @@ export function confirmGift(reservationId: ID, method: PayMethod): GiftReceipt {
       protectionFeeCents: fee,
       totalCents: total,
       paymentTxId: tx.id,
-      sellerTxId: tx.id,
+      sellerTxId: sellerTx.id,
       status: 'paid',
       timeline: [{ status: 'paid', at: now() }],
       createdAt: now(),
     };
 
-    completePayment(tx, 'pending');
     db.orders.push(order);
     db.giftOrders.push({ id: uid('go'), orderId, wishlistItemId: item.id, purchaserId: user.id, recipientId: item.ownerId, createdAt: now() });
     item.status = 'sold';

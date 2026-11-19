@@ -21,6 +21,8 @@ jobs:
         run: npx expo lint
       - name: Backend tests (gifting privacy, ledger, services)
         run: npx vitest run
+      - name: Database schema & gifting privacy tests (PostgreSQL)
+        run: bash supabase/tests/run.sh
       - name: Build website
         run: npx expo export --platform web
       - uses: actions/upload-artifact@v4

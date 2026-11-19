@@ -19,6 +19,7 @@ export const SYSTEM = {
   card: 'acc_sys_card', // simulated card network
   fees: 'acc_sys_fees', // Hayve revenue: fees, shipping, delivery fees
   payouts: 'acc_sys_payouts', // simulated payout rail
+  giftEscrow: 'acc_sys_gift_escrow', // separates gift purchasers from sellers
 } as const;
 
 const SYSTEM_IDS = new Set<string>(Object.values(SYSTEM));
@@ -29,6 +30,7 @@ export function systemAccounts(): Account[] {
     { id: SYSTEM.card, ownerId: null, kind: 'system', label: 'Card (simulated)' },
     { id: SYSTEM.fees, ownerId: null, kind: 'system', label: 'Hayve' },
     { id: SYSTEM.payouts, ownerId: null, kind: 'system', label: 'Payout (simulated)' },
+    { id: SYSTEM.giftEscrow, ownerId: null, kind: 'system', label: 'Hayve Gift' },
   ];
 }
 
