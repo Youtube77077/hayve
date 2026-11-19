@@ -54,6 +54,14 @@ const MID: Line[] = [
   [[4.902, 52.384], [4.903, 52.4], [4.905, 52.42]],
   [[4.885, 52.348], [4.885, 52.33]],
 ];
+/** Light grid of minor streets so every part of the preview reads as city. */
+const MINOR: Line[] = (() => {
+  const out: Line[] = [];
+  for (let lng = 4.83; lng <= 4.97; lng += 0.0042) out.push([[lng, 52.33], [lng + 0.003, 52.405]]);
+  for (let lat = 52.332; lat <= 52.405; lat += 0.0026) out.push([[4.83, lat], [4.97, lat - 0.0012]]);
+  return out;
+})();
+
 const LABELS: { name: string; at: LngLat; minZoom: number }[] = [
   { name: 'Centrum', at: [4.8945, 52.371], minZoom: 11 },
   { name: 'Jordaan', at: [4.881, 52.3765], minZoom: 13 },
@@ -108,7 +116,7 @@ export const PreviewMap = forwardRef<HayveMapHandle, HayveMapProps>(function Pre
   const fitKey = fit ? fit.map((p) => p.join(',')).join(';') : '';
   useEffect(() => {
     if (fit && fit.length) fitTo(fit);
-  }, [fitKey, size.w, size.h]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fitKey, size.w, size.h, padding.bottom, padding.left]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => () => cancelAnimationFrame(anim.current), []);
 
@@ -156,6 +164,9 @@ export const PreviewMap = forwardRef<HayveMapHandle, HayveMapProps>(function Pre
               <Path key={`c${i}`} d={path(l)} stroke={C.water} strokeWidth={Math.max(1.5, 5 * k)} fill="none" strokeLinecap="round" />
             ))}
             <Path d={path(AMSTEL)} stroke={C.water} strokeWidth={Math.max(3, 11 * k)} fill="none" strokeLinecap="round" />
+            {cam.zoom >= 13.5 && MINOR.map((l, i) => (
+              <Path key={`n${i}`} d={path(l)} stroke={C.road} strokeOpacity={0.7} strokeWidth={Math.max(1, 3 * k)} fill="none" />
+            ))}
             {MID.map((l, i) => (
               <Path key={`m${i}`} d={path(l)} stroke={C.road} strokeWidth={Math.max(2, 6 * k)} fill="none" strokeLinecap="round" strokeLinejoin="round" />
             ))}

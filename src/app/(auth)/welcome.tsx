@@ -89,7 +89,6 @@ function ProductCard({ product }: { product: (typeof PRODUCTS)[number] }) {
     <Pressable onPress={() => router.push('/sign-up')} onHoverIn={() => setHovered(true)} onHoverOut={() => setHovered(false)} accessibilityRole="button" accessibilityLabel={s.name} style={{ borderWidth: 1, borderColor: hovered ? color.black : color.line, borderRadius: radius.lg, padding: 20, gap: 16, minHeight: 128, justifyContent: 'space-between' }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6 }}>
-          <T weight="800" style={{ fontSize: 20, lineHeight: 26 }}>Hayve</T>
           <ProductWordmark product={product as never} hovered={hovered} size={20} />
         </View>
         <Icon name={s.icon} size={22} />

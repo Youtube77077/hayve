@@ -31,7 +31,7 @@ interface SimCar extends MapCar {
 }
 
 function spawn(center: LngLat, i: number): SimCar {
-  const d = 180 + ((i * 137) % 700);
+  const d = 90 + ((i * 137) % 380);
   const a = (i * 73) % 360;
   return { id: `car${i}`, coord: offset(center, d, a), heading: (Math.round(a / 90) * 90 + 90) % 360, speed: 6 + (i % 4) * 1.5 };
 }
@@ -60,7 +60,7 @@ export function useNearbyCars(center: LngLat | null, count = 7) {
         cur.map((car, i) => {
           let heading = car.heading;
           const dist = haversineM(car.coord, c);
-          if (dist > 1200) heading = Math.round(bearing(car.coord, c) / 90) * 90;
+          if (dist > 700) heading = Math.round(bearing(car.coord, c) / 90) * 90;
           else if (Math.random() < 0.12) heading = (heading + (Math.random() < 0.5 ? 90 : 270)) % 360;
           return { ...car, heading: (heading + 360) % 360, coord: offset(car.coord, car.speed * (1 + (i % 2) * 0.2), heading) };
         }),

@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useRef } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, PanResponder, Pressable, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 import { color, radius, shadow } from '../../design';
@@ -10,6 +10,7 @@ import { color, radius, shadow } from '../../design';
  */
 export function BottomSheet({ snaps, index, onIndexChange, onHeight, header, children, maxHeight }: { snaps: number[]; index: number; onIndexChange: (i: number) => void; onHeight?: (h: number) => void; header?: ReactNode; children: ReactNode; maxHeight: number }) {
   const reduced = useReducedMotion();
+  const [headerH, setHeaderH] = useState(0);
   const H = maxHeight;
   const height = snaps[Math.min(index, snaps.length - 1)];
   const y = useRef(new Animated.Value(H - height)).current;
@@ -63,9 +64,10 @@ export function BottomSheet({ snaps, index, onIndexChange, onHeight, header, chi
         <Pressable onPress={cycle} accessibilityRole="adjustable" accessibilityLabel="Resize panel" accessibilityHint="Drag or tap to expand or collapse" style={{ alignItems: 'center', paddingTop: 8, paddingBottom: 8 }}>
           <View style={{ width: 40, height: 5, borderRadius: 3, backgroundColor: color.grey200 }} />
         </Pressable>
-        {header}
+        <View onLayout={(e) => setHeaderH(e.nativeEvent.layout.height)}>{header}</View>
       </View>
-      <View style={{ flex: 1 }}>{children}</View>
+      {/* Sized to the visible part so footers inside stay on screen. */}
+      <View style={{ height: Math.max(0, height - 21 - headerH) }}>{children}</View>
     </Animated.View>
   );
 }

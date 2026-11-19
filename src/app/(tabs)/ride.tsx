@@ -304,7 +304,6 @@ export default function Ride() {
       {!isWide && (
         <View pointerEvents="box-none" style={{ position: 'absolute', top: insets.top + 12, left: 16, right: 16, flexDirection: 'row', alignItems: 'center' }}>
           <View style={[{ backgroundColor: color.white, borderRadius: radius.pill, paddingHorizontal: 16, height: 44, flexDirection: 'row', alignItems: 'center', gap: 6 }, shadow.float]}>
-            <T weight="800" style={{ fontSize: 16 }}>Hayve</T>
             <ProductWordmark product="ride" size={16} />
           </View>
         </View>
@@ -318,8 +317,7 @@ export default function Ride() {
         (isWide ? (
           <View style={[{ position: 'absolute', top: 24, left: 24, bottom: 24, width: PANEL_W, backgroundColor: color.white, borderRadius: radius.lg, overflow: 'hidden' }, shadow.float]}>
             <View style={{ paddingHorizontal: 24, paddingTop: 24, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <T weight="800" style={{ fontSize: 24 }}>Hayve</T>
-              <ProductWordmark product="ride" size={24} active />
+              <ProductWordmark product="ride" size={24} />
               <View style={{ flex: 1 }} />
               <SimBadge />
             </View>
@@ -404,7 +402,7 @@ function SheetContent(p: {
   if (p.mode === 'search') return <SearchPanel which={p.search!} near={p.near} places={p.places} onPick={p.search === 'pickup' ? p.choosePickup : p.chooseDropoff} onClose={() => p.setSearch(null)} onSetOnMap={p.search === 'pickup' ? p.setOnMap : undefined} />;
 
   if (p.mode === 'pickup') {
-    const saved = p.places.filter((x) => ['home', 'work', 'centraal', 'schiphol'].includes(x.id));
+    const saved = p.places.filter((x) => ['home', 'work', 'centraal', 'schiphol'].includes(x.id) && x.id !== p.pickup?.id);
     return (
       <ScrollView contentContainerStyle={[pad, { paddingTop: 12, gap: 16 }]} keyboardShouldPersistTaps="handled">
         <T variant="title2">Where to?</T>
@@ -438,59 +436,65 @@ function SheetContent(p: {
 
   if (p.mode === 'choose') {
     return (
-      <ScrollView contentContainerStyle={[pad, { paddingTop: 12 }]}>
-        <View style={{ borderWidth: 1, borderColor: color.grey200, borderRadius: radius.md }}>
-          <TripRow dot="circle" label={p.pickup?.name ?? ''} onPress={() => p.setSearch('pickup')} />
-          <View style={{ height: 1, backgroundColor: color.grey200, marginLeft: 40 }} />
-          <TripRow dot="square" label={p.dropoff?.name ?? ''} onPress={() => p.setSearch('dropoff')} right={<IconButton icon="close" label="Clear destination" size={36} onPress={p.clearDropoff} />} />
-        </View>
-        <T variant="footnote" color={color.textSecondary} style={{ marginTop: 12, marginBottom: 8 }}>
-          {p.route ? `${Math.round(p.route.minutes)} min · ${p.route.km.toFixed(1)} km${p.route.estimated ? ' (estimate)' : ''}` : 'Finding the best route…'}
-        </T>
-        {p.options.length === 0 ? (
-          <View style={{ paddingVertical: 24, alignItems: 'center' }}>
-            <ActivityIndicator color={color.black} />
+      <View style={{ flex: 1 }}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 12, paddingBottom: 16 }}>
+          <View style={{ borderWidth: 1, borderColor: color.grey200, borderRadius: radius.md }}>
+            <TripRow dot="circle" label={p.pickup?.name ?? ''} onPress={() => p.setSearch('pickup')} />
+            <View style={{ height: 1, backgroundColor: color.grey200, marginLeft: 40 }} />
+            <TripRow dot="square" label={p.dropoff?.name ?? ''} onPress={() => p.setSearch('dropoff')} right={<IconButton icon="close" label="Clear destination" size={36} onPress={p.clearDropoff} />} />
           </View>
-        ) : (
-          <View style={{ gap: 8 }} accessibilityRole="radiogroup">
-            {p.options.map((o) => {
-              const on = o.category === p.category;
-              return (
-                <Pressable key={o.category} onPress={() => { tap(); p.setCategory(o.category); }} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={`${o.label}, ${money(o.priceCents)}, ${o.pickupEtaMin} minutes away`} style={({ hovered }: { pressed: boolean; hovered?: boolean }) => ({ flexDirection: 'row', alignItems: 'center', gap: 16, padding: 12, borderRadius: radius.md, borderWidth: on ? 2 : 1, borderColor: on || hovered ? color.black : color.grey200 })}>
-                  <View style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}>
-                    <Icon name={CAR_ICON[o.category]} size={28} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <T variant="headline">{o.label}</T>
-                      <Icon name="person-outline" size={13} color={color.grey500} />
-                      <T variant="footnote" color={color.textSecondary}>{o.seats}</T>
-                    </View>
-                    <T variant="footnote" color={color.textSecondary}>
-                      {time(o.arrivalAt)} · {o.pickupEtaMin} min away
-                    </T>
-                  </View>
-                  <T variant="headline">{money(o.priceCents)}</T>
-                </Pressable>
-              );
-            })}
-          </View>
-        )}
-        <Pressable onPress={p.openPay} accessibilityRole="button" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: color.grey200, opacity: pressed ? 0.7 : 1 })}>
-          <Icon name={p.method === 'wallet' ? 'wallet-outline' : 'card-outline'} size={20} />
-          <T variant="headline" style={{ flex: 1 }}>{p.method === 'wallet' ? 'Hayve balance' : p.method === 'card' ? 'Visa •••• 4242' : 'Test card (declines)'}</T>
-          <Icon name="chevron-forward" size={18} color={color.grey500} />
-        </Pressable>
-        {p.selected && p.method !== 'wallet' && p.selected.waveBackCents > 0 && (
-          <T variant="footnote" color={color.textSecondary} style={{ marginBottom: 8 }}>
-            Pay with your Hayve balance and get {money(p.selected.waveBackCents)} Wave Back
+          <T variant="footnote" color={color.textSecondary} style={{ marginTop: 12, marginBottom: 8 }}>
+            {p.route ? `${Math.round(p.route.minutes)} min · ${p.route.km.toFixed(1)} km${p.route.estimated ? ' (estimate)' : ''}` : 'Finding the best route…'}
           </T>
-        )}
-        <Button title={p.selected ? `Request ${p.selected.label} · ${money(p.selected.priceCents)}` : 'Request ride'} size="lg" full loading={p.busy} disabled={!p.selected} onPress={p.request} style={{ marginTop: 8 }} />
-        <T variant="caption" color={color.textSecondary} center style={{ marginTop: 8 }}>
-          The fare includes all fees. Demo: no real ride is booked.
-        </T>
-      </ScrollView>
+          {p.options.length === 0 ? (
+            <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+              <ActivityIndicator color={color.black} />
+            </View>
+          ) : (
+            <View style={{ gap: 8 }} accessibilityRole="radiogroup">
+              {p.options.map((o) => {
+                const on = o.category === p.category;
+                return (
+                  <Pressable key={o.category} onPress={() => { tap(); p.setCategory(o.category); }} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={`${o.label}, ${money(o.priceCents)}, ${o.pickupEtaMin} minutes away`} style={({ hovered }: { pressed: boolean; hovered?: boolean }) => ({ flexDirection: 'row', alignItems: 'center', gap: 16, padding: 12, borderRadius: radius.md, borderWidth: on ? 2 : 1, borderColor: on || hovered ? color.black : color.grey200 })}>
+                    <View style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon name={CAR_ICON[o.category]} size={28} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <T variant="headline">{o.label}</T>
+                        <Icon name="person-outline" size={13} color={color.grey500} />
+                        <T variant="footnote" color={color.textSecondary}>{o.seats}</T>
+                      </View>
+                      <T variant="footnote" color={color.textSecondary}>
+                        {time(o.arrivalAt)} · {o.pickupEtaMin} min away
+                      </T>
+                    </View>
+                    <T variant="headline">{money(o.priceCents)}</T>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+          <T variant="caption" color={color.textSecondary} style={{ marginTop: 12 }}>
+            Fares include all fees. Demo: no real ride is booked.
+          </T>
+        </ScrollView>
+        <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 16, borderTopWidth: 1, borderTopColor: color.grey200, backgroundColor: color.white }}>
+          <Pressable onPress={p.openPay} accessibilityRole="button" accessibilityLabel="Change payment method" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, opacity: pressed ? 0.7 : 1 })}>
+            <Icon name={p.method === 'wallet' ? 'wallet-outline' : 'card-outline'} size={20} />
+            <View style={{ flex: 1 }}>
+              <T variant="headline">{p.method === 'wallet' ? 'Hayve balance' : p.method === 'card' ? 'Visa •••• 4242' : 'Test card (declines)'}</T>
+              {p.selected && p.selected.waveBackCents > 0 ? (
+                <T variant="caption" color={p.method === 'wallet' ? color.indigo : color.textSecondary}>
+                  {p.method === 'wallet' ? `${money(p.selected.waveBackCents)} Wave Back on this ride` : `Pay with your Hayve balance and get ${money(p.selected.waveBackCents)} Wave Back`}
+                </T>
+              ) : null}
+            </View>
+            <Icon name="chevron-forward" size={18} color={color.grey500} />
+          </Pressable>
+          <Button title={p.selected ? `Request ${p.selected.label} · ${money(p.selected.priceCents)}` : 'Request ride'} size="lg" full loading={p.busy} disabled={!p.selected} onPress={p.request} style={{ marginTop: 8 }} />
+        </View>
+      </View>
     );
   }
 

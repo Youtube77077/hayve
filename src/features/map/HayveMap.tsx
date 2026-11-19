@@ -32,7 +32,7 @@ const NativeMap = forwardRef<HayveMapHandle, HayveMapProps>(function NativeMap({
   const fitKey = fit ? fit.map((p) => p.join(',')).join(';') : '';
   useEffect(() => {
     if (fit && fit.length) fitTo(fit);
-  }, [fitKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fitKey, padding.bottom, padding.left]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const shape = useMemo(() => ({ type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: route && route.length > 1 ? route : [] } }), [route]);
 

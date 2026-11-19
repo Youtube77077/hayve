@@ -82,7 +82,7 @@ const GLHayveMap = forwardRef<HayveMapHandle, HayveMapProps & { provider: 'mapbo
   const fitKey = fit ? fit.map((p) => p.join(',')).join(';') : '';
   useEffect(() => {
     if (fit && fit.length) fitTo(fit);
-  }, [map, fitKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [map, fitKey, padding.bottom, padding.left]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <View style={[{ overflow: 'hidden', backgroundColor: MAP_COLORS.land }, style]} accessibilityLabel={accessibilityLabel ?? 'Map'}>
