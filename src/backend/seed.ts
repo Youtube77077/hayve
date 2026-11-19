@@ -107,8 +107,8 @@ export function createSeedDatabase(): Database {
   const ago = (days: number, hours = 0) => t0 - days * DAY - hours * 3_600_000;
 
   /* ---------------------------------------------------------- people -- */
-  type P = [id: string, email: string, username: string, name: string, roles: Role[], avatar: string, bio: string, extra?: Partial<Profile>];
-  const people: P[] = [
+  type Person = [id: string, email: string, username: string, name: string, roles: Role[], avatar: string, bio: string, extra?: Partial<Profile>];
+  const people: Person[] = [
     ['u_sam', 'sam@hayve.app', 'samrivera', 'Sam Rivera', ['customer', 'seller'], media.avatars.sam, 'Designer in Amsterdam. Selling what I no longer use, buying what I love.'],
     ['u_noor', 'noor@hayve.app', 'noor', 'Noor Haddad', ['customer'], media.avatars.noor, 'Coffee, film cameras and long walks along the Amstel. My wishlist is public.'],
     ['u_lucas', 'lucas@hayve.app', 'lucasv', 'Lucas Vermeer', ['customer', 'seller'], media.avatars.lucas, 'Vinyl, audio and vintage tech. Ships within 48h.'],

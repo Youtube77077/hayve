@@ -1,0 +1,96 @@
+# Builds an UNSIGNED Hayve .ipa on a macOS runner with Xcode.
+# Sideloading tools (AltStore, SideStore, Sideloadly, Feather, ESign…) re-sign it
+# with your own Apple ID / certificate when you install it.
+name: iOS IPA (unsigned, for sideloading)
+
+on:
+  push:
+    branches: ['main', 'claude/**']
+    paths-ignore: ['**.md', 'docs/**', 'supabase/**']
+  workflow_dispatch:
+
+concurrency:
+  group: ios-ipa-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Typecheck and test
+        run: |
+          npx tsc --noEmit
+          npx vitest run
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Generate native iOS project (Expo prebuild)
+        run: npx expo prebuild --platform ios --clean --no-install
+        env:
+          CI: 1
+
+      - name: Install CocoaPods
+        working-directory: ios
+        run: pod install
+
+      - name: Build Release .app (no code signing)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace ios/Hayve.xcworkspace \
+            -scheme Hayve \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build | xcbeautify --renderer github-actions
+
+      - name: Package .ipa
+        run: |
+          APP=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -n 1)
+          echo "Built app: $APP"
+          test -f "$APP/main.jsbundle" && echo "JS bundle embedded ✓"
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qry Hayve.ipa Payload
+          ls -lh Hayve.ipa
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Hayve-ipa-${{ github.run_number }}
+          path: Hayve.ipa
+          retention-days: 30
+
+      - name: Publish pre-release with the .ipa
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ios-build-${{ github.run_number }}
+          name: Hayve iOS build ${{ github.run_number }} (unsigned, for sideloading)
+          target_commitish: ${{ github.sha }}
+          prerelease: true
+          files: Hayve.ipa
+          body: |
+            Unsigned Hayve build for sideloading (AltStore / SideStore / Sideloadly / Feather).
+            Commit: ${{ github.sha }}
+
+            Demo login: sam@hayve.app / hayve123 (more demo accounts on the sign-in screen).
+            All payments and services in this build are simulated.
