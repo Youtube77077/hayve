@@ -11,6 +11,7 @@ import {
   nightsBetween,
   notify,
   type PayMethod,
+  previewWaveBack,
   publicUser,
 } from './common';
 import { ratingFor } from './shop';
@@ -102,7 +103,18 @@ export function quoteRental(vehicleId: ID, start: string, end: string) {
   const discount = days >= 7 ? Math.round(base * 0.15) : days >= 3 ? Math.round(base * 0.05) : 0;
   const insurance = 1200 * days;
   const serviceFee = Math.round((base - discount) * 0.08);
-  return { days, baseCents: base, discountCents: discount, insuranceCents: insurance, serviceFeeCents: serviceFee, totalCents: base - discount + insurance + serviceFee, depositCents: v.requirements.depositCents };
+  return {
+    days,
+    baseCents: base,
+    discountCents: discount,
+    insuranceCents: insurance,
+    serviceFeeCents: serviceFee,
+    /** Shown to customers as one "Fees" line. */
+    feesCents: serviceFee,
+    totalCents: base - discount + insurance + serviceFee,
+    depositCents: v.requirements.depositCents,
+    waveBackCents: previewWaveBack(getSessionUserId(), 'services', base - discount),
+  };
 }
 
 export function bookRental(input: { vehicleId: ID; start: string; end: string; pickupLocation: string; returnLocation: string; method: PayMethod; driverAge: number }) {
@@ -128,6 +140,7 @@ export function bookRental(input: { vehicleId: ID; start: string; end: string; p
     labelForPayee: `Hayve Drive · ${displayName(user.id)}`,
     note: `${input.start} → ${input.end}`,
     ref: { kind: 'rental', id },
+    waveBack: { category: 'services', baseCents: q.baseCents - q.discountCents },
   });
   const rental: Rental = {
     id,
@@ -293,7 +306,18 @@ export function quoteStay(propertyId: ID, checkIn: string, checkOut: string) {
   const weekly = nights >= 7 ? Math.round(base * 0.1) : 0;
   const service = Math.round((base - weekly) * 0.12);
   const taxes = Math.round((base - weekly) * 0.07);
-  return { nights, baseCents: base, discountCents: weekly, cleaningFeeCents: p.cleaningFeeCents, serviceFeeCents: service, taxesCents: taxes, totalCents: base - weekly + p.cleaningFeeCents + service + taxes };
+  return {
+    nights,
+    baseCents: base,
+    discountCents: weekly,
+    cleaningFeeCents: p.cleaningFeeCents,
+    serviceFeeCents: service,
+    taxesCents: taxes,
+    /** Shown to customers as one "Fees" line. */
+    feesCents: service,
+    totalCents: base - weekly + p.cleaningFeeCents + service + taxes,
+    waveBackCents: previewWaveBack(getSessionUserId(), 'services', base - weekly + p.cleaningFeeCents),
+  };
 }
 
 export function bookStay(input: { propertyId: ID; checkIn: string; checkOut: string; guests: number; method: PayMethod; message?: string }) {
@@ -319,6 +343,7 @@ export function bookStay(input: { propertyId: ID; checkIn: string; checkOut: str
     labelForPayee: `Hayve Stay · ${displayName(user.id)}`,
     note: `${input.checkIn} → ${input.checkOut}`,
     ref: { kind: 'stay', id },
+    waveBack: { category: 'services', baseCents: q.baseCents - q.discountCents + q.cleaningFeeCents },
   });
   const booking: StayBooking = {
     id,

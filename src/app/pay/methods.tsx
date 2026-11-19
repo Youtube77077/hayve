@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../../design/icons';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { wallet } from '../../backend/api';
@@ -41,7 +41,7 @@ export default function PaymentMethods() {
           <Segmented value={kind} onChange={setKind} options={[{ key: 'card', label: 'Card' }, { key: 'bank', label: 'Bank account' }]} />
           <Input label={kind === 'card' ? 'Card number' : 'IBAN'} icon={kind === 'card' ? 'card-outline' : 'business-outline'} placeholder={kind === 'card' ? '4242 4242 4242 4242' : 'NL91 ABNA 0417 1643 00'} value={number} onChangeText={setNumber} keyboardType={kind === 'card' ? 'number-pad' : 'default'} autoCapitalize="characters" />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Ionicons name="lock-closed" size={14} color={color.textTertiary} />
+            <Icon name="lock-closed" size={14} color={color.textTertiary} />
           </View>
         </View>
       </Sheet>

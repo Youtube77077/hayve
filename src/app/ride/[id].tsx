@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../../design/icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
@@ -87,7 +87,7 @@ export default function RideTracking() {
                   </Card>
                 ) : (
                   <Card tone="soft" style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <Ionicons name="radio-outline" size={24} color={color.primary} />
+                    <Icon name="radio-outline" size={24} color={color.primary} />
                     <View style={{ flex: 1 }}>
                       <T variant="headline">Matching you with a nearby driver</T>
                       <T variant="footnote" color={color.textSecondary}>

@@ -2,9 +2,9 @@ import { accountIdFor, createTransaction, SYSTEM } from '../ledger';
 import { distanceKm, PLACES, placeById } from '../places';
 import { assert, commit, find, getDb, HayveError, now, uid } from '../store';
 import type { DriverProfile, ID, Ride, RideCategory, RideStatus } from '../types';
-import { abortPayment, beginPayment, completePayment, displayName, notify, type PayMethod, publicUser, type PublicUser } from './common';
+import { abortPayment, beginPayment, completePayment, displayName, notify, type PayMethod, previewWaveBack, publicUser, type PublicUser } from './common';
 import { ratingFor } from './shop';
-import { me, requireRole } from './session';
+import { getSessionUserId, me, requireRole } from './session';
 
 /** Hayve Ride: passenger transport (simulated dispatch). */
 
@@ -17,6 +17,7 @@ export const RIDE_CATEGORIES: { id: RideCategory; label: string; seats: number; 
 ];
 
 export interface RideOption {
+  waveBackCents: number;
   category: RideCategory;
   label: string;
   seats: number;
@@ -47,6 +48,7 @@ export function quoteRide(pickupId: string, dropoffId: string): RideOption[] {
       seats: c.seats,
       blurb: c.blurb,
       priceCents: Math.max(700, priceCents),
+      waveBackCents: previewWaveBack(getSessionUserId(), 'services', Math.max(700, priceCents)),
       pickupEtaMin: c.wait,
       durationMin: minutes,
       arrivalAt: now() + (c.wait + minutes) * 60_000,
@@ -74,6 +76,7 @@ export function requestRide(pickupId: string, dropoffId: string, category: RideC
     labelForPayee: displayName(user.id),
     note: `${pickup.name} → ${dropoff.name}`,
     ref: { kind: 'ride', id },
+    waveBack: { category: 'services', baseCents: option.priceCents },
   });
   const ride: Ride = {
     id,

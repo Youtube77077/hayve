@@ -3,9 +3,10 @@ import { color, useLayout } from '../../design';
 import { HayveTabBar } from '../../features/nav/TabBar';
 
 /**
- * Ten independent Hayve destinations. On iPhone a floating bottom bar shows
- * Home / Shop / Pay / Profile plus a centre launcher for every service; on
- * iPad and desktop web every destination is listed in a sidebar.
+ * Hayve destinations: Home plus the six products (Shop, Pay, Ride, Bites,
+ * Drive, Stay), Search and Profile. Desktop and iPad get a sidebar with the
+ * illustrated product wordmarks; phones get a bottom bar with a More sheet.
+ * Hayve Send is not a destination: it lives inside the Shop order flow.
  */
 export default function TabsLayout() {
   const { isWide } = useLayout();
@@ -27,7 +28,6 @@ export default function TabsLayout() {
       <Tabs.Screen name="bites" options={{ title: 'Bites' }} />
       <Tabs.Screen name="drive" options={{ title: 'Drive' }} />
       <Tabs.Screen name="stay" options={{ title: 'Stay' }} />
-      <Tabs.Screen name="send" options={{ title: 'Send' }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
     </Tabs>
   );

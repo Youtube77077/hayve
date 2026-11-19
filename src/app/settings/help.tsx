@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../../design/icons';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { Button, Card, color, Header, Screen, Section, T, useToast } from '../../design';
@@ -24,7 +24,7 @@ export default function Help() {
                 <T variant="headline" style={{ flex: 1 }}>
                   {q}
                 </T>
-                <Ionicons name={open === i ? 'chevron-up' : 'chevron-down'} size={18} color={color.textTertiary} />
+                <Icon name={open === i ? 'chevron-up' : 'chevron-down'} size={18} color={color.textTertiary} />
               </View>
               {open === i && (
                 <T color={color.textSecondary} style={{ marginTop: 8 }}>

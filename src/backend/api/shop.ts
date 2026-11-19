@@ -1,3 +1,4 @@
+import { VAT_RATE } from '../config';
 import { accountIdFor, refundTransaction, releaseTransaction, SYSTEM } from '../ledger';
 import { assert, commit, find, getDb, HayveError, now, reference, uid } from '../store';
 import type { ID, Order, OrderStatus, Product, ProductCategory, ProductCondition } from '../types';
@@ -8,11 +9,13 @@ import {
   completePayment,
   displayName,
   notify,
+  marketplaceFee,
   type PayMethod,
-  protectionFee,
+  previewWaveBack,
   publicUser,
   type PublicUser,
   SHIPPING_CENTS,
+  verifiedBusinessOf,
 } from './common';
 import { getSessionUserId, me } from './session';
 
@@ -22,7 +25,9 @@ export interface ProductCard {
   id: ID;
   title: string;
   priceCents: number;
-  priceWithProtectionCents: number;
+  /** Buyer fee shown as one "Fees" line at checkout. */
+  feeCents: number;
+  priceWithFeesCents: number;
   image?: string;
   images: string[];
   condition: ProductCondition;
@@ -36,13 +41,15 @@ export interface ProductCard {
   quantity: number;
   status: Product['status'];
   seller: PublicUser;
+  sellerRating: { average: number; count: number };
+  /** Listed by a verified Hayve Store business. */
+  fromVerifiedBusiness: boolean;
   isMine: boolean;
   createdAt: number;
 }
 
 export interface ProductDetail extends ProductCard {
   description: string;
-  sellerRating: { average: number; count: number };
   sellerListings: number;
   onMyWishlist: boolean;
 }
@@ -73,7 +80,8 @@ export function toCard(p: Product): ProductCard {
     id: p.id,
     title: p.title,
     priceCents: p.priceCents,
-    priceWithProtectionCents: p.priceCents + protectionFee(p.priceCents),
+    feeCents: marketplaceFee(p.priceCents),
+    priceWithFeesCents: p.priceCents + marketplaceFee(p.priceCents),
     image: p.images[0],
     images: p.images,
     condition: p.condition,
@@ -87,6 +95,8 @@ export function toCard(p: Product): ProductCard {
     quantity: p.quantity,
     status: p.status,
     seller: publicUser(p.sellerId),
+    sellerRating: ratingFor('user', p.sellerId),
+    fromVerifiedBusiness: !!verifiedBusinessOf(p.sellerId),
     isMine: viewer === p.sellerId,
     createdAt: p.createdAt,
   };
@@ -159,7 +169,6 @@ export function getProduct(id: ID): ProductDetail {
   return {
     ...toCard(p),
     description: p.description,
-    sellerRating: ratingFor('user', p.sellerId),
     sellerListings: db.products.filter((x) => x.sellerId === p.sellerId && x.status === 'active').length,
     onMyWishlist: !!viewer && db.wishlistItems.some((w) => w.ownerId === viewer && w.productId === id),
   };
@@ -293,29 +302,38 @@ export function myListings() {
 export interface CheckoutQuote {
   priceCents: number;
   shippingCents: number;
-  protectionFeeCents: number;
+  feeCents: number;
   totalCents: number;
+  /** Wave Back if paid with the Hayve balance. */
+  waveBackCents: number;
 }
 
-export function quote(productId: ID): CheckoutQuote {
+export type DeliveryMethod = 'ship' | 'pickup';
+
+export function quote(productId: ID, delivery: DeliveryMethod = 'ship'): CheckoutQuote {
   const p = find(getDb().products, (x) => x.id === productId, 'Listing');
-  const fee = protectionFee(p.priceCents);
-  return { priceCents: p.priceCents, shippingCents: SHIPPING_CENTS, protectionFeeCents: fee, totalCents: p.priceCents + SHIPPING_CENTS + fee };
+  const fee = marketplaceFee(p.priceCents);
+  const shipping = delivery === 'ship' ? SHIPPING_CENTS : 0;
+  return { priceCents: p.priceCents, shippingCents: shipping, feeCents: fee, totalCents: p.priceCents + shipping + fee, waveBackCents: previewWaveBack(getSessionUserId(), 'shop', p.priceCents) };
 }
 
 /** Ordinary purchase: the buyer pays and receives the item themselves. */
-export function checkout(productId: ID, opts: { addressId: ID; method: PayMethod }) {
+export function checkout(productId: ID, opts: { addressId?: ID; method: PayMethod; delivery?: DeliveryMethod }) {
   const user = me();
   const db = getDb();
+  const delivery = opts.delivery ?? 'ship';
   const p = find(db.products, (x) => x.id === productId, 'Listing');
   assert(p.sellerId !== user.id, 'invalid', "You can't buy your own listing");
   assert(p.status === 'active' && p.quantity > 0, 'conflict', 'This item is no longer available');
   // Units currently reserved by gift checkouts are not for sale.
   const reservedUnits = db.wishlistItems.filter((w) => w.productId === p.id && w.status === 'reserved').length;
   assert(p.quantity - reservedUnits > 0, 'conflict', 'This item is being purchased by someone else right now');
-  const address = find(db.addresses, (a) => a.id === opts.addressId && a.userId === user.id, 'Delivery address');
+  const address =
+    delivery === 'ship'
+      ? find(db.addresses, (a) => a.id === opts.addressId && a.userId === user.id, 'Delivery address')
+      : db.addresses.find((a) => a.userId === user.id && a.isDefault);
 
-  const q = quote(productId);
+  const q = quote(productId, delivery);
   const orderId = uid('o');
   const tx = beginPayment({
     payerId: user.id,
@@ -323,14 +341,16 @@ export function checkout(productId: ID, opts: { addressId: ID; method: PayMethod
     type: 'purchase',
     credits: [
       { accountId: accountIdFor(p.sellerId), amountCents: q.priceCents, status: 'pending' },
-      { accountId: SYSTEM.fees, amountCents: q.shippingCents + q.protectionFeeCents },
+      { accountId: SYSTEM.fees, amountCents: q.shippingCents + q.feeCents },
     ],
     labelForPayer: displayName(p.sellerId),
     labelForPayee: displayName(user.id),
     note: p.title,
     ref: { kind: 'order', id: orderId },
+    waveBack: { category: 'shop', baseCents: q.priceCents },
   });
   try {
+    const name = displayName(user.id);
     const order: Order = {
       id: orderId,
       reference: reference('HS'),
@@ -339,10 +359,13 @@ export function checkout(productId: ID, opts: { addressId: ID; method: PayMethod
       sellerId: p.sellerId,
       buyerId: user.id,
       recipientId: user.id,
-      shipTo: { fullName: address.fullName, line1: address.line1, city: address.city, postcode: address.postcode, country: address.country },
+      shipTo: address
+        ? { fullName: address.fullName, line1: address.line1, city: address.city, postcode: address.postcode, country: address.country }
+        : { fullName: name, line1: 'Pickup in person', city: p.location, postcode: '', country: 'Netherlands' },
+      delivery,
       priceCents: q.priceCents,
       shippingCents: q.shippingCents,
-      protectionFeeCents: q.protectionFeeCents,
+      feeCents: q.feeCents,
       totalCents: q.totalCents,
       paymentTxId: tx.id,
       sellerTxId: tx.id,
@@ -350,14 +373,14 @@ export function checkout(productId: ID, opts: { addressId: ID; method: PayMethod
       timeline: [{ status: 'paid', at: now() }],
       createdAt: now(),
     };
-    completePayment(tx, 'pending');
+    const captured = completePayment(tx, 'pending');
     db.orders.push(order);
     p.quantity -= 1;
     if (p.quantity <= 0) p.status = 'sold_out';
     notify(user.id, 'order', 'Order confirmed', `${p.title} · ${order.reference}`, `/orders/${order.id}`);
-    notify(p.sellerId, 'sale', 'You made a sale 🎉', `${p.title} sold to ${displayName(user.id)}. Ship within 3 days.`, `/orders/${order.id}`);
+    notify(p.sellerId, 'sale', 'You made a sale', delivery === 'ship' ? `${p.title} sold to ${name}. Create a Hayve Send label within 3 days.` : `${p.title} sold to ${name}. Arrange the pickup in Messages.`, `/orders/${order.id}`);
     commit();
-    return { orderId: order.id, reference: order.reference };
+    return { orderId: order.id, reference: order.reference, waveBackCents: captured.waveBackCents ?? 0 };
   } catch (e) {
     abortPayment(tx);
     commit();
@@ -376,17 +399,25 @@ export interface OrderView {
   counterparty: string;
   shipTo: Order['shipTo'] | null;
   shipToLabel: string;
+  delivery: Order['delivery'];
+  shipment: Order['shipment'] | null;
   priceCents: number;
   shippingCents: number;
-  protectionFeeCents: number;
+  feeCents: number;
   totalCents: number;
   /** What this viewer paid or earns. */
   amountCents: number;
   status: OrderStatus;
   timeline: Order['timeline'];
   createdAt: number;
-  actions: ('ship' | 'deliver' | 'confirm' | 'cancel' | 'fail_delivery')[];
+  actions: OrderAction[];
+  canReview: boolean;
+  review: { rating: number; text: string } | null;
+  /** Verified Hayve Store sellers issue VAT invoices. */
+  invoiceAvailable: boolean;
 }
+
+export type OrderAction = 'create_label' | 'ship' | 'handover' | 'deliver' | 'confirm' | 'cancel' | 'fail_delivery';
 
 function productSummary(id: ID) {
   const p = getDb().products.find((x) => x.id === id);
@@ -406,9 +437,13 @@ export function viewOrder(order: Order, viewerId: ID): OrderView | null {
   else if (order.kind === 'gift' && db.giftOrders.some((g) => g.orderId === order.id && g.purchaserId === viewerId)) role = 'gift_purchaser';
   if (!role) return null;
 
-  const actions: OrderView['actions'] = [];
+  const delivery = order.delivery ?? 'ship';
+  const actions: OrderAction[] = [];
   if (role === 'seller') {
-    if (order.status === 'paid') actions.push('ship', 'cancel');
+    if (order.status === 'paid' && delivery === 'ship' && !order.shipment) actions.push('create_label');
+    if (order.status === 'paid' && delivery === 'ship' && order.shipment) actions.push('ship');
+    if (order.status === 'paid' && delivery === 'pickup') actions.push('handover');
+    if (order.status === 'paid') actions.push('cancel');
     if (order.status === 'shipped') actions.push('deliver', 'fail_delivery');
   } else if (order.status === 'paid') actions.push('cancel');
   if (role === 'buyer' && order.status === 'delivered') actions.push('confirm');
@@ -425,6 +460,8 @@ export function viewOrder(order: Order, viewerId: ID): OrderView | null {
     shipTo = null;
     shipToLabel = `${displayName(order.recipientId)}'s saved address (private)`;
   }
+  if (delivery === 'pickup') shipToLabel = `Pickup in person · ${order.shipTo.city}`;
+  const review = order.reviewId ? db.reviews.find((r) => r.id === order.reviewId) : undefined;
 
   return {
     id: order.id,
@@ -435,15 +472,20 @@ export function viewOrder(order: Order, viewerId: ID): OrderView | null {
     counterparty,
     shipTo,
     shipToLabel,
+    delivery,
+    shipment: order.shipment ?? null,
     priceCents: order.priceCents,
     shippingCents: order.shippingCents,
-    protectionFeeCents: order.protectionFeeCents,
+    feeCents: order.feeCents,
     totalCents: order.totalCents,
     amountCents: role === 'seller' ? order.priceCents : order.totalCents,
     status: order.status,
     timeline: order.timeline,
     createdAt: order.createdAt,
     actions,
+    canReview: role === 'buyer' && !order.reviewId && (order.status === 'delivered' || order.status === 'completed'),
+    review: review ? { rating: review.rating, text: review.text } : null,
+    invoiceAvailable: !!verifiedBusinessOf(order.sellerId) && order.status !== 'refunded',
   };
 }
 
@@ -487,7 +529,7 @@ function restoreAfterCancel(order: Order) {
   }
 }
 
-export function updateOrder(id: ID, action: OrderView['actions'][number]) {
+export function updateOrder(id: ID, action: OrderAction) {
   const user = me();
   const db = getDb();
   const order = find(db.orders, (o) => o.id === id, 'Order');
@@ -500,21 +542,31 @@ export function updateOrder(id: ID, action: OrderView['actions'][number]) {
     order.kind === 'gift' ? db.giftOrders.find((g) => g.orderId === order.id)!.purchaserId : order.buyerId!;
 
   switch (action) {
+    case 'create_label':
+      order.shipment = { carrier: 'Hayve Send', trackingCode: reference('HX'), labelCreatedAt: now(), events: [{ status: 'label_created', at: now() }] };
+      push('label_created');
+      break;
     case 'ship':
       order.status = 'shipped';
-      push('label_created');
+      order.shipment?.events.push({ status: 'in_transit', at: now() });
       push('shipped');
-      notify(buyerOrPurchaser(), 'delivery', 'Your order is on its way', `${title} has shipped.`, `/orders/${order.id}`);
+      notify(buyerOrPurchaser(), 'delivery', 'Your order is on its way', `${title} is with Hayve Send · ${order.shipment?.trackingCode ?? ''}`, `/orders/${order.id}`);
+      break;
+    case 'handover':
+      order.status = 'delivered';
+      push('delivered');
+      notify(order.buyerId!, 'delivery', 'Picked up', `${title} was handed over. Confirm everything is OK.`, `/orders/${order.id}`);
       break;
     case 'deliver':
       order.status = 'delivered';
+      order.shipment?.events.push({ status: 'delivered', at: now() });
       push('delivered');
       if (order.kind === 'gift') {
         // Gifts complete automatically; the recipient is never asked to confirm.
         order.status = 'completed';
         push('completed');
         releaseTransaction(order.sellerTxId);
-        notify(buyerOrPurchaser(), 'delivery', 'Gift delivered 🎁', `${title} was delivered.`, `/orders/${order.id}`);
+        notify(buyerOrPurchaser(), 'delivery', 'Gift delivered', `${title} was delivered.`, `/orders/${order.id}`);
       } else {
         notify(order.buyerId!, 'delivery', 'Delivered', `${title} was delivered. Confirm everything is OK.`, `/orders/${order.id}`);
       }
@@ -529,6 +581,7 @@ export function updateOrder(id: ID, action: OrderView['actions'][number]) {
     case 'fail_delivery': {
       order.status = 'refunded';
       push(action === 'cancel' ? 'cancelled' : 'refunded');
+      if (action === 'fail_delivery') order.shipment?.events.push({ status: 'returned', at: now() });
       refundTransaction(order.paymentTxId, action === 'cancel' ? 'Order cancelled' : 'Delivery failed');
       // Gifts pay the seller from escrow in a separate transaction: reverse it too.
       if (order.sellerTxId !== order.paymentTxId) refundTransaction(order.sellerTxId, 'Gift cancelled');
@@ -541,4 +594,129 @@ export function updateOrder(id: ID, action: OrderView['actions'][number]) {
   }
   audit(user.id, `order.${action}`, order.id);
   commit();
+}
+
+/* ------------------------------------------------- reviews & tracking -- */
+
+/** The buyer reviews the seller once the item has arrived. */
+export function reviewOrder(orderId: ID, rating: number, text = '') {
+  const user = me();
+  const db = getDb();
+  const order = find(db.orders, (o) => o.id === orderId && o.buyerId === user.id, 'Order');
+  assert(order.status === 'delivered' || order.status === 'completed', 'conflict', 'You can review the seller once the item has arrived');
+  assert(!order.reviewId, 'conflict', 'You already reviewed this order');
+  assert(Number.isInteger(rating) && rating >= 1 && rating <= 5, 'invalid', 'Choose 1 to 5 stars');
+  assert(text.length <= 500, 'invalid', 'Reviews can be up to 500 characters');
+  const id = uid('rv');
+  db.reviews.push({ id, authorId: user.id, targetKind: 'user', targetId: order.sellerId, rating, text: text.trim(), createdAt: now() });
+  order.reviewId = id;
+  notify(order.sellerId, 'sale', 'New review', `${displayName(user.id)} left you ${rating} stars.`, `/u/${publicUser(order.sellerId).username}`);
+  commit();
+}
+
+/** Public parcel tracking for Hayve Send shipments (status only, no names or addresses). */
+export function trackShipment(code: string) {
+  const order = getDb().orders.find((o) => o.shipment?.trackingCode.toUpperCase() === code.trim().toUpperCase());
+  if (!order?.shipment) throw new HayveError('not_found', 'No parcel with that tracking code');
+  return { trackingCode: order.shipment.trackingCode, carrier: order.shipment.carrier, events: order.shipment.events, delivered: order.shipment.events.some((e) => e.status === 'delivered') };
+}
+
+/* --------------------------------------------------------- Hayve Store -- */
+
+function requireVerifiedStore() {
+  const user = me();
+  const biz = verifiedBusinessOf(user.id);
+  if (!biz) throw new HayveError('forbidden', 'Only verified Hayve Store businesses can use this tool');
+  return { user, biz };
+}
+
+/**
+ * Bulk listing upload for verified businesses. One product per line:
+ *   Title; price; category; condition; quantity; description
+ */
+export function bulkCreateListings(text: string, defaultImage: string) {
+  const { user } = requireVerifiedStore();
+  const db = getDb();
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  assert(lines.length > 0, 'invalid', 'Paste at least one product line');
+  assert(lines.length <= 200, 'invalid', 'Up to 200 products per upload');
+  const created: ID[] = [];
+  const errors: string[] = [];
+  lines.forEach((line, i) => {
+    const [title, price, category, condition, qty, ...desc] = line.split(';').map((x) => x.trim());
+    const priceCents = Math.round(Number((price ?? '').replace(',', '.')) * 100);
+    const cat = (Object.keys(CATEGORY_LABEL) as ProductCategory[]).find((k) => k === category?.toLowerCase() || CATEGORY_LABEL[k].toLowerCase() === category?.toLowerCase()) ?? 'general';
+    const cond = (Object.keys(CONDITION_LABEL) as ProductCondition[]).find((k) => k === condition?.toLowerCase() || CONDITION_LABEL[k].toLowerCase() === condition?.toLowerCase()) ?? 'new_with_tags';
+    const quantity = Math.max(1, Math.min(999, Number(qty) || 1));
+    const description = desc.join(';').trim() || `${title} from ${displayName(user.id)}.`;
+    if (!title || title.length < 3 || !Number.isFinite(priceCents) || priceCents < 100) {
+      errors.push(`Line ${i + 1}: needs a title and a price of at least €1`);
+      return;
+    }
+    const product: Product = { id: uid('p'), sellerId: user.id, title: title.slice(0, 80), description: description.length >= 10 ? description : `${description} — new stock.`, priceCents, category: cat, condition: cond, images: [defaultImage], quantity, status: 'active', location: publicUser(user.id).city || 'Amsterdam', createdAt: now() };
+    db.products.push(product);
+    created.push(product.id);
+  });
+  if (created.length) {
+    audit(user.id, 'store.bulk_upload', `${created.length} listings`);
+    commit();
+  }
+  return { created: created.length, errors };
+}
+
+export function setStock(productId: ID, quantity: number) {
+  const user = me();
+  const p = find(getDb().products, (x) => x.id === productId && x.sellerId === user.id && x.status !== 'removed', 'Listing');
+  assert(Number.isInteger(quantity) && quantity >= 0 && quantity <= 9999, 'invalid', 'Stock must be between 0 and 9999');
+  p.quantity = quantity;
+  p.status = quantity > 0 ? 'active' : 'sold_out';
+  commit();
+}
+
+export interface Invoice {
+  number: string;
+  issuedAt: number;
+  seller: { name: string; legalName: string; address: string; kvk: string; vat: string };
+  billTo: string;
+  lines: { description: string; netCents: number; vatCents: number; grossCents: number }[];
+  netCents: number;
+  vatCents: number;
+  grossCents: number;
+  vatRateLabel: string;
+}
+
+/** VAT invoice for an order from a verified Hayve Store business (buyer or seller can view). */
+export function invoice(orderId: ID): Invoice {
+  const user = me();
+  const db = getDb();
+  const order = find(db.orders, (o) => o.id === orderId, 'Order');
+  const view = viewOrder(order, user.id);
+  if (!view) throw new HayveError('not_found', 'Order not found');
+  const biz = verifiedBusinessOf(order.sellerId);
+  if (!biz) throw new HayveError('not_found', 'Invoices are issued by verified Hayve Store businesses');
+  const split = (gross: number) => {
+    const net = Math.round(gross / (1 + VAT_RATE));
+    return { netCents: net, vatCents: gross - net, grossCents: gross };
+  };
+  const product = productSummary(order.productId);
+  const lines = [{ description: product.title, ...split(order.priceCents) }];
+  if (order.shippingCents) lines.push({ description: 'Shipping (Hayve Send)', ...split(order.shippingCents) });
+  // Gift orders never reveal the purchaser to the seller; the recipient is not billed.
+  const billTo = view.role === 'seller' ? (order.kind === 'gift' ? 'Hayve Gift customer' : displayName(order.buyerId!)) : displayName(user.id);
+  return {
+    number: `INV-${biz.registrationNumber.slice(-4)}-${order.reference.slice(3)}`,
+    issuedAt: order.createdAt,
+    seller: { name: biz.tradingName, legalName: biz.legalName, address: `${biz.address.line1}, ${biz.address.postcode} ${biz.address.city}`, kvk: biz.registrationNumber, vat: biz.vatNumber },
+    billTo,
+    lines,
+    netCents: lines.reduce((a, l) => a + l.netCents, 0),
+    vatCents: lines.reduce((a, l) => a + l.vatCents, 0),
+    grossCents: lines.reduce((a, l) => a + l.grossCents, 0),
+    vatRateLabel: 'VAT (standard rate)',
+  };
+}
+
+/** Buyer fee for a price, for sellers' "buyers pay" hint (amount only, never a percentage). */
+export function feeFor(priceCents: number) {
+  return marketplaceFee(priceCents);
 }

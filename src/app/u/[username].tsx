@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon, type IconName } from '../../design/icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Share, View } from 'react-native';
@@ -106,7 +106,7 @@ export default function PublicProfile() {
                 <>
                   {!profile.isMe && (
                     <Card tone="soft" style={{ marginBottom: 14, flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-                      <Ionicons name="gift" size={22} color={color.primary} />
+                      <Icon name="gift" size={22} color={color.primary} />
                       <T variant="footnote" color={color.inkSoft} style={{ flex: 1 }}>
                         <T variant="footnote" weight="700">
                           Gift anonymously.{' '}
@@ -165,10 +165,10 @@ export default function PublicProfile() {
   );
 }
 
-function Meta({ icon, text }: { icon: React.ComponentProps<typeof Ionicons>['name']; text: string }) {
+function Meta({ icon, text }: { icon: IconName; text: string }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-      <Ionicons name={icon} size={16} color={color.textTertiary} />
+      <Icon name={icon} size={16} color={color.textTertiary} />
       <T variant="footnote" color={color.textSecondary}>
         {text}
       </T>

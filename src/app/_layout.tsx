@@ -1,3 +1,11 @@
+import {
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+  PlusJakartaSans_800ExtraBold,
+  useFonts,
+} from '@expo-google-fonts/plus-jakarta-sans';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -32,15 +40,24 @@ function AuthGate() {
 }
 
 export default function RootLayout() {
-  const [ready, setReady] = useState(false);
+  const [dataReady, setReady] = useState(false);
+  const [fontsLoaded, fontError] = useFonts({
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+    PlusJakartaSans_800ExtraBold,
+  });
+  const ready = dataReady && (fontsLoaded || !!fontError);
 
   useEffect(() => {
     Promise.all([initBackend(deviceStorage).catch(() => initBackend(null)), hydrateCart()])
-      .finally(() => {
-        setReady(true);
-        void SplashScreen.hideAsync().catch(() => {});
-      });
+      .finally(() => setReady(true));
   }, []);
+
+  useEffect(() => {
+    if (ready) void SplashScreen.hideAsync().catch(() => {});
+  }, [ready]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: color.bg }}>

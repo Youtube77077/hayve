@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon, type IconName } from '../design/icons';
 import { router } from 'expo-router';
 import { Pressable, View } from 'react-native';
 import { bookings } from '../backend/api';
@@ -6,10 +6,10 @@ import type { Property, RentalVehicle } from '../backend/types';
 import { Badge, color, Photo, radius, Rating, T, tap, useToast } from '../design';
 import { money } from '../lib/format';
 
-export function Spec({ icon, text }: { icon: React.ComponentProps<typeof Ionicons>['name']; text: string }) {
+export function Spec({ icon, text }: { icon: IconName; text: string }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-      <Ionicons name={icon} size={14} color={color.textSecondary} />
+      <Icon name={icon} size={14} color={color.textSecondary} />
       <T variant="footnote" color={color.textSecondary} style={{ textTransform: 'capitalize' }}>
         {text}
       </T>
@@ -69,9 +69,9 @@ export function PropertyCard({ p, saved, query }: { p: Property; saved: boolean;
           }}
           style={{ position: 'absolute', top: 12, right: 12 }}
         >
-          <Ionicons name={saved ? 'heart' : 'heart-outline'} size={28} color={saved ? color.lime : '#fff'} style={{ textShadowColor: 'rgba(0,0,0,0.35)', textShadowRadius: 6 }} />
+          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: color.white, alignItems: 'center', justifyContent: 'center' }}><Icon name="heart" size={18} color={saved ? color.indigo : color.black} fill={saved ? color.indigo : 'none'} /></View>
         </Pressable>
-        {p.instantBook && <Badge label="Instant book" tone="lime" icon="flash" style={{ position: 'absolute', left: 12, top: 12 }} />}
+        {p.instantBook && <Badge label="Instant book" icon="flash" style={{ position: 'absolute', left: 12, top: 12, backgroundColor: color.white }} />}
       </View>
       <View style={{ paddingTop: 10, gap: 2 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>

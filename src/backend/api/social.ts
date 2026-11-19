@@ -1,6 +1,8 @@
+import { BIO_MAX_CHARS } from '../config';
+import { accountIdFor, viewTransaction } from '../ledger';
 import { assert, commit, find, getDb, HayveError, now, uid } from '../store';
-import type { Address, ID, NotificationKind, Profile, Thread } from '../types';
-import { displayName, notify, publicUser, type PublicUser } from './common';
+import type { Address, ID, NotificationKind, Profile, Report, Thread } from '../types';
+import { audit, displayName, notify, publicUser, type PublicUser } from './common';
 import { ratingFor, toCard } from './shop';
 import { getSessionUserId, me } from './session';
 
@@ -13,7 +15,7 @@ export function myProfile() {
   return { user: { id: user.id, email: user.email, roles: user.roles, emailVerified: user.emailVerified, createdAt: user.createdAt }, profile };
 }
 
-export function updateProfile(patch: Partial<Pick<Profile, 'displayName' | 'username' | 'bio' | 'avatar' | 'city' | 'isPublic' | 'wishlistPublic' | 'language' | 'twoFactor' | 'accountType'>>) {
+export function updateProfile(patch: Partial<Pick<Profile, 'displayName' | 'username' | 'bio' | 'city' | 'isPublic' | 'wishlistVisibility' | 'language' | 'accountType'>>) {
   const user = me();
   const db = getDb();
   const p = find(db.profiles, (x) => x.userId === user.id, 'Profile');
@@ -27,7 +29,10 @@ export function updateProfile(patch: Partial<Pick<Profile, 'displayName' | 'user
     assert(patch.displayName.trim().length >= 2, 'invalid', 'Enter your name');
     patch.displayName = patch.displayName.trim();
   }
-  if (patch.bio != null) assert(patch.bio.length <= 240, 'invalid', 'Bio can be up to 240 characters');
+  if (patch.bio != null) {
+    patch.bio = patch.bio.replace(/[\u0000-\u0008\u000B-\u001F]/g, '').trim();
+    assert(patch.bio.length <= BIO_MAX_CHARS, 'invalid', `Bio can be up to ${BIO_MAX_CHARS} characters`);
+  }
   Object.assign(p, patch);
   commit();
 }
@@ -36,6 +41,23 @@ export function setNotificationPref(kind: NotificationKind, on: boolean) {
   const user = me();
   const p = find(getDb().profiles, (x) => x.userId === user.id, 'Profile');
   p.notificationPrefs[kind] = on;
+  commit();
+}
+
+/**
+ * Sets the profile picture. In production the app uploads both sizes to object
+ * storage (DigitalOcean Spaces) via a presigned URL and only the URLs are saved.
+ */
+export function setAvatar(input: { full: string; thumb: string } | null) {
+  const user = me();
+  const p = find(getDb().profiles, (x) => x.userId === user.id, 'Profile');
+  if (input) {
+    const ok = (u: string) => /^(https:\/\/|data:image\/(jpeg|png|webp);base64,|file:\/\/|blob:)/.test(u);
+    assert(ok(input.full) && ok(input.thumb), 'invalid', 'Unsupported image');
+    assert(input.full.length < 1_500_000, 'invalid', 'Image is too large');
+  }
+  p.avatar = input?.full;
+  p.avatarThumb = input?.thumb;
   commit();
 }
 
@@ -50,8 +72,10 @@ export interface PublicProfileView {
   reviews: { id: ID; author: string; avatar?: string; rating: number; text: string; createdAt: number }[];
   listings: ReturnType<typeof toCard>[];
   soldCount: number;
-  wishlistPublic: boolean;
+  /** Wishlist shown on the profile (public visibility, or the owner). */
+  wishlistOnProfile: boolean;
   roles: { seller: boolean; host: boolean; kitchen: boolean };
+  verified: boolean;
 }
 
 export function getPublicProfile(username: string): PublicProfileView {
@@ -78,8 +102,9 @@ export function getPublicProfile(username: string): PublicProfileView {
       : [],
     listings: visible ? db.products.filter((x) => x.sellerId === p.userId && x.status === 'active' && x.quantity > 0).map(toCard) : [],
     soldCount: db.orders.filter((o) => o.sellerId === p.userId && o.status !== 'refunded').length,
-    wishlistPublic: visible && p.wishlistPublic,
+    wishlistOnProfile: isMe || (visible && p.wishlistVisibility === 'public'),
     roles: { seller: user.roles.includes('seller'), host: user.roles.includes('host'), kitchen: user.roles.includes('kitchen') },
+    verified: getDb().businesses.some((b) => b.ownerId === p.userId && b.status === 'verified'),
   };
 }
 
@@ -231,4 +256,50 @@ export function markNotificationsRead(ids?: ID[]) {
   const user = me();
   for (const n of getDb().notifications) if (n.userId === user.id && (!ids || ids.includes(n.id))) n.read = true;
   commit();
+}
+
+/* -------------------------------------------------------------- Reports -- */
+
+export function report(targetKind: Report['targetKind'], targetId: ID, reason: string) {
+  const user = me();
+  const db = getDb();
+  assert(reason.trim().length >= 3, 'invalid', 'Tell us briefly what is wrong');
+  assert(!db.reports.some((r) => r.reporterId === user.id && r.targetId === targetId && r.status === 'open'), 'conflict', 'You already reported this');
+  db.reports.push({ id: uid('rp'), reporterId: user.id, targetKind, targetId, reason: reason.trim().slice(0, 500), status: 'open', createdAt: now() });
+  audit(user.id, `report.${targetKind}`, targetId);
+  commit();
+}
+
+/* ---------------------------------------------------------------- GDPR -- */
+
+/** Everything Hayve stores about the signed-in user, as plain JSON (GDPR data export). */
+export function exportMyData() {
+  const user = me();
+  const db = getDb();
+  const acc = accountIdFor(user.id);
+  const { passwordHash: _omit, ...account } = user;
+  void _omit;
+  const threadsMine = db.threads.filter((t) => t.participantIds.includes(user.id)).map((t) => t.id);
+  return {
+    exportedAt: new Date().toISOString(),
+    account,
+    profile: db.profiles.find((p) => p.userId === user.id),
+    addresses: db.addresses.filter((a) => a.userId === user.id),
+    paymentMethods: db.paymentMethods.filter((m) => m.userId === user.id).map((m) => ({ kind: m.kind, label: m.label, last4: m.last4 })),
+    listings: db.products.filter((p) => p.sellerId === user.id),
+    favourites: db.favourites.filter((f) => f.userId === user.id),
+    wishlist: db.wishlistItems.filter((w) => w.ownerId === user.id).map((w) => ({ productId: w.productId, status: w.status, addedAt: w.addedAt })),
+    purchases: db.orders.filter((o) => o.buyerId === user.id),
+    sales: db.orders.filter((o) => o.sellerId === user.id).map((o) => ({ ...o, buyerId: o.kind === 'gift' ? null : o.buyerId })),
+    giftsSent: db.giftOrders.filter((g) => g.purchaserId === user.id).map((g) => ({ orderId: g.orderId, createdAt: g.createdAt })),
+    transactions: db.transactions.map((t) => viewTransaction(t, acc)).filter(Boolean),
+    reviewsWritten: db.reviews.filter((r) => r.authorId === user.id),
+    messages: db.messages.filter((m) => threadsMine.includes(m.threadId) && m.senderId === user.id),
+    rides: db.rides.filter((r) => r.riderId === user.id),
+    foodOrders: db.foodOrders.filter((o) => o.customerId === user.id),
+    rentals: db.rentals.filter((r) => r.renterId === user.id),
+    stays: db.stayBookings.filter((b) => b.guestId === user.id),
+    business: db.businesses.find((b) => b.ownerId === user.id) ?? null,
+    notifications: db.notifications.filter((n) => n.userId === user.id),
+  };
 }

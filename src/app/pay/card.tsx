@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../../design/icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { View } from 'react-native';
 import { social } from '../../backend/api';
@@ -14,7 +14,7 @@ export default function HayveCard() {
       <LinearGradient colors={[color.ink, color.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: radius.xl, padding: 22, aspectRatio: 1.586, justifyContent: 'space-between', marginTop: 8 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <T style={{ fontSize: 26, fontWeight: '900', color: '#fff', letterSpacing: -1 }}>hayve</T>
-          <Ionicons name="wifi" size={24} color="#fff" style={{ transform: [{ rotate: '90deg' }] }} />
+          <Icon name="wifi" size={24} color="#fff" style={{ transform: [{ rotate: '90deg' }] }} />
         </View>
         <View>
           <View style={{ width: 46, height: 34, borderRadius: 7, backgroundColor: color.lime, marginBottom: 18 }} />
@@ -40,7 +40,7 @@ export default function HayveCard() {
           ['globe-outline', 'No fees in the eurozone'],
         ].map(([icon, label]) => (
           <Card key={label} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 }}>
-            <Ionicons name={icon as 'flash-outline'} size={20} color={color.primary} />
+            <Icon name={icon as 'flash-outline'} size={20} color={color.primary} />
             <T variant="headline">{label}</T>
           </Card>
         ))}

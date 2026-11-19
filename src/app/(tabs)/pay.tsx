@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../../design/icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -75,7 +75,7 @@ export default function Pay() {
             style={{ flex: 1, alignItems: 'center', gap: 6 }}
           >
             <View style={{ width: 52, height: 52, borderRadius: 18, backgroundColor: i === 0 ? color.lime : 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name={a.icon} size={22} color={i === 0 ? color.ink : '#fff'} />
+              <Icon name={a.icon} size={22} color={i === 0 ? color.ink : '#fff'} />
             </View>
             <T variant="caption" color="#fff" weight="700" numberOfLines={1}>
               {a.label}
@@ -94,11 +94,11 @@ export default function Pay() {
             {balanceCard}
             {requests.length > 0 && (
               <Pressable onPress={() => router.push('/pay/requests')} style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: radius.lg, backgroundColor: color.limeSoft, borderWidth: 1, borderColor: color.lime }}>
-                <Ionicons name="hand-left-outline" size={20} color={color.limeInk} />
+                <Icon name="hand-left-outline" size={20} color={color.limeInk} />
                 <T variant="headline" style={{ flex: 1 }}>
                   {requests.length} payment {requests.length === 1 ? 'request' : 'requests'} waiting
                 </T>
-                <Ionicons name="chevron-forward" size={18} color={color.limeInk} />
+                <Icon name="chevron-forward" size={18} color={color.limeInk} />
               </Pressable>
             )}
             <Section title="Send again" action="Requests" onAction={() => router.push('/pay/requests')}>
@@ -172,11 +172,11 @@ export default function Pay() {
                   { icon: 'storefront-outline' as IconName, label: 'Accept Hayve Pay (Business)', to: '/business/merchant' },
                 ].map((r, i) => (
                   <Pressable key={r.to} onPress={() => router.push(r.to as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderTopWidth: i ? 1 : 0, borderTopColor: color.line }}>
-                    <Ionicons name={r.icon} size={20} color={color.primary} />
+                    <Icon name={r.icon} size={20} color={color.primary} />
                     <T variant="headline" style={{ flex: 1 }}>
                       {r.label}
                     </T>
-                    <Ionicons name="chevron-forward" size={18} color={color.textTertiary} />
+                    <Icon name="chevron-forward" size={18} color={color.textTertiary} />
                   </Pressable>
                 ))}
               </Card>

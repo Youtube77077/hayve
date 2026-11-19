@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../../design/icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
@@ -76,7 +76,7 @@ export default function Welcome() {
           ))}
           <View style={{ width: isDesktop ? '25%' : isWide ? '33.33%' : '50%', paddingHorizontal: 6 }}>
             <Pressable onPress={() => router.push('/sign-up')} style={{ backgroundColor: color.lime, borderRadius: radius.lg, padding: 16, gap: 12, minHeight: 132, justifyContent: 'space-between' }}>
-              <Ionicons name="briefcase" size={24} color={color.ink} />
+              <Icon name="briefcase" size={24} color={color.ink} />
               <View>
                 <T variant="headline">Hayve for Business</T>
                 <T variant="footnote" color={color.limeInk}>
@@ -87,7 +87,7 @@ export default function Welcome() {
           </View>
         </View>
         <View style={{ marginTop: 18, padding: 16, borderRadius: radius.lg, backgroundColor: 'rgba(255,255,255,0.06)', flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-          <Ionicons name="flask-outline" size={20} color={color.lime} />
+          <Icon name="flask-outline" size={20} color={color.lime} />
           <T variant="footnote" color={color.textOnDarkSecondary} style={{ flex: 1 }}>
             Preview build. Payments, rides, rentals, stays and deliveries are simulated. No real money or services are involved.
           </T>

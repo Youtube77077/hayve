@@ -8,7 +8,7 @@
     "scheme": "hayve",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "backgroundColor": "#F6F5FF",
+    "backgroundColor": "#FFFFFF",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.hayve.app",
@@ -27,8 +27,8 @@
       "output": "single",
       "favicon": "./assets/images/favicon.png",
       "name": "Hayve",
-      "themeColor": "#3A1FD1",
-      "backgroundColor": "#F6F5FF"
+      "themeColor": "#4F46E5",
+      "backgroundColor": "#FFFFFF"
     },
     "plugins": [
       "expo-router",
@@ -38,7 +38,7 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 180,
           "resizeMode": "contain",
-          "backgroundColor": "#3A1FD1"
+          "backgroundColor": "#0E0E10"
         }
       ],
       [
@@ -47,7 +47,8 @@
           "photosPermission": "Hayve uses your photo library so you can add photos to listings and your profile.",
           "cameraPermission": "Hayve uses the camera so you can photograph items you want to sell."
         }
-      ]
+      ],
+      "@rnmapbox/maps"
     ],
     "experiments": {
       "typedRoutes": false

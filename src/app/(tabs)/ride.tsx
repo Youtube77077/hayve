@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon, type IconName } from '../../design/icons';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
@@ -9,7 +9,7 @@ import { PayMethodPicker, StatusPill, TabHeader } from '../../features/common';
 import { money, shortDate, time } from '../../lib/format';
 import { useAction, NONE, useLive } from '../../lib/hooks';
 
-const CAR_ICON: Record<RideCategory, React.ComponentProps<typeof Ionicons>['name']> = { go: 'car-outline', green: 'leaf-outline', priority: 'flash-outline', comfort: 'car-sport-outline', xl: 'bus-outline' };
+const CAR_ICON: Record<RideCategory, IconName> = { go: 'car-outline', green: 'leaf-outline', priority: 'flash-outline', comfort: 'car-sport-outline', xl: 'bus-outline' };
 
 export default function Ride() {
   const { isWide } = useLayout();
@@ -51,7 +51,7 @@ export default function Ride() {
             .map((p) => (
               <Pressable key={p.id} onPress={() => setDropoff(p.id)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.md, backgroundColor: pressed ? color.surfaceSunken : color.surface, borderWidth: 1, borderColor: color.line })}>
                 <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: color.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name={p.id === 'work' ? 'briefcase-outline' : p.id === 'schiphol' ? 'airplane-outline' : 'time-outline'} size={18} color={color.primary} />
+                  <Icon name={p.id === 'work' ? 'briefcase-outline' : p.id === 'schiphol' ? 'airplane-outline' : 'time-outline'} size={18} color={color.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <T variant="headline">{p.name}</T>
@@ -59,7 +59,7 @@ export default function Ride() {
                     {p.address}
                   </T>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color={color.textTertiary} />
+                <Icon name="chevron-forward" size={18} color={color.textTertiary} />
               </Pressable>
             ))}
         </View>
@@ -67,7 +67,7 @@ export default function Ride() {
       {options.length > 0 && (
         <>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 18, marginBottom: 10 }}>
-            <Ionicons name="trending-up" size={16} color={color.textSecondary} />
+            <Icon name="trending-up" size={16} color={color.textSecondary} />
             <T variant="subhead" color={color.textSecondary}>
               {options[0].durationMin} min trip · fares include all fees
             </T>
@@ -87,12 +87,12 @@ export default function Ride() {
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderRadius: radius.lg, borderWidth: on ? 2.5 : 1, borderColor: on ? color.ink : color.line, backgroundColor: color.surface }}
                 >
                   <View style={{ width: 54, height: 54, borderRadius: 16, backgroundColor: on ? color.ink : color.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name={CAR_ICON[o.category]} size={26} color={on ? color.lime : color.ink} />
+                    <Icon name={CAR_ICON[o.category]} size={26} color={on ? color.lime : color.ink} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                       <T variant="title3">{o.label}</T>
-                      <Ionicons name="person" size={13} color={color.textSecondary} />
+                      <Icon name="person" size={13} color={color.textSecondary} />
                       <T variant="footnote" color={color.textSecondary}>
                         {o.seats}
                       </T>
@@ -107,11 +107,11 @@ export default function Ride() {
             })}
           </View>
           <Pressable onPress={() => setPayOpen(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14, padding: 14, borderRadius: radius.md, backgroundColor: color.surface, borderWidth: 1, borderColor: color.line }}>
-            <Ionicons name={method === 'wallet' ? 'wallet' : 'card-outline'} size={20} color={color.primary} />
+            <Icon name={method === 'wallet' ? 'wallet' : 'card-outline'} size={20} color={color.primary} />
             <T variant="headline" style={{ flex: 1 }}>
               {method === 'wallet' ? 'Hayve Pay balance' : method === 'card' ? 'Visa •••• 4242' : 'Test card (declines)'}
             </T>
-            <Ionicons name="chevron-forward" size={18} color={color.textTertiary} />
+            <Icon name="chevron-forward" size={18} color={color.textTertiary} />
           </Pressable>
           <Button title={`Choose ${selected?.label ?? ''}`} size="lg" variant="dark" full style={{ marginTop: 12 }} loading={busy} onPress={request} />
         </>
@@ -124,7 +124,7 @@ export default function Ride() {
       {active && (
         <Card tone="dark" style={{ marginBottom: 14 }} onPress={() => router.push(`/ride/${active.id}`)}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Ionicons name="navigate" size={22} color={color.lime} />
+            <Icon name="navigate" size={22} color={color.lime} />
             <View style={{ flex: 1 }}>
               <T variant="headline" color="#fff">
                 Trip in progress
@@ -148,7 +148,7 @@ export default function Ride() {
             {history.map((r) => (
               <Card key={r.id} onPress={() => router.push(`/ride/${r.id}`)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 }}>
                 <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: color.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name="car-outline" size={22} color={color.ink} />
+                  <Icon name="car-outline" size={22} color={color.ink} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <T variant="headline">{r.dropoff.name}</T>
@@ -189,7 +189,7 @@ export default function Ride() {
               }}
               style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 6, borderRadius: radius.md, backgroundColor: pressed ? color.surfaceSunken : 'transparent' })}
             >
-              <Ionicons name="location-outline" size={20} color={color.primary} />
+              <Icon name="location-outline" size={20} color={color.primary} />
               <View style={{ flex: 1 }}>
                 <T variant="headline">{p.name}</T>
                 <T variant="footnote" color={color.textSecondary}>
@@ -210,7 +210,7 @@ export default function Ride() {
 function PlaceRow({ icon, label, value, sub, onPress, placeholder }: { icon: 'ellipse' | 'square'; label: string; value?: string; sub?: string; onPress: () => void; placeholder?: boolean }) {
   return (
     <Pressable onPress={onPress} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, backgroundColor: pressed ? color.surfaceSunken : 'transparent' })}>
-      <Ionicons name={icon} size={14} color={color.ink} style={{ marginHorizontal: 5 }} />
+      <Icon name={icon} size={14} color={color.ink} style={{ marginHorizontal: 5 }} />
       <View style={{ flex: 1 }}>
         {value ? (
           <>
@@ -225,7 +225,7 @@ function PlaceRow({ icon, label, value, sub, onPress, placeholder }: { icon: 'el
           </T>
         )}
       </View>
-      <Ionicons name="search" size={18} color={color.textTertiary} />
+      <Icon name="search" size={18} color={color.textTertiary} />
     </Pressable>
   );
 }

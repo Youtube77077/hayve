@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../../design/icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
@@ -37,7 +37,7 @@ export default function PayLinkCheckout() {
       {paid ? (
         <View style={{ alignItems: 'center', gap: 12, marginTop: 24 }}>
           <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: color.lime, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="checkmark" size={38} color={color.ink} />
+            <Icon name="checkmark" size={38} color={color.ink} />
           </View>
           <T variant="title2">Paid</T>
           <Button title="View receipt" variant="outline" full onPress={() => router.replace(`/pay/tx/${paid}`)} />

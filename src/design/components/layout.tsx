@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../icons';
 import { router } from 'expo-router';
 import { Children, type ReactNode } from 'react';
 import {
@@ -14,7 +14,8 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { color, type IconName, layout, radius, space } from '../tokens';
+import { color, layout, radius, space } from '../tokens';
+import type { IconName } from '../icons';
 import { Divider, IconButton, T, tap } from './primitives';
 
 /* ---------------------------------------------------------- responsive -- */
@@ -50,7 +51,7 @@ export function Screen({ children, scroll = true, padded = true, header, footer,
   const insets = useSafeAreaInsets();
   const { gutter, isWide } = useLayout();
   const inner: StyleProp<ViewStyle> = [{ width: '100%', maxWidth, alignSelf: 'center', paddingHorizontal: padded ? gutter : 0 }];
-  const bottomPad = (footer ? 16 : isWide ? 40 : 110) + (edges.includes('bottom') ? insets.bottom : 0);
+  const bottomPad = (footer ? 16 : isWide ? 48 : 32) + (edges.includes('bottom') ? insets.bottom : 0);
 
   const body = scroll ? (
     <ScrollView
@@ -164,8 +165,8 @@ export function Section({ title, action, onAction, children, style, subtitle }: 
             )}
           </View>
           {action && (
-            <Pressable onPress={onAction} hitSlop={8} accessibilityRole="button">
-              <T variant="subhead" color={color.primary} weight="700">
+            <Pressable onPress={onAction} hitSlop={8} accessibilityRole="link">
+              <T variant="subhead" color={color.indigo} weight="600">
                 {action}
               </T>
             </Pressable>
@@ -181,7 +182,7 @@ export function Section({ title, action, onAction, children, style, subtitle }: 
 
 export function ListRow({
   icon,
-  iconTint = color.primary,
+  iconTint: _iconTint = color.black,
   title,
   subtitle,
   value,
@@ -207,12 +208,12 @@ export function ListRow({
     <>
       {left}
       {icon && !left && (
-        <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: danger ? color.dangerSoft : color.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
-          <Ionicons name={icon} size={18} color={danger ? color.danger : iconTint} />
+        <View style={{ width: 28, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name={icon} size={20} color={color.black} />
         </View>
       )}
       <View style={{ flex: 1, gap: 1 }}>
-        <T variant="headline" color={danger ? color.danger : color.text} numberOfLines={1}>
+        <T variant="headline" color={color.text} weight={danger ? '700' : undefined} numberOfLines={1}>
           {title}
         </T>
         {subtitle ? (
@@ -227,7 +228,7 @@ export function ListRow({
         </T>
       ) : null}
       {right}
-      {onPress && chevron && !right && <Ionicons name="chevron-forward" size={18} color={color.textTertiary} />}
+      {onPress && chevron && !right && <Icon name="chevron-forward" size={18} color={color.textTertiary} />}
     </>
   );
   // Rows without their own action render as a plain View so that buttons inside them stay interactive.
@@ -250,7 +251,7 @@ export function ListRow({
 export function Group({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   const items = Children.toArray(children).filter(Boolean);
   return (
-    <View style={[{ backgroundColor: color.surface, borderRadius: radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: color.line }, style]}>
+    <View style={[{ backgroundColor: color.white, borderRadius: radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: color.grey200 }, style]}>
       {items.map((child, i) => (
         <View key={i}>
           {i > 0 && <Divider inset={space.lg} />}

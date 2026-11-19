@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../../design/icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
@@ -52,7 +52,7 @@ export default function Explore() {
 
   return (
     <Screen header={<TabHeader service="explore" subtitle="Discover everything on Hayve" />}>
-      <Input icon="search" placeholder="Try 'camera', 'pizza', 'Lisbon' or 'Tesla'" value={q} onChangeText={setQ} returnKeyType="search" autoCorrect={false} right={q ? <Ionicons name="close-circle" size={20} color={color.textTertiary} onPress={() => setQ('')} /> : null} />
+      <Input icon="search" placeholder="Try 'camera', 'pizza', 'Lisbon' or 'Tesla'" value={q} onChangeText={setQ} returnKeyType="search" autoCorrect={false} right={q ? <Pressable onPress={() => setQ('')} accessibilityLabel="Clear search" hitSlop={8}><Icon name="close-circle" size={20} color={color.grey500} /></Pressable> : null} />
 
       {term ? (
         <>
@@ -150,7 +150,7 @@ export default function Explore() {
                   style={({ pressed }) => ({ backgroundColor: color.surface, borderRadius: radius.lg, padding: 14, gap: 12, borderWidth: 1, borderColor: color.line, opacity: pressed ? 0.85 : 1, minHeight: 104, justifyContent: 'space-between' })}
                 >
                   <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: alpha(c.accent, 0.1), alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name={c.icon} size={21} color={c.accent} />
+                    <Icon name={c.icon} size={21} color={c.accent} />
                   </View>
                   <T variant="headline">{c.label}</T>
                 </Pressable>

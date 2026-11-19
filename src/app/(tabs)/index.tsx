@@ -1,328 +1,257 @@
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import { Pressable, View } from 'react-native';
+import { type ReactNode, useEffect, useState } from 'react';
+import { Pressable, TextInput, View } from 'react-native';
 import { bites, bookings, ride, shop, social, wallet } from '../../backend/api';
-import { media } from '../../backend/media';
-import {
-  Avatar,
-  Badge,
-  Card,
-  color,
-  Grid,
-  HScroll,
-  Photo,
-  radius,
-  Rating,
-  Screen,
-  Section,
-  SimBadge,
-  T,
-  tap,
-  useLayout,
-} from '../../design';
-import { ProductTile, ServiceRail, StatusPill, TabHeader } from '../../features/common';
-import { ago, greeting, money } from '../../lib/format';
+import { color, Emoji, font, HScroll, Icon, type IconName, Photo, radius, Rating, Screen, Section, Split, T, tap, useLayout } from '../../design';
+import { ServiceShortcuts, StatusPill } from '../../features/common';
+import { ago, money } from '../../lib/format';
 import { useLive } from '../../lib/hooks';
 
+const HIDE_KEY = 'hayve.hideBalance';
+
 export default function Home() {
-  const { isWide, columns } = useLayout();
+  const { isWide, gutter } = useLayout();
   const me = useLive(() => social.myProfile()).data;
   const w = useLive(() => wallet.wallet()).data;
-  const txs = useLive(() => wallet.transactions({ limit: 4 })).data ?? [];
-  const products = useLive(() => shop.listProducts({ sort: 'recommended', limit: 12 })).data ?? [];
-  const restaurants = useLive(() => bites.listRestaurants({ openOnly: true }).slice(0, 6)).data ?? [];
-  const stays = useLive(() => bookings.listProperties({}).slice(0, 6)).data ?? [];
+  const [hidden, setHidden] = useState(false);
+  const [q, setQ] = useState('');
+  useEffect(() => {
+    AsyncStorage.getItem(HIDE_KEY)
+      .then((v) => setHidden(v === '1'))
+      .catch(() => {});
+  }, []);
+  const toggleHidden = () => {
+    tap();
+    setHidden((h) => {
+      AsyncStorage.setItem(HIDE_KEY, h ? '0' : '1').catch(() => {});
+      return !h;
+    });
+  };
+
+  // Live state: only shown when something is happening right now.
   const activeRide = useLive(() => ride.activeRide()).data;
-  const purchases = useLive(() => shop.listPurchases().slice(0, 2)).data ?? [];
   const food = useLive(() => bites.myFoodOrders().filter((o) => !['delivered', 'rejected', 'cancelled'].includes(o.status))).data ?? [];
+  const shipped = useLive(() => shop.listPurchases().filter((o) => o.status === 'shipped' || (o.status === 'paid' && o.shipment))).data ?? [];
+  const stays = useLive(() => bookings.myStays().filter((b) => b.status === 'confirmed').slice(0, 1)).data ?? [];
+
+  const activity = useLive(() => wallet.transactions({ limit: 5 })).data ?? [];
+  const lastFood = useLive(() => bites.myFoodOrders().find((o) => o.status === 'delivered')).data;
+  const recentPlaces = useLive(() => {
+    const seen = new Set<string>();
+    return ride.myRides().filter((r) => r.status === 'completed' && !seen.has(r.dropoff.id) && seen.add(r.dropoff.id)).slice(0, 3);
+  }).data ?? [];
+  const deals = useLive(() => bites.listRestaurants({ openOnly: true }).filter((r) => r.promo)).data ?? [];
+  const picks = useLive(() => shop.listProducts({ sort: 'recommended', limit: 8 })).data ?? [];
   const firstName = me?.profile.displayName.split(' ')[0] ?? '';
-  const tileW = isWide ? 210 : 158;
+
+  const submitSearch = () => {
+    const term = q.trim();
+    router.push(term ? `/explore?q=${encodeURIComponent(term)}` : '/explore');
+  };
 
   return (
-    <Screen header={<TabHeader service="home" />}>
-      {/* Greeting + search */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 }}>
-        <Pressable onPress={() => router.push('/profile')}>
-          <Avatar uri={me?.profile.avatar} name={me?.profile.displayName} size={48} ring />
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <T variant="footnote" color={color.textSecondary}>
-            {greeting()}
-          </T>
-          <T variant="title2" numberOfLines={1}>
-            {firstName ? `Hi ${firstName}` : 'Welcome to Hayve'}
-          </T>
+    <Screen padded={false}>
+      <View style={{ width: '100%', maxWidth: 1200, alignSelf: 'center', paddingHorizontal: gutter, paddingTop: isWide ? 32 : 16 }}>
+        {/* 1 · greeting + balance pill */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <T variant={isWide ? 'title1' : 'title2'} weight="500">
+              Hey <T variant={isWide ? 'title1' : 'title2'} weight="800">{firstName || 'there'}</T>
+            </T>
+            <Emoji char="👋" size={isWide ? 28 : 22} />
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', height: 40, borderRadius: radius.pill, borderWidth: 1, borderColor: color.grey200 }}>
+            <Pressable onPress={() => router.push('/pay')} accessibilityRole="link" accessibilityLabel={hidden ? 'Hayve Pay balance hidden. Open Hayve Pay' : `Hayve Pay balance ${money(w?.available ?? 0)}. Open Hayve Pay`} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 14, paddingRight: 6, height: '100%' }}>
+              <Icon name="wallet-outline" size={17} />
+              <T variant="subhead" weight="700" color={color.indigo}>
+                {hidden ? '€ •••••' : money(w?.available ?? 0)}
+              </T>
+            </Pressable>
+            <Pressable onPress={toggleHidden} accessibilityRole="button" accessibilityLabel={hidden ? 'Show balance' : 'Hide balance'} hitSlop={6} style={{ paddingLeft: 6, paddingRight: 12, height: '100%', justifyContent: 'center' }}>
+              <Icon name={hidden ? 'eye-outline' : 'eye-off-outline'} size={17} color={color.grey500} />
+            </Pressable>
+          </View>
         </View>
-      </View>
-      <Pressable
-        onPress={() => router.push('/explore')}
-        accessibilityRole="search"
-        style={{ marginTop: 16, height: 52, borderRadius: radius.pill, backgroundColor: color.surface, borderWidth: 1, borderColor: color.line, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, gap: 10 }}
-      >
-        <Ionicons name="search" size={20} color={color.textSecondary} />
-        <T color={color.textTertiary} style={{ flex: 1 }} numberOfLines={1}>
-          Search all of Hayve
-        </T>
-        <Ionicons name="options-outline" size={20} color={color.textSecondary} />
-      </Pressable>
 
-      {/* Active things first */}
-      {activeRide && (
-        <Card tone="dark" style={{ marginTop: 16 }} onPress={() => router.push(`/ride/${activeRide.id}`)}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Ionicons name="car-sport" size={24} color={color.lime} />
-            <View style={{ flex: 1 }}>
-              <T variant="headline" color="#fff">
-                Your ride to {activeRide.dropoff.name}
+        {/* 2 · one big search */}
+        <View style={{ marginTop: isWide ? 24 : 20, flexDirection: 'row', alignItems: 'center', gap: 12, height: isWide ? 64 : 56, paddingHorizontal: 20, borderRadius: radius.lg, borderWidth: 1, borderColor: color.grey200, backgroundColor: color.white }}>
+          <Icon name="search" size={22} />
+          <TextInput
+            value={q}
+            onChangeText={setQ}
+            onSubmitEditing={submitSearch}
+            returnKeyType="search"
+            placeholder="Where to, or what do you need?"
+            placeholderTextColor={color.grey500}
+            accessibilityLabel="Search Hayve"
+            style={[{ flex: 1, fontSize: isWide ? 18 : 16, color: color.black, height: '100%' }, font('500'), { outlineStyle: 'none' } as object]}
+          />
+          {q ? (
+            <Pressable onPress={submitSearch} accessibilityRole="button" accessibilityLabel="Search" style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: color.indigo, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="arrow-forward" size={18} color={color.white} />
+            </Pressable>
+          ) : null}
+        </View>
+        <HScroll gap={8} style={{ marginTop: 12 }}>
+          {['Pizza', 'Airport', 'Vintage jacket', 'Lisbon apartment', 'Electric car'].map((s) => (
+            <Pressable key={s} onPress={() => router.push(`/explore?q=${encodeURIComponent(s)}`)} style={({ pressed }) => ({ height: 32, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: color.grey100, justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
+              <T variant="caption" weight="600">
+                {s}
               </T>
-              <T variant="footnote" color={color.textOnDarkSecondary}>
-                {activeRide.driver ? `${activeRide.driver.displayName} · ${activeRide.driver.vehicle.plate}` : 'Finding your driver…'}
-              </T>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={color.lime} />
-          </View>
-        </Card>
-      )}
-      {food.map((o) => (
-        <Card key={o.id} tone="soft" style={{ marginTop: 12 }} onPress={() => router.push(`/bites/order/${o.id}`)}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Ionicons name="fast-food" size={22} color={color.primary} />
-            <View style={{ flex: 1 }}>
-              <T variant="headline">{o.restaurant.name}</T>
-              <T variant="footnote" color={color.textSecondary}>
-                Order {o.reference}
-              </T>
-            </View>
-            <StatusPill status={o.status} />
-          </View>
-        </Card>
-      ))}
+            </Pressable>
+          ))}
+        </HScroll>
 
-      {/* Wallet + services */}
-      <View style={{ flexDirection: isWide ? 'row' : 'column', gap: 16, marginTop: 20 }}>
-        <Pressable onPress={() => router.push('/pay')} style={{ flex: isWide ? 1 : undefined }} accessibilityRole="button" accessibilityLabel="Hayve Pay wallet">
-          <LinearGradient colors={[color.ink, '#251C6B']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: radius.xl, padding: 20, minHeight: 176, justifyContent: 'space-between', overflow: 'hidden' }}>
-            <View style={{ position: 'absolute', right: -40, top: -40, width: 160, height: 160, borderRadius: 80, backgroundColor: 'rgba(200,245,66,0.12)' }} />
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <T variant="subhead" color={color.textOnDarkSecondary} weight="600">
-                Hayve Pay balance
-              </T>
-              <SimBadge />
-            </View>
+        {/* 3 · service shortcuts */}
+        <View style={{ marginTop: 24 }}>
+          <ServiceShortcuts />
+        </View>
+
+        {/* 4 · live cards */}
+        {(activeRide || food.length > 0 || shipped.length > 0 || stays.length > 0) && (
+          <View style={{ marginTop: 24, gap: 10 }}>
+            {activeRide && (
+              <LiveCard icon="car-outline" title={activeRide.driver ? `${activeRide.driver.displayName.split(' ')[0]} is ${activeRide.status === 'in_progress' ? 'taking you to' : 'on the way to'} ${activeRide.status === 'in_progress' ? activeRide.dropoff.name : 'you'}` : 'Finding your driver'} sub={activeRide.driver ? `${activeRide.driver.vehicle.color} ${activeRide.driver.vehicle.make} · ${activeRide.driver.vehicle.plate}` : activeRide.categoryLabel} right={<StatusPill status={activeRide.status} />} onPress={() => router.push(`/ride/${activeRide.id}`)} />
+            )}
+            {food.map((o) => (
+              <LiveCard key={o.id} icon="fast-food-outline" title={o.status === 'picked_up' ? 'Your food is on its way' : o.status === 'placed' ? `Waiting for ${o.restaurant.name}` : `${o.restaurant.name} is preparing your food`} sub={`Order ${o.reference}`} right={<StatusPill status={o.status} />} onPress={() => router.push(`/bites/order/${o.id}`)} />
+            ))}
+            {shipped.map((o) => (
+              <LiveCard key={o.id} icon="cube-outline" title={o.status === 'shipped' ? `${o.product.title} is on its way` : `${o.product.title} is ready to ship`} sub={o.shipment ? `Hayve Send · ${o.shipment.trackingCode}` : o.reference} right={<StatusPill status={o.status} />} onPress={() => router.push(`/orders/${o.id}`)} />
+            ))}
+            {stays.map((b) => (
+              <LiveCard key={b.id} icon="bed-outline" title={`Upcoming stay in ${b.property.city}`} sub={`${b.checkIn} → ${b.checkOut}`} right={<StatusPill status={b.status} />} onPress={() => router.push(`/stay/booking/${b.id}`)} />
+            ))}
+          </View>
+        )}
+
+        {/* 5 · activity, reorder, offers */}
+        <Split
+          ratio={1.2}
+          gap={32}
+          left={
             <View>
-              <T style={{ fontSize: 38, lineHeight: 44, fontWeight: '800', letterSpacing: -1, color: '#fff' }}>{money(w?.available ?? 0)}</T>
-              {!!w?.pending && (
-                <T variant="footnote" color={color.lime}>
-                  + {money(w.pending)} pending
-                </T>
+              <Section title="Recent activity" action="See all" onAction={() => router.push('/pay')}>
+                {activity.length === 0 ? (
+                  <T color={color.grey500}>Nothing yet. Your payments and orders show up here.</T>
+                ) : (
+                  <View style={{ borderWidth: 1, borderColor: color.grey200, borderRadius: radius.lg }}>
+                    {activity.map((t, i) => (
+                      <Pressable key={t.id} onPress={() => router.push(`/pay/tx/${t.id}`)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: i ? 1 : 0, borderTopColor: color.grey200, backgroundColor: pressed ? color.grey100 : 'transparent' })}>
+                        <Icon name={t.type === 'wave_back' ? 'sparkles-outline' : t.direction === 'in' ? 'arrow-down' : 'arrow-up'} size={18} color={t.type === 'wave_back' ? color.indigo : color.black} />
+                        <View style={{ flex: 1 }}>
+                          <T variant="subhead" weight="600" numberOfLines={1}>
+                            {t.counterparty}
+                          </T>
+                          <T variant="caption" color={color.grey500} numberOfLines={1}>
+                            {t.note ? `${t.note} · ` : ''}
+                            {ago(t.createdAt)}
+                          </T>
+                        </View>
+                        <T variant="subhead" weight="700" color={t.direction === 'in' ? color.indigo : color.black}>
+                          {hidden ? '•••' : `${t.direction === 'in' ? '+' : '−'}${money(t.amountCents)}`}
+                        </T>
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+              </Section>
+              {(lastFood || recentPlaces.length > 0) && (
+                <Section title="Pick up where you left off">
+                  <View style={{ gap: 10 }}>
+                    {lastFood && (
+                      <Pressable onPress={() => router.push(`/bites/restaurant/${lastFood.restaurant.id}`)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.lg, borderWidth: 1, borderColor: pressed ? color.black : color.grey200 })}>
+                        <Photo uri={lastFood.restaurant.image} style={{ width: 56, height: 56 }} rounded={radius.md} icon="fast-food-outline" />
+                        <View style={{ flex: 1 }}>
+                          <T variant="subhead" weight="700">
+                            Reorder from {lastFood.restaurant.name}
+                          </T>
+                          <T variant="caption" color={color.grey500} numberOfLines={1}>
+                            {lastFood.lines.map((l) => `${l.qty}× ${l.name}`).join(', ')}
+                          </T>
+                        </View>
+                        <Icon name="refresh-outline" size={18} />
+                      </Pressable>
+                    )}
+                    {recentPlaces.map((r) => (
+                      <Pressable key={r.id} onPress={() => router.push(`/ride?to=${r.dropoff.id}`)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.lg, borderWidth: 1, borderColor: pressed ? color.black : color.grey200 })}>
+                        <View style={{ width: 56, height: 56, borderRadius: radius.md, backgroundColor: color.grey100, alignItems: 'center', justifyContent: 'center' }}>
+                          <Icon name="time-outline" size={22} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <T variant="subhead" weight="700">
+                            {r.dropoff.name}
+                          </T>
+                          <T variant="caption" color={color.grey500} numberOfLines={1}>
+                            {r.dropoff.address}
+                          </T>
+                        </View>
+                        <Icon name="car-outline" size={18} />
+                      </Pressable>
+                    ))}
+                  </View>
+                </Section>
               )}
             </View>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              {[
-                { icon: 'arrow-up' as const, label: 'Send', to: '/pay/send' },
-                { icon: 'arrow-down' as const, label: 'Request', to: '/pay/request' },
-                { icon: 'add' as const, label: 'Add', to: '/pay/add' },
-              ].map((a) => (
-                <Pressable
-                  key={a.label}
-                  onPress={() => {
-                    tap();
-                    router.push(a.to as never);
-                  }}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: a.label === 'Send' ? color.lime : 'rgba(255,255,255,0.12)', borderRadius: radius.pill, paddingHorizontal: 14, height: 36 }}
-                >
-                  <Ionicons name={a.icon} size={16} color={a.label === 'Send' ? color.ink : '#fff'} />
-                  <T variant="subhead" weight="700" color={a.label === 'Send' ? color.ink : '#fff'}>
-                    {a.label}
-                  </T>
-                </Pressable>
-              ))}
+          }
+          right={
+            <View>
+              <Section title="Offers near you" action="Hayve Bites" onAction={() => router.push('/bites')}>
+                <View style={{ gap: 10 }}>
+                  {deals.slice(0, 3).map((r) => (
+                    <Pressable key={r.id} onPress={() => router.push(`/bites/restaurant/${r.id}`)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.lg, borderWidth: 1, borderColor: pressed ? color.black : color.grey200 })}>
+                      <Photo uri={r.image} style={{ width: 56, height: 56 }} rounded={radius.md} icon="restaurant-outline" />
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <T variant="subhead" weight="700">
+                          {r.name}
+                        </T>
+                        <T variant="caption" color={color.indigo} weight="600">
+                          {r.promo}
+                        </T>
+                        <Rating value={r.rating} count={r.ratingCount} size={12} />
+                      </View>
+                    </Pressable>
+                  ))}
+                </View>
+              </Section>
             </View>
-          </LinearGradient>
-        </Pressable>
-        <Card style={{ flex: isWide ? 1.3 : undefined }}>
-          <ServiceRail />
-        </Card>
-      </View>
+          }
+        />
 
-      {/* Recent activity */}
-      {txs.length > 0 && (
-        <Section title="Recent activity" action="See all" onAction={() => router.push('/pay')}>
-          <Card padded={false}>
-            {txs.map((t, i) => (
-              <Pressable key={t.id} onPress={() => router.push(`/pay/tx/${t.id}`)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderTopWidth: i ? 1 : 0, borderTopColor: color.line }}>
-                <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: t.direction === 'in' ? color.limeSoft : color.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name={t.direction === 'in' ? 'arrow-down' : 'arrow-up'} size={18} color={t.direction === 'in' ? color.limeInk : color.primary} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <T variant="headline" numberOfLines={1}>
-                    {t.counterparty}
-                  </T>
-                  <T variant="footnote" color={color.textSecondary} numberOfLines={1}>
-                    {t.note ?? t.type.replace('_', ' ')} · {ago(t.createdAt)}
-                  </T>
-                </View>
-                <T variant="headline" color={t.direction === 'in' ? color.success : color.text}>
-                  {t.direction === 'in' ? '+' : '−'}
-                  {money(t.amountCents).replace('€', '€')}
+        <Section title="Picked for you on Hayve Shop" action="Browse" onAction={() => router.push('/shop')}>
+          <HScroll gap={16}>
+            {picks.map((p) => (
+              <Pressable key={p.id} onPress={() => router.push(`/product/${p.id}`)} style={{ width: isWide ? 200 : 150 }} accessibilityRole="link" accessibilityLabel={p.title}>
+                <Photo uri={p.image} style={{ width: '100%', aspectRatio: 0.85 }} rounded={radius.md} icon="bag-handle-outline" label={p.title} />
+                <T variant="subhead" weight="600" numberOfLines={1} style={{ marginTop: 8 }}>
+                  {p.title}
+                </T>
+                <T variant="subhead" weight="700">
+                  {money(p.priceCents)}
                 </T>
               </Pressable>
             ))}
-          </Card>
-        </Section>
-      )}
-
-      {/* Recent purchases */}
-      {purchases.length > 0 && (
-        <Section title="Your orders" action="All activity" onAction={() => router.push('/orders')}>
-          <View style={{ gap: 10 }}>
-            {purchases.map((o) => (
-              <Card key={o.id} onPress={() => router.push(`/orders/${o.id}`)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <Photo uri={o.product.image} style={{ width: 52, height: 52 }} rounded={12} />
-                <View style={{ flex: 1 }}>
-                  <T variant="headline" numberOfLines={1}>
-                    {o.product.title}
-                  </T>
-                  <T variant="footnote" color={color.textSecondary}>
-                    {o.reference} · {money(o.totalCents)}
-                  </T>
-                </View>
-                <StatusPill status={o.status} />
-              </Card>
-            ))}
-          </View>
-        </Section>
-      )}
-
-      {/* Marketplace */}
-      <Section title="Picked for you on Hayve Shop" action="Shop" onAction={() => router.push('/shop')}>
-        {isWide ? (
-          <Grid min={180}>
-            {products.slice(0, columns(180) * 2).map((p) => (
-              <ProductTile key={p.id} p={p} />
-            ))}
-          </Grid>
-        ) : (
-          <HScroll>
-            {products.map((p) => (
-              <ProductTile key={p.id} p={p} width={tileW} />
-            ))}
           </HScroll>
-        )}
-      </Section>
-
-      {/* Restaurants */}
-      <Section title="Popular on Hayve Bites" action="See all" onAction={() => router.push('/bites')}>
-        <HScroll>
-          {restaurants.map((r) => (
-            <Pressable key={r.id} onPress={() => router.push(`/bites/restaurant/${r.id}`)} style={{ width: isWide ? 300 : 260 }}>
-              <Photo uri={r.image} style={{ width: '100%', height: 150 }} rounded={radius.lg} icon="restaurant-outline" label={r.name} />
-              {r.promo && <Badge label={r.promo} tone="lime" style={{ position: 'absolute', top: 10, left: 10 }} />}
-              <View style={{ paddingTop: 10, gap: 2 }}>
-                <T variant="headline">{r.name}</T>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Rating value={r.rating} count={r.ratingCount} />
-                  <T variant="footnote" color={color.textSecondary}>
-                    · {r.etaMin} min · {r.deliveryFeeCents ? `${money(r.deliveryFeeCents)} delivery` : 'Free delivery'}
-                  </T>
-                </View>
-              </View>
-            </Pressable>
-          ))}
-        </HScroll>
-      </Section>
-
-      {/* Ride + Drive + Send shortcuts */}
-      <Section title="Get around">
-        <View style={{ flexDirection: isWide ? 'row' : 'column', gap: 12 }}>
-          <Card tone="dark" style={{ flex: 1 }} onPress={() => router.push('/ride')}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-              <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: color.lime, alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="car-sport" size={26} color={color.ink} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <T variant="headline" color="#fff">
-                  Where to?
-                </T>
-                <T variant="footnote" color={color.textOnDarkSecondary}>
-                  Hayve Ride · drivers 4 min away
-                </T>
-              </View>
-              <Ionicons name="arrow-forward" size={20} color={color.lime} />
-            </View>
-          </Card>
-          <Card style={{ flex: 1 }} onPress={() => router.push('/drive')}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-              <Photo uri={media.cars.tesla} style={{ width: 52, height: 52 }} rounded={16} icon="key-outline" />
-              <View style={{ flex: 1 }}>
-                <T variant="headline">Rent a car</T>
-                <T variant="footnote" color={color.textSecondary}>
-                  Hayve Drive · from €49/day
-                </T>
-              </View>
-              <Ionicons name="arrow-forward" size={20} color={color.primary} />
-            </View>
-          </Card>
-          <Card style={{ flex: 1 }} onPress={() => router.push('/send')}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-              <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: color.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="cube" size={24} color={color.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <T variant="headline">Send a parcel</T>
-                <T variant="footnote" color={color.textSecondary}>
-                  Hayve Send · from €4.95
-                </T>
-              </View>
-              <Ionicons name="arrow-forward" size={20} color={color.primary} />
-            </View>
-          </Card>
-        </View>
-      </Section>
-
-      {/* Stays */}
-      <Section title="Stays you might like" action="Hayve Stay" onAction={() => router.push('/stay')}>
-        <HScroll>
-          {stays.map((p) => (
-            <Pressable key={p.id} onPress={() => router.push(`/stay/${p.id}`)} style={{ width: isWide ? 280 : 240 }}>
-              <Photo uri={p.images[0]} style={{ width: '100%', height: 180 }} rounded={radius.lg} icon="bed-outline" label={p.title} />
-              <View style={{ paddingTop: 10, gap: 2 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
-                  <T variant="headline" numberOfLines={1} style={{ flex: 1 }}>
-                    {p.neighbourhood}, {p.city}
-                  </T>
-                  <Rating value={p.rating} />
-                </View>
-                <T variant="footnote" color={color.textSecondary} numberOfLines={1}>
-                  {p.title}
-                </T>
-                <T variant="subhead" weight="700" style={{ marginTop: 2 }}>
-                  {money(p.pricePerNightCents)} <T variant="footnote" color={color.textSecondary}>night</T>
-                </T>
-              </View>
-            </Pressable>
-          ))}
-        </HScroll>
-      </Section>
-
-      {/* Business promo */}
-      <Pressable onPress={() => router.push('/business')} style={{ marginTop: 28 }}>
-        <View style={{ backgroundColor: color.lime, borderRadius: radius.xl, padding: 22, flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-          <View style={{ flex: 1, gap: 4 }}>
-            <T variant="overline" color={color.limeInk}>
-              Hayve for Business
-            </T>
-            <T variant="title3">Earn with one account</T>
-            <T variant="footnote" color={color.limeInk}>
-              Sell on Shop, host stays and cars, drive, deliver, run a kitchen or accept Hayve Pay.
-            </T>
-          </View>
-          <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: color.ink, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="arrow-forward" size={22} color={color.lime} />
-          </View>
-        </View>
-      </Pressable>
+        </Section>
+      </View>
     </Screen>
+  );
+}
+
+function LiveCard({ icon, title, sub, right, onPress }: { icon: IconName; title: string; sub: string; right?: ReactNode; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="link" style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: radius.lg, borderWidth: 1.5, borderColor: pressed || hovered ? color.black : color.indigo, backgroundColor: color.white })}>
+      <Icon name={icon} size={24} color={color.indigo} />
+      <View style={{ flex: 1 }}>
+        <T variant="headline" numberOfLines={1}>
+          {title}
+        </T>
+        <T variant="footnote" color={color.grey500} numberOfLines={1}>
+          {sub}
+        </T>
+      </View>
+      {right}
+    </Pressable>
   );
 }

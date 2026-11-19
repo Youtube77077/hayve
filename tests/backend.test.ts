@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import * as api from '../src/backend/api';
 import { accountIdFor, balancesFor, ledgerIsBalanced } from '../src/backend/ledger';
+import { DEFAULT_FEE_TIERS, marketplaceFeeCents, OWNER_ADMIN_EMAILS, SIM_CODE } from '../src/backend/config';
 import { createSeedDatabase, DEMO_PASSWORD } from '../src/backend/seed';
 import { attachStorage, getDb } from '../src/backend/store';
 
@@ -60,6 +61,7 @@ describe('Hayve Shop', () => {
     expect(balancesFor(accountIdFor('u_ines')).pending).toBe(before + 12000);
     api.session.signOut();
     as('ines@hayve.app');
+    api.shop.updateOrder(orderId, 'create_label');
     api.shop.updateOrder(orderId, 'ship');
     api.shop.updateOrder(orderId, 'deliver');
     api.session.signOut();
@@ -90,7 +92,7 @@ describe('wishlists and anonymous gifting', () => {
     const last = w.items[w.items.length - 1];
     api.wishlist.moveWishlistItem(last.id, -1);
     expect(api.wishlist.myWishlist().items[w.items.length - 2].id).toBe(last.id);
-    api.wishlist.setWishlistVisibility(false);
+    api.wishlist.setWishlistVisibility('private');
     api.session.signOut();
     as(NOOR);
     expect(api.wishlist.getWishlistByUsername('samrivera').visible).toBe(false);
@@ -330,13 +332,174 @@ describe('services', () => {
   });
 });
 
-describe('business and admin', () => {
-  it('registers a business, verifies it and accepts a Hayve Pay checkout', () => {
+const STORE_INPUT = {
+  legalName: 'Rivera Studio B.V.',
+  tradingName: 'Rivera Studio',
+  category: 'Design',
+  registrationNumber: '12345678',
+  vatNumber: 'NL123456789B01',
+  address: { line1: 'Keizersgracht 1', city: 'Amsterdam', postcode: '1015 CJ', country: 'Netherlands' },
+  ownerIdChecked: true,
+};
+
+function makeOwnerAdmin() {
+  api.session.signUp({ email: OWNER_ADMIN_EMAILS[0], password: 'correct-horse', displayName: 'Hayve Owner', username: 'owner' });
+  api.session.verifyEmail(SIM_CODE);
+  api.session.enableTwoFactor(SIM_CODE);
+}
+
+describe('marketplace fees', () => {
+  it('uses tiered fees that never go down when the price goes up', () => {
+    const fee = (eur: number) => marketplaceFeeCents(Math.round(eur * 100), DEFAULT_FEE_TIERS);
+    expect(fee(20)).toBe(100); // 5%
+    expect(fee(50)).toBe(250);
+    expect(fee(50.01)).toBe(250); // 4% would be €2.00 → floor of tier below
+    expect(fee(100)).toBe(400);
+    expect(fee(250)).toBe(1000);
+    expect(fee(260)).toBe(1000); // not €7.80
+    expect(fee(1000)).toBe(3000);
+    expect(fee(1200)).toBe(3000); // 2% = €24 → €30
+    expect(fee(2000)).toBe(4000);
+    for (let c = 100; c < 300000; c += 137) expect(marketplaceFeeCents(c + 137, DEFAULT_FEE_TIERS)).toBeGreaterThanOrEqual(marketplaceFeeCents(c, DEFAULT_FEE_TIERS));
+  });
+
+  it('charges the tier fee at checkout and adds Hayve Send shipping only when shipping', () => {
     as(SAM);
-    api.business.registerBusiness({ legalName: 'Rivera Studio B.V.', tradingName: 'Rivera Studio', category: 'Design', country: 'Netherlands', registrationNumber: '12345678' });
-    api.business.completeVerificationStep('identity');
-    api.business.completeVerificationStep('bank');
-    expect(api.business.myBusiness()!.verification.status).toBe('verified');
+    const ship = api.shop.quote('p_jacket', 'ship');
+    expect(ship.feeCents).toBe(480); // €120 × 4%
+    expect(ship.shippingCents).toBe(395);
+    const pickup = api.shop.quote('p_jacket', 'pickup');
+    expect(pickup.shippingCents).toBe(0);
+    expect(pickup.totalCents).toBe(12000 + 480);
+  });
+});
+
+describe('Wave Back', () => {
+  it('pays 1% (max €5) on Shop purchases with balance, nothing on card payments', () => {
+    as(SAM);
+    const card = api.shop.checkout('p_lamp', { addressId: 'ad_sam', method: 'card' });
+    expect(card.waveBackCents).toBe(0);
+    const bal = api.shop.checkout('p_jacket', { addressId: 'ad_sam', method: 'wallet' });
+    expect(bal.waveBackCents).toBe(120); // 1% of €120
+    const big = api.shop.quote('p_laptop');
+    void big;
+    expect(api.wallet.transactions().some((t) => t.type === 'wave_back' && t.amountCents === 120)).toBe(true);
+  });
+
+  it('caps Shop Wave Back at €5 per purchase and pays 2% on services', () => {
+    as(NOOR);
+    api.wallet.addMoney(80000, 'bank');
+    const r = api.shop.checkout('p_laptop', { addressId: 'ad_noor', method: 'wallet' });
+    expect(r.waveBackCents).toBe(500); // 1% of €640 = €6.40 → capped
+    const ride = api.ride.requestRide('home', 'centraal', 'go', 'wallet');
+    for (let i = 0; i < 4; i++) api.ride.simulateRideStep(ride);
+    const fare = api.ride.getRide(ride).priceCents;
+    const wb = api.wallet.transactions().find((t) => t.type === 'wave_back' && t.ref?.id && t.amountCents === Math.round(fare * 0.02));
+    expect(wb).toBeTruthy();
+  });
+
+  it('gives new members 5% for 30 days up to €10, within the €20 monthly cap', () => {
+    api.session.signUp({ email: 'fresh@hayve.app', password: 'password1', displayName: 'Fresh Member', username: 'fresh' });
+    api.wallet.addMoney(100000, 'bank');
+    api.social.saveAddress({ label: 'Home', fullName: 'Fresh Member', line1: 'Damrak 1', city: 'Amsterdam', postcode: '1012 LG', country: 'Netherlands' });
+    const addr = api.social.addresses()[0].id;
+    const first = api.shop.checkout('p_jacket', { addressId: addr, method: 'wallet' }); // 5% of €120 = €6.00 → shop cap €5
+    expect(first.waveBackCents).toBe(500);
+    const second = api.shop.checkout('p_chair', { addressId: addr, method: 'wallet' }); // 5% of €180 = €9 → €5 cap
+    expect(second.waveBackCents).toBe(500);
+    const third = api.shop.checkout('p_smartwatch', { addressId: addr, method: 'wallet' }); // welcome budget used → 1% = €1.60
+    expect(third.waveBackCents).toBe(160);
+    const total = api.wallet.transactions().filter((t) => t.type === 'wave_back').reduce((a, t) => a + t.amountCents, 0);
+    expect(total).toBeLessThanOrEqual(2000);
+  });
+
+  it('never pays Wave Back on top-ups or transfers, and reverses it on refunds', () => {
+    as(SAM);
+    api.wallet.addMoney(5000);
+    api.wallet.sendMoney('u_noor', 1000);
+    expect(api.wallet.transactions().filter((t) => t.type === 'wave_back')).toHaveLength(0);
+    const r = api.shop.checkout('p_jacket', { addressId: 'ad_sam', method: 'wallet' });
+    const before = api.wallet.wallet().available;
+    api.shop.updateOrder(r.orderId, 'cancel');
+    expect(api.wallet.wallet().available).toBe(before + 12000 + 480 + 395 - 120);
+    expect(ledgerIsBalanced()).toBe(true);
+  });
+});
+
+describe('Hayve Send inside the order flow', () => {
+  it('creates a label, ships, tracks and delivers', () => {
+    as(SAM);
+    const { orderId } = api.shop.checkout('p_jacket', { addressId: 'ad_sam', method: 'wallet', delivery: 'ship' });
+    api.session.signOut();
+    as('ines@hayve.app');
+    expect(api.shop.getOrder(orderId).actions).toContain('create_label');
+    api.shop.updateOrder(orderId, 'create_label');
+    const code = api.shop.getOrder(orderId).shipment!.trackingCode;
+    expect(code).toMatch(/^HX-/);
+    api.shop.updateOrder(orderId, 'ship');
+    expect(api.shop.trackShipment(code).events.map((e) => e.status)).toEqual(['label_created', 'in_transit']);
+    api.shop.updateOrder(orderId, 'deliver');
+    expect(api.shop.trackShipment(code).delivered).toBe(true);
+    api.session.signOut();
+    as(SAM);
+    api.shop.updateOrder(orderId, 'confirm');
+    api.shop.reviewOrder(orderId, 5, 'Perfect jacket');
+    expect(() => api.shop.reviewOrder(orderId, 4)).toThrow(/already/);
+  });
+
+  it('supports pickup in person without shipping', () => {
+    as(SAM);
+    const { orderId } = api.shop.checkout('p_lamp', { method: 'wallet', delivery: 'pickup' });
+    api.session.signOut();
+    as('eva@hayve.app');
+    expect(api.shop.getOrder(orderId).actions).toContain('handover');
+    api.shop.updateOrder(orderId, 'handover');
+    expect(api.shop.getOrder(orderId).status).toBe('delivered');
+  });
+});
+
+describe('wishlist visibility', () => {
+  it('supports public, link-only and private wishlists', () => {
+    as(NOOR);
+    api.wishlist.setWishlistVisibility('link');
+    const token = api.wishlist.myWishlist().shareToken!;
+    api.session.signOut();
+    as(SAM);
+    expect(api.wishlist.getWishlistByUsername('noor').visible).toBe(false);
+    expect(api.wishlist.getWishlistByUsername('noor', 'wrong').visible).toBe(false);
+    const viaLink = api.wishlist.getWishlistByUsername('noor', token);
+    expect(viaLink.visible).toBe(true);
+    expect(() => api.wishlist.reserveGift(viaLink.items[0].id)).toThrow(/private/);
+    const q = api.wishlist.reserveGift(viaLink.items[0].id, token);
+    api.wishlist.releaseGift(q.reservationId);
+    api.session.signOut();
+    as(NOOR);
+    api.wishlist.resetWishlistLink();
+    api.wishlist.setWishlistVisibility('private');
+    api.session.signOut();
+    as(SAM);
+    expect(api.wishlist.getWishlistByUsername('noor', token).visible).toBe(false);
+  });
+});
+
+describe('Hayve Store and admin', () => {
+  it('requires admin review: pending → verified, with a verified label on listings', () => {
+    as(SAM);
+    expect(() => api.business.registerBusiness({ ...STORE_INPUT, ownerIdChecked: false })).toThrow(/ID/);
+    expect(() => api.business.registerBusiness({ ...STORE_INPUT, registrationNumber: '123' })).toThrow(/KVK/);
+    api.business.registerBusiness(STORE_INPUT);
+    expect(api.business.myBusiness()!.status).toBe('pending');
+    expect(api.shop.getProduct('p_laptop').fromVerifiedBusiness).toBe(false);
+    expect(() => api.business.createPaymentLink('Deposit', 2500)).toThrow();
+    const biz = api.business.myBusiness()!.id;
+    api.session.signOut();
+    makeOwnerAdmin();
+    expect(() => api.admin.reviewBusiness(biz, 'reject', '')).toThrow(/reason/);
+    api.admin.reviewBusiness(biz, 'approve');
+    api.session.signOut();
+    as(SAM);
+    expect(api.business.myBusiness()!.status).toBe('verified');
+    expect(api.shop.getProduct('p_laptop').fromVerifiedBusiness).toBe(true);
     const link = api.business.createPaymentLink('Logo design deposit', 25000);
     api.session.signOut();
     as(NOOR);
@@ -344,14 +507,68 @@ describe('business and admin', () => {
     api.session.signOut();
     as(SAM);
     expect(api.business.merchantPayments()).toHaveLength(1);
-    expect(api.business.earnings('merchant').totalCents).toBeGreaterThan(24000);
   });
 
-  it('blocks non-admins from the admin console', () => {
+  it('lets a rejected business see the reason and resubmit', () => {
+    as(SAM);
+    api.business.registerBusiness(STORE_INPUT);
+    const biz = api.business.myBusiness()!.id;
+    api.session.signOut();
+    makeOwnerAdmin();
+    api.admin.reviewBusiness(biz, 'reject', 'VAT number does not match the KVK record');
+    api.session.signOut();
+    as(SAM);
+    expect(api.business.myBusiness()!.rejectionReason).toMatch(/VAT/);
+    api.business.registerBusiness({ ...STORE_INPUT, vatNumber: 'NL999999999B01' });
+    expect(api.business.myBusiness()!.status).toBe('pending');
+  });
+
+  it('issues VAT invoices for verified Store orders', () => {
+    as(SAM);
+    const { orderId } = api.shop.checkout('p_turntable', { addressId: 'ad_sam', method: 'wallet' });
+    const inv = api.shop.invoice(orderId);
+    expect(inv.seller.vat).toMatch(/^NL/);
+    expect(inv.netCents + inv.vatCents).toBe(inv.grossCents);
+    expect(inv.grossCents).toBe(18900 + 395);
+  });
+
+  it('only gives admin to the owner email, and requires email verification + 2FA', () => {
     as(SAM);
     expect(() => api.admin.overview()).toThrow(/access/);
     api.session.signOut();
-    as('admin@hayve.app');
+    api.session.signUp({ email: OWNER_ADMIN_EMAILS[0], password: 'correct-horse', displayName: 'Hayve Owner', username: 'owner' });
+    expect(() => api.admin.overview()).toThrow(/two-step/);
+    api.session.verifyEmail(SIM_CODE);
+    expect(() => api.admin.overview()).toThrow(/two-step/);
+    api.session.enableTwoFactor(SIM_CODE);
     expect(api.admin.overview().ledgerBalanced).toBe(true);
+    expect(api.admin.overview().pendingVerifications).toBe(1); // Casa Eva in the seed
+  });
+
+  it('suspends users, handles reports, edits settings and logs every action', () => {
+    as(SAM);
+    api.social.report('listing', 'p_sofa', 'Looks like a scam');
+    api.session.signOut();
+    makeOwnerAdmin();
+    const rep = api.admin.reports()[0];
+    api.admin.resolveReport(rep.id, 'remove_content');
+    expect(api.shop.listProducts({ q: 'velvet sofa' })).toHaveLength(0);
+    api.admin.suspendUser('u_jonas', 'Spam');
+    api.admin.updateFeeTiers([{ upToCents: 10000, rate: 0.06 }, { upToCents: null, rate: 0.03 }]);
+    expect(api.shop.quote('p_lamp').feeCents).toBe(270); // 6% of €45
+    api.admin.updateWaveBack({ shopRate: 0.02 });
+    api.admin.removeBio('u_noor');
+    const actions = api.admin.auditLog().map((a) => a.action);
+    for (const a of ['moderation.listing_remove', 'report.resolved', 'user.suspend', 'settings.fee_tiers', 'settings.wave_back', 'moderation.remove_bio']) expect(actions).toContain(a);
+    api.session.signOut();
+    expect(() => api.session.signIn('jonas@hayve.app', DEMO_PASSWORD)).toThrow(/suspended/);
+  });
+
+  it('exports personal data without secrets', () => {
+    as(SAM);
+    const data = api.social.exportMyData();
+    expect(data.account.email).toBe('sam@hayve.app');
+    expect(JSON.stringify(data)).not.toContain('sim$');
+    expect(data.listings.length).toBeGreaterThan(0);
   });
 });

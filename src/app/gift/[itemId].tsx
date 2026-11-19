@@ -1,11 +1,11 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../../design/icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { type PayMethod, wishlist } from '../../backend/api';
 import type { GiftQuote, GiftReceipt } from '../../backend/api/wishlist';
-import { Button, Card, color, Divider, Header, KeyValue, Loading, Notice, Photo, radius, Screen, Section, Split, T, tap } from '../../design';
-import { PayMethodPicker } from '../../features/common';
+import { Button, Card, color, Divider, Emoji, Header, KeyValue, Loading, Notice, Photo, radius, Screen, Section, Split, T, tap } from '../../design';
+import { PayMethodPicker, WaveBackLine } from '../../features/common';
 import { money } from '../../lib/format';
 
 type Phase = { kind: 'reserving' } | { kind: 'ready'; quote: GiftQuote } | { kind: 'paying'; quote: GiftQuote } | { kind: 'done'; receipt: GiftReceipt } | { kind: 'failed'; message: string; canRetry: boolean };
@@ -16,7 +16,7 @@ type Phase = { kind: 'reserving' } | { kind: 'ready'; quote: GiftQuote } | { kin
  * The recipient is never told who bought it — their item simply shows "Sold".
  */
 export default function GiftCheckout() {
-  const { itemId, username } = useLocalSearchParams<{ itemId: string; username?: string }>();
+  const { itemId, username, w } = useLocalSearchParams<{ itemId: string; username?: string; w?: string }>();
   const [phase, setPhase] = useState<Phase>({ kind: 'reserving' });
   const [method, setMethod] = useState<PayMethod>('wallet');
   const [now, setNow] = useState(Date.now());
@@ -26,13 +26,13 @@ export default function GiftCheckout() {
   const reserve = useCallback(() => {
     setPhase({ kind: 'reserving' });
     try {
-      const quote = wishlist.reserveGift(itemId);
+      const quote = wishlist.reserveGift(itemId, w);
       reservation.current = quote.reservationId;
       setPhase({ kind: 'ready', quote });
     } catch (e) {
       setPhase({ kind: 'failed', message: (e as Error).message, canRetry: false });
     }
-  }, [itemId]);
+  }, [itemId, w]);
 
   useEffect(() => {
     reserve();
@@ -51,7 +51,7 @@ export default function GiftCheckout() {
     return () => clearInterval(t);
   }, []);
 
-  const back = `/u/${username ?? ''}`;
+  const back = `/u/${username ?? ''}${w ? `?w=${w}` : ''}`;
 
   if (phase.kind === 'reserving') return <Screen header={<Header back title="Send a gift" fallback={back} />} scroll={false}><Loading label="Reserving this item for you…" /></Screen>;
 
@@ -59,8 +59,8 @@ export default function GiftCheckout() {
     return (
       <Screen header={<Header back title="Send a gift" fallback={back} />} maxWidth={560}>
         <View style={{ alignItems: 'center', marginTop: 32, gap: 12 }}>
-          <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: color.dangerSoft, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="close" size={40} color={color.danger} />
+          <View style={{ width: 72, height: 72, borderRadius: 36, borderWidth: 1, borderColor: color.grey200, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="close" size={32} />
           </View>
           <T variant="title2" center>
             Gift not completed
@@ -83,12 +83,16 @@ export default function GiftCheckout() {
     return (
       <Screen header={<Header title="Gift sent" />} maxWidth={560}>
         <View style={{ alignItems: 'center', marginTop: 24, gap: 12 }}>
-          <View style={{ width: 88, height: 88, borderRadius: 44, backgroundColor: color.lime, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="gift" size={42} color={color.ink} />
+          <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: color.indigo, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="gift" size={32} color={color.white} />
           </View>
-          <T variant="title2" center>
-            Your gift is on its way
-          </T>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <T variant="title2" center>
+              Your gift is on its way
+            </T>
+            <Emoji char="🎁" size={24} />
+          </View>
+          <WaveBackLine cents={r.waveBackCents} />
           <T color={color.textSecondary} center>
             {r.recipientName} will see this item as “Sold” on their wishlist. They won't be told who bought it.
           </T>
@@ -127,7 +131,7 @@ export default function GiftCheckout() {
   return (
     <Screen
       header={<Header back title={`Gift for ${q.recipient.displayName}`} fallback={back} />}
-      footer={<Button title={expired ? 'Reservation expired' : `Send gift · ${money(q.totalCents)}`} icon="gift" size="lg" variant="accent" full loading={phase.kind === 'paying'} disabled={expired} onPress={pay} />}
+      footer={<Button title={expired ? 'Reservation expired' : `Send gift · ${money(q.totalCents)}`} icon="gift" size="lg" variant="primary" full loading={phase.kind === 'paying'} disabled={expired} onPress={pay} />}
     >
       <Split
         left={
@@ -148,9 +152,9 @@ export default function GiftCheckout() {
                 </View>
               </View>
             </Card>
-            <View style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', backgroundColor: expired ? color.dangerSoft : color.limeSoft, borderRadius: radius.pill, paddingHorizontal: 12, height: 32 }}>
-              <Ionicons name="time-outline" size={16} color={expired ? color.danger : color.limeInk} />
-              <T variant="subhead" weight="700" color={expired ? color.danger : color.limeInk}>
+            <View style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', backgroundColor: color.grey100, borderRadius: radius.pill, paddingHorizontal: 12, height: 32 }}>
+              <Icon name="time-outline" size={16} />
+              <T variant="subhead" weight="700">
                 {expired ? 'Reservation expired' : `Reserved for you · ${Math.floor(secondsLeft / 60)}:${`${secondsLeft % 60}`.padStart(2, '0')}`}
               </T>
             </View>
@@ -165,7 +169,7 @@ export default function GiftCheckout() {
                   ['receipt-outline', 'You get the receipt', 'Track the order and delivery from your activity.'],
                 ].map(([icon, t, b]) => (
                   <View key={t} style={{ flexDirection: 'row', gap: 12 }}>
-                    <Ionicons name={icon as 'eye-off-outline'} size={20} color={color.primary} />
+                    <Icon name={icon as 'eye-off-outline'} size={20} color={color.primary} />
                     <View style={{ flex: 1 }}>
                       <T variant="headline">{t}</T>
                       <T variant="footnote" color={color.textSecondary}>
@@ -181,13 +185,13 @@ export default function GiftCheckout() {
         right={
           <View>
             <Section title="Pay with" style={{ marginTop: 8 }}>
-              <PayMethodPicker value={method} onChange={setMethod} totalCents={q.totalCents} />
+              <PayMethodPicker value={method} onChange={setMethod} totalCents={q.totalCents} waveBackCents={q.waveBackCents} />
             </Section>
             <Section title="Summary">
               <Card>
                 <KeyValue label="Item" value={money(q.priceCents)} />
-                <KeyValue label="Buyer Protection" value={money(q.protectionFeeCents)} />
-                <KeyValue label="Shipping" value={money(q.shippingCents)} />
+                <KeyValue label="Fees" value={money(q.feeCents)} />
+                <KeyValue label="Shipping · Hayve Send" value={money(q.shippingCents)} />
                 <Divider style={{ marginVertical: 8 }} />
                 <KeyValue label="Total" value={money(q.totalCents)} strong />
               </Card>

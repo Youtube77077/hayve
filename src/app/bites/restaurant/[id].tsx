@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon, type IconName } from '../../../design/icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -88,7 +88,7 @@ export default function RestaurantScreen() {
                   <Pressable key={m.id} onPress={() => setItem(m)} style={{ width: 170 }}>
                     <Photo uri={m.image} style={{ width: 170, height: 130 }} rounded={radius.md} icon="fast-food-outline" label={m.name} />
                     <View style={{ position: 'absolute', right: 8, top: 96, width: 30, height: 30, borderRadius: 15, backgroundColor: color.surface, alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name="add" size={20} color={color.ink} />
+                      <Icon name="add" size={20} color={color.ink} />
                     </View>
                     <T variant="headline" style={{ marginTop: 8 }} numberOfLines={1}>
                       {m.name}
@@ -158,10 +158,10 @@ export default function RestaurantScreen() {
   );
 }
 
-function Info({ icon, text }: { icon: React.ComponentProps<typeof Ionicons>['name']; text: string }) {
+function Info({ icon, text }: { icon: IconName; text: string }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-      <Ionicons name={icon} size={15} color={color.textSecondary} />
+      <Icon name={icon} size={15} color={color.textSecondary} />
       <T variant="footnote" weight="600">
         {text}
       </T>

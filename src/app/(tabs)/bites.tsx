@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon, type IconName } from '../../design/icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
@@ -10,7 +10,7 @@ import { BasketBar } from '../../features/bites';
 import { money } from '../../lib/format';
 import { useLive } from '../../lib/hooks';
 
-const CUISINE_ICON: Record<string, React.ComponentProps<typeof Ionicons>['name']> = {
+const CUISINE_ICON: Record<string, IconName> = {
   Pizza: 'pizza-outline',
   Burgers: 'fast-food-outline',
   Healthy: 'leaf-outline',
@@ -85,7 +85,7 @@ export default function Bites() {
           {bites.CUISINES.filter((c) => c !== 'Groceries').map((c) => (
             <Pressable key={c} onPress={() => setTag(tag === c ? null : c)} style={{ alignItems: 'center', gap: 6, width: 70 }}>
               <View style={{ width: 62, height: 62, borderRadius: 20, backgroundColor: tag === c ? color.ink : color.surface, borderWidth: 1, borderColor: color.line, alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name={CUISINE_ICON[c] ?? 'restaurant-outline'} size={26} color={tag === c ? color.lime : color.ink} />
+                <Icon name={CUISINE_ICON[c] ?? 'restaurant-outline'} size={26} color={tag === c ? color.lime : color.ink} />
               </View>
               <T variant="caption" weight={tag === c ? '800' : '600'}>
                 {c}

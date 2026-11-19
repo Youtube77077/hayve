@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../../design/icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
@@ -75,7 +75,7 @@ export default function Activity() {
                 <Photo uri={r.image} style={{ width: 56, height: 56 }} rounded={12} icon={r.icon} />
               ) : (
                 <View style={{ width: 56, height: 56, borderRadius: 12, backgroundColor: color.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name={r.icon} size={24} color={color.primary} />
+                  <Icon name={r.icon} size={24} color={color.primary} />
                 </View>
               )}
               <View style={{ flex: 1, gap: 2 }}>

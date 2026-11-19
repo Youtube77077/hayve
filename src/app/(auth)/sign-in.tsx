@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../../design/icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
@@ -42,7 +42,7 @@ export default function SignIn() {
 
       <View style={{ marginTop: 32, gap: 10 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Ionicons name="flask-outline" size={16} color={color.warning} />
+          <Icon name="flask-outline" size={16} color={color.warning} />
           <T variant="overline" color={color.textTertiary}>
             Demo accounts · password {DEMO_PASSWORD}
           </T>
@@ -71,7 +71,7 @@ export default function SignIn() {
                 {a.hint}
               </T>
             </View>
-            <Ionicons name="arrow-forward" size={18} color={color.textTertiary} />
+            <Icon name="arrow-forward" size={18} color={color.textTertiary} />
           </Pressable>
         ))}
       </View>

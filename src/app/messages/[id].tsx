@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../../design/icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
@@ -52,11 +52,11 @@ export default function Conversation() {
         </View>
         {t.context && (
           <Pressable onPress={() => router.push(`${CONTEXT_ROUTE[t.context!.kind]}${t.context!.kind === 'support' ? '' : t.context!.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingBottom: 10, maxWidth: layout.maxContent, width: '100%', alignSelf: 'center' }}>
-            <Ionicons name="link-outline" size={16} color={color.primary} />
+            <Icon name="link-outline" size={16} color={color.primary} />
             <T variant="footnote" color={color.primary} weight="700" numberOfLines={1} style={{ flex: 1 }}>
               {t.context.title}
             </T>
-            <Ionicons name="chevron-forward" size={14} color={color.primary} />
+            <Icon name="chevron-forward" size={14} color={color.primary} />
           </Pressable>
         )}
       </View>
@@ -92,7 +92,7 @@ export default function Conversation() {
             accessibilityLabel="Message"
           />
           <Pressable onPress={send} disabled={!text.trim()} accessibilityLabel="Send message" style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: text.trim() ? color.primary : color.lineStrong, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="arrow-up" size={22} color="#fff" />
+            <Icon name="arrow-up" size={22} color="#fff" />
           </Pressable>
         </View>
       </View>

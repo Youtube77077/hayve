@@ -1,7 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../icons';
 import { useMemo, useState } from 'react';
 import { Pressable, Switch, View } from 'react-native';
-import { color, type IconName, radius, space } from '../tokens';
+import { color, radius, space } from '../tokens';
+import type { IconName } from '../icons';
 import { Sheet } from './feedback';
 import { T, tap } from './primitives';
 
@@ -23,7 +24,7 @@ export function Segmented<K extends string>({ options, value, onChange, dark }: 
             }}
             style={{ flex: 1, flexDirection: 'row', gap: 6, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: radius.pill, backgroundColor: active ? (dark ? color.lime : color.surface) : 'transparent' }}
           >
-            {o.icon && <Ionicons name={o.icon} size={16} color={active ? color.ink : dark ? '#fff' : color.textSecondary} />}
+            {o.icon && <Icon name={o.icon} size={16} color={active ? color.ink : dark ? '#fff' : color.textSecondary} />}
             <T variant="subhead" weight={active ? '700' : '600'} color={active ? color.ink : dark ? '#fff' : color.textSecondary} numberOfLines={1}>
               {o.label}
             </T>
@@ -47,7 +48,7 @@ export function Stepper({ value, onChange, min = 0, max = 99, label, sub }: { va
       }}
       style={{ width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: disabled ? color.line : color.lineStrong, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.4 : 1 }}
     >
-      <Ionicons name={icon} size={18} color={color.ink} />
+      <Icon name={icon} size={18} color={color.ink} />
     </Pressable>
   );
   return (
@@ -77,8 +78,8 @@ export function SwitchRow({ title, subtitle, value, onChange, icon }: { title: s
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 12, paddingHorizontal: space.lg }}>
       {icon && (
-        <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: color.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
-          <Ionicons name={icon} size={18} color={color.primary} />
+        <View style={{ width: 28, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name={icon} size={20} color={color.black} />
         </View>
       )}
       <View style={{ flex: 1 }}>
@@ -89,7 +90,7 @@ export function SwitchRow({ title, subtitle, value, onChange, icon }: { title: s
           </T>
         )}
       </View>
-      <Switch value={value} onValueChange={onChange} trackColor={{ true: color.primary, false: color.lineStrong }} thumbColor="#fff" ios_backgroundColor={color.lineStrong} accessibilityLabel={title} />
+      <Switch value={value} onValueChange={onChange} trackColor={{ true: color.indigo, false: color.grey200 }} thumbColor="#fff" ios_backgroundColor={color.grey200} accessibilityLabel={title} />
     </View>
   );
 }
@@ -102,20 +103,20 @@ export function Select<K extends string>({ label, value, options, onChange, plac
   return (
     <View style={{ gap: 6 }}>
       {label && (
-        <T variant="subhead" color={color.textSecondary}>
+        <T variant="subhead" weight="600">
           {label}
         </T>
       )}
       <Pressable
         onPress={() => setOpen(true)}
         accessibilityRole="button"
-        style={{ height: 50, borderRadius: radius.md, borderWidth: 1.5, borderColor: color.line, backgroundColor: color.surface, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, gap: 10 }}
+        style={{ height: 50, borderRadius: radius.md, borderWidth: 1, borderColor: color.grey200, backgroundColor: color.white, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, gap: 10 }}
       >
-        {icon && <Ionicons name={icon} size={19} color={color.textTertiary} />}
+        {icon && <Icon name={icon} size={19} color={color.textTertiary} />}
         <T style={{ flex: 1 }} color={current ? color.text : color.textTertiary} numberOfLines={1}>
           {current?.label ?? placeholder}
         </T>
-        <Ionicons name="chevron-down" size={18} color={color.textTertiary} />
+        <Icon name="chevron-down" size={18} color={color.textTertiary} />
       </Pressable>
       <Sheet visible={open} onClose={() => setOpen(false)} title={label ?? placeholder}>
         <View style={{ gap: 6 }}>
@@ -127,7 +128,7 @@ export function Select<K extends string>({ label, value, options, onChange, plac
                 onChange(o.key);
                 setOpen(false);
               }}
-              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: radius.md, backgroundColor: o.key === value ? color.primarySoft : pressed ? color.surfaceSunken : color.surface, gap: 10 })}
+              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: radius.md, backgroundColor: pressed ? color.grey100 : color.white, borderWidth: 1, borderColor: o.key === value ? color.black : color.grey200, gap: 10 })}
             >
               <View style={{ flex: 1 }}>
                 <T variant="headline">{o.label}</T>
@@ -137,7 +138,7 @@ export function Select<K extends string>({ label, value, options, onChange, plac
                   </T>
                 )}
               </View>
-              {o.key === value && <Ionicons name="checkmark-circle" size={22} color={color.primary} />}
+              {o.key === value && <Icon name="checkmark" size={20} color={color.indigo} />}
             </Pressable>
           ))}
         </View>
@@ -206,13 +207,13 @@ export function RangeCalendar({ start, end, onChange, disabled = [], months = 2 
     <View style={{ gap: 18 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <Pressable onPress={() => setOffset(Math.max(0, offset - 1))} disabled={offset === 0} hitSlop={10} accessibilityLabel="Previous month" style={{ opacity: offset === 0 ? 0.3 : 1 }}>
-          <Ionicons name="chevron-back" size={22} color={color.ink} />
+          <Icon name="chevron-back" size={22} color={color.ink} />
         </Pressable>
         <T variant="footnote" color={color.textSecondary}>
           {start ? `${prettyDate(start)} → ${end ? prettyDate(end) : 'select end date'}` : 'Select a start date'}
         </T>
         <Pressable onPress={() => setOffset(offset + 1)} hitSlop={10} accessibilityLabel="Next month">
-          <Ionicons name="chevron-forward" size={22} color={color.ink} />
+          <Icon name="chevron-forward" size={22} color={color.ink} />
         </Pressable>
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 24 }}>

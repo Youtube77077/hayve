@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../../../design/icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
@@ -108,7 +108,7 @@ export default function FoodOrderTracking() {
               <KeyValue label="Service fee" value={money(o.serviceFeeCents)} />
               <KeyValue label="Total" value={money(o.totalCents)} strong />
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, alignItems: 'center' }}>
-                <Ionicons name="location-outline" size={16} color={color.textSecondary} />
+                <Icon name="location-outline" size={16} color={color.textSecondary} />
                 <T variant="footnote" color={color.textSecondary} style={{ flex: 1 }}>
                   {o.address}
                 </T>

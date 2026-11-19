@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../design/icons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
@@ -104,7 +104,7 @@ export function MenuItemSheet({ item, restaurantId, open, onClose, isOpen }: { i
                 }}
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: color.line }}
               >
-                <Ionicons name={g.required ? (on ? 'radio-button-on' : 'radio-button-off') : on ? 'checkbox' : 'square-outline'} size={22} color={on ? color.primary : color.lineStrong} />
+                <Icon name={g.required ? (on ? 'radio-button-on' : 'radio-button-off') : on ? 'checkbox' : 'square-outline'} size={22} color={on ? color.primary : color.lineStrong} />
                 <T style={{ flex: 1 }}>{ch.label}</T>
                 {ch.priceCents > 0 && (
                   <T variant="subhead" color={color.textSecondary}>

@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../../design/icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
@@ -58,7 +58,7 @@ export default function Shop() {
           <Input icon="search" placeholder="Search for items or members" value={q} onChangeText={setQ} returnKeyType="search" autoCorrect={false} />
         </View>
         <Pressable onPress={() => setFiltersOpen(true)} accessibilityLabel="Filters and sorting" style={{ height: 50, paddingHorizontal: 16, borderRadius: radius.md, backgroundColor: activeFilters ? color.ink : color.surface, borderWidth: 1.5, borderColor: activeFilters ? color.ink : color.line, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Ionicons name="options-outline" size={20} color={activeFilters ? color.lime : color.ink} />
+          <Icon name="options-outline" size={20} color={activeFilters ? color.lime : color.ink} />
           {activeFilters > 0 && (
             <T variant="subhead" color="#fff" weight="700">
               {activeFilters}
@@ -76,7 +76,7 @@ export default function Shop() {
       {!isWide && (
         <Pressable onPress={() => router.push('/sell')} style={{ marginTop: 16, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: radius.lg, backgroundColor: color.primary }}>
           <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: color.lime, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="camera" size={20} color={color.ink} />
+            <Icon name="camera" size={20} color={color.ink} />
           </View>
           <View style={{ flex: 1 }}>
             <T variant="headline" color="#fff">
@@ -86,7 +86,7 @@ export default function Shop() {
               Snap, price, list. Earnings land in Hayve Pay.
             </T>
           </View>
-          <Ionicons name="arrow-forward" size={20} color="#fff" />
+          <Icon name="arrow-forward" size={20} color="#fff" />
         </Pressable>
       )}
 

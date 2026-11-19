@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Platform, Share, View } from 'react-native';
 import { session, social } from '../../backend/api';
 import type { NotificationKind } from '../../backend/types';
 import { Button, color, Group, Header, Input, ListRow, Notice, Screen, Section, Select, Sheet, Split, SwitchRow, T } from '../../design';
@@ -30,6 +30,28 @@ export default function Settings() {
   const [del, setDel] = useState(false);
   const [delPw, setDelPw] = useState('');
   const [terms, setTerms] = useState(false);
+  const [tfaOn, setTfaOn] = useState(false);
+  const [tfaOff, setTfaOff] = useState(false);
+  const [tfaCode, setTfaCode] = useState('');
+  const [tfaPw, setTfaPw] = useState('');
+
+  const download = () =>
+    run(
+      async () => {
+        const json = JSON.stringify(social.exportMyData(), null, 2);
+        if (Platform.OS === 'web' && typeof document !== 'undefined') {
+          const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'hayve-my-data.json';
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } else {
+          await Share.share({ title: 'My Hayve data', message: json });
+        }
+      },
+      { success: 'Your data export is ready' },
+    );
   if (!me) return null;
   const p = me.profile;
 
@@ -41,7 +63,7 @@ export default function Settings() {
             <Section title="Privacy" style={{ marginTop: 8 }}>
               <Group>
                 <SwitchRow icon="globe-outline" title="Public profile" subtitle="Others can see your listings, reviews and bio" value={p.isPublic} onChange={(v) => run(() => social.updateProfile({ isPublic: v }))} />
-                <SwitchRow icon="gift-outline" title="Public wishlist" subtitle="Friends can view it and send anonymous gifts" value={p.wishlistPublic} onChange={(v) => run(() => social.updateProfile({ wishlistPublic: v }))} />
+                <ListRow icon="gift-outline" title="Wishlist privacy" subtitle="Who can see your wishlist" value={p.wishlistVisibility === 'public' ? 'Public' : p.wishlistVisibility === 'link' ? 'Anyone with the link' : 'Private'} onPress={() => router.push('/wishlist')} />
               </Group>
               <T variant="footnote" color={color.textTertiary} style={{ marginTop: 8 }}>
                 Gift purchasers are always anonymous. Hayve never reveals who bought an item from your wishlist.
@@ -51,7 +73,7 @@ export default function Settings() {
               <Group>
                 <ListRow icon="mail-outline" title="Email" subtitle={me.user.email} value={me.user.emailVerified ? 'Verified' : 'Verify'} onPress={me.user.emailVerified ? undefined : () => setVerify(true)} />
                 <ListRow icon="key-outline" title="Change password" onPress={() => setPw(true)} />
-                <SwitchRow icon="shield-checkmark-outline" title="Two-step verification" subtitle="Ask for a code when signing in on a new device" value={p.twoFactor} onChange={(v) => run(() => social.updateProfile({ twoFactor: v }), { success: v ? 'Two-step verification on' : 'Two-step verification off' })} />
+                <ListRow icon="shield-checkmark-outline" title="Two-step verification" subtitle={me.user.roles.includes('admin') ? 'Required for admin access' : 'Ask for a code when signing in on a new device'} value={p.twoFactor ? 'On' : 'Off'} onPress={() => (p.twoFactor ? setTfaOff(true) : setTfaOn(true))} />
               </Group>
             </Section>
             <Section title="Preferences">
@@ -87,6 +109,8 @@ export default function Settings() {
             <Section title="Legal & account">
               <Group>
                 <ListRow icon="document-text-outline" title="Terms & conditions" onPress={() => setTerms(true)} />
+                <ListRow icon="shield-outline" title="Privacy policy" onPress={() => router.push('/privacy')} />
+                <ListRow icon="download-outline" title="Download my data" subtitle="A copy of everything linked to your account (JSON)" onPress={download} />
                 <ListRow icon="help-buoy-outline" title="Help & support" onPress={() => router.push('/settings/help')} />
                 <ListRow icon="trash-outline" title="Delete account" danger onPress={() => setDel(true)} />
               </Group>
@@ -95,9 +119,9 @@ export default function Settings() {
         }
       />
 
-      <Sheet visible={verify} onClose={() => setVerify(false)} title="Verify your email" footer={<Button title="Verify" size="lg" full loading={busy} onPress={() => run(() => session.verifyEmail(code), { success: 'Email verified ✅', onDone: () => setVerify(false) })} />}>
+      <Sheet visible={verify} onClose={() => setVerify(false)} title="Verify your email" footer={<Button title="Verify" size="lg" full loading={busy} onPress={() => run(() => session.verifyEmail(code), { success: 'Email verified', onDone: () => setVerify(false) })} />}>
         <View style={{ gap: 12 }}>
-          <Notice tone="warning" icon="flask-outline" title="Simulated email" body="Use code 246810." />
+          <Notice icon="flask-outline" title="Preview" body="Use code 246810." />
           <Input label="6-digit code" keyboardType="number-pad" maxLength={6} value={code} onChangeText={setCode} />
         </View>
       </Sheet>
@@ -114,9 +138,22 @@ export default function Settings() {
           <Button title="Delete my account" variant="danger" size="lg" full loading={busy} onPress={() => run(() => session.deleteAccount(delPw), { success: 'Account deleted' })} />
         </View>
       </Sheet>
+      <Sheet visible={tfaOn} onClose={() => setTfaOn(false)} title="Turn on two-step verification" footer={<Button title="Turn on" size="lg" full loading={busy} onPress={() => run(() => session.enableTwoFactor(tfaCode), { success: 'Two-step verification is on', onDone: () => { setTfaOn(false); setTfaCode(''); } })} />}>
+        <View style={{ gap: 12 }}>
+          <T color={color.textSecondary}>Enter the 6-digit code from your authenticator app.</T>
+          <Notice icon="flask-outline" title="Preview" body="In this preview the code is always 246810." />
+          <Input label="6-digit code" keyboardType="number-pad" maxLength={6} value={tfaCode} onChangeText={setTfaCode} />
+        </View>
+      </Sheet>
+      <Sheet visible={tfaOff} onClose={() => setTfaOff(false)} title="Turn off two-step verification" footer={<Button title="Turn off" variant="outline" size="lg" full loading={busy} onPress={() => run(() => session.disableTwoFactor(tfaPw), { success: 'Two-step verification is off', onDone: () => { setTfaOff(false); setTfaPw(''); } })} />}>
+        <View style={{ gap: 12 }}>
+          {me.user.roles.includes('admin') && <Notice icon="alert-circle" title="Admin access needs this" body="While it is off you cannot open the admin panel." />}
+          <Input label="Confirm with your password" secureTextEntry value={tfaPw} onChangeText={setTfaPw} />
+        </View>
+      </Sheet>
       <Sheet visible={terms} onClose={() => setTerms(false)} title="Terms & conditions">
         <T color={color.textSecondary}>
-          This is a preview build of Hayve. Payments, wallet balances, rides, rentals, accommodation and deliveries are simulated and have no monetary value. Do not enter real card numbers. Regulated services (payments, card issuing, money transmission, transport and rental contracts) will only operate through licensed partners once launched.
+          This is a preview build of Hayve. Payments, wallet balances, rides, rentals, accommodation and deliveries are simulated (marked Demo) and have no monetary value. Do not enter real card numbers. Regulated services (payments, card issuing, money transmission, transport and rental contracts) will only operate through licensed partners once launched.
         </T>
       </Sheet>
     </Screen>

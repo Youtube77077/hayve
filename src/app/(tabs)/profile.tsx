@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../../design/icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
@@ -148,7 +148,7 @@ export default function Profile() {
               }}
               style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.md, backgroundColor: a.email === me.user.email ? color.primarySoft : pressed ? color.surfaceSunken : color.surface, borderWidth: 1, borderColor: color.line })}
             >
-              <Ionicons name="person-circle-outline" size={26} color={color.primary} />
+              <Icon name="person-circle-outline" size={26} color={color.primary} />
               <View style={{ flex: 1 }}>
                 <T variant="headline">{a.label}</T>
                 <T variant="footnote" color={color.textSecondary}>

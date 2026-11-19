@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../../design/icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
@@ -57,7 +57,7 @@ export default function VehicleDetail() {
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 {v.features.map((f) => (
                   <View key={f} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 34, borderRadius: radius.pill, backgroundColor: color.surface, borderWidth: 1, borderColor: color.line }}>
-                    <Ionicons name="checkmark" size={15} color={color.primary} />
+                    <Icon name="checkmark" size={15} color={color.primary} />
                     <T variant="subhead">{f}</T>
                   </View>
                 ))}

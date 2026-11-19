@@ -20,6 +20,7 @@ export const SYSTEM = {
   fees: 'acc_sys_fees', // Hayve revenue: fees, shipping, delivery fees
   payouts: 'acc_sys_payouts', // simulated payout rail
   giftEscrow: 'acc_sys_gift_escrow', // separates gift purchasers from sellers
+  waveBack: 'acc_sys_wave_back', // funds Wave Back rewards
 } as const;
 
 const SYSTEM_IDS = new Set<string>(Object.values(SYSTEM));
@@ -31,6 +32,7 @@ export function systemAccounts(): Account[] {
     { id: SYSTEM.fees, ownerId: null, kind: 'system', label: 'Hayve' },
     { id: SYSTEM.payouts, ownerId: null, kind: 'system', label: 'Payout (simulated)' },
     { id: SYSTEM.giftEscrow, ownerId: null, kind: 'system', label: 'Hayve Gift' },
+    { id: SYSTEM.waveBack, ownerId: null, kind: 'system', label: 'Wave Back' },
   ];
 }
 
@@ -198,6 +200,10 @@ export function refundTransaction(txId: ID, reason = 'Refund') {
   }
   tx.status = 'refunded';
   tx.note = tx.note ? `${tx.note} · ${reason}` : reason;
+  // Wave Back earned on a refunded payment is reversed too.
+  for (const wb of db.transactions.filter((t) => t.type === 'wave_back' && t.ref?.id === txId && t.status === 'completed')) {
+    refundTransaction(wb.id, 'Payment refunded');
+  }
   return tx;
 }
 

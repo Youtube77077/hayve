@@ -13,8 +13,8 @@ export const PARTNER_APPS: { role: PartnerRole; name: string; tagline: string; r
   { role: 'kitchen', name: 'Hayve Kitchen', tagline: 'Deliver your menu with Hayve Bites', route: '/business/kitchen' },
   { role: 'host', name: 'Hayve Host', tagline: 'Host stays and rent out vehicles', route: '/business/host' },
   { role: 'driver', name: 'Hayve Driver', tagline: 'Drive passengers with Hayve Ride', route: '/business/driver' },
-  { role: 'courier', name: 'Hayve Courier', tagline: 'Deliver food and parcels', route: '/business/courier' },
-  { role: 'merchant', name: 'Hayve Business', tagline: 'Accept Hayve Pay anywhere', route: '/business/merchant' },
+  { role: 'courier', name: 'Hayve Courier', tagline: 'Deliver Hayve Bites orders', route: '/business/courier' },
+  { role: 'merchant', name: 'Hayve Store', tagline: 'Verified business account', route: '/business/merchant' },
 ];
 
 export function myRoles(): Role[] {
@@ -65,33 +65,62 @@ export function earnings(role: PartnerRole) {
 
 /* ---------------------------------------------------- Hayve Business -- */
 
-export function registerBusiness(input: { legalName: string; tradingName: string; category: string; country: string; registrationNumber: string; vatNumber?: string; website?: string }) {
+export interface BusinessInput {
+  legalName: string;
+  tradingName: string;
+  category: string;
+  registrationNumber: string;
+  vatNumber: string;
+  address: { line1: string; city: string; postcode: string; country: string };
+  website?: string;
+  description?: string;
+  /** The owner completed the identity check (simulated document + selfie scan). */
+  ownerIdChecked: boolean;
+}
+
+function validateBusiness(input: BusinessInput) {
+  assert(input.legalName.trim().length >= 2, 'invalid', 'Enter the legal company name');
+  assert(input.tradingName.trim().length >= 2, 'invalid', 'Enter your store name');
+  assert(/^\d{8}$/.test(input.registrationNumber.trim()), 'invalid', 'Enter the 8-digit Chamber of Commerce (KVK) number');
+  assert(/^[A-Z]{2}[0-9A-Z]{8,12}$/i.test(input.vatNumber.replace(/[\s.]/g, '')), 'invalid', 'Enter a valid VAT number, e.g. NL123456789B01');
+  assert(input.address.line1.trim().length >= 4 && input.address.city.trim().length >= 2 && input.address.postcode.trim().length >= 4, 'invalid', 'Enter the full business address');
+  assert(input.ownerIdChecked, 'invalid', "Verify the owner's ID before submitting");
+}
+
+/** Applies for a Hayve Store business account. A Hayve admin reviews it. */
+export function registerBusiness(input: BusinessInput) {
   const user = me();
   const db = getDb();
-  assert(input.legalName.trim().length >= 2, 'invalid', 'Enter the legal business name');
-  assert(input.tradingName.trim().length >= 2, 'invalid', 'Enter a trading name');
-  assert(input.registrationNumber.trim().length >= 6, 'invalid', 'Enter the chamber of commerce (KvK) number');
-  assert(!db.businesses.some((b) => b.ownerId === user.id), 'conflict', 'You already have a business');
-  const b: Business = {
-    id: uid('biz'),
-    ownerId: user.id,
+  validateBusiness(input);
+  const existing = db.businesses.find((b) => b.ownerId === user.id);
+  assert(!existing || existing.status === 'rejected', 'conflict', existing?.status === 'verified' ? 'Your business is already verified' : 'Your application is already under review');
+  const fields = {
     legalName: input.legalName.trim(),
     tradingName: input.tradingName.trim(),
     category: input.category.trim() || 'Retail',
-    country: input.country.trim() || 'Netherlands',
     registrationNumber: input.registrationNumber.trim(),
-    vatNumber: input.vatNumber?.trim() ?? '',
+    vatNumber: input.vatNumber.replace(/[\s.]/g, '').toUpperCase(),
+    address: { line1: input.address.line1.trim(), city: input.address.city.trim(), postcode: input.address.postcode.trim().toUpperCase(), country: input.address.country.trim() || 'Netherlands' },
     website: input.website?.trim() ?? '',
-    verification: { details: true, identity: false, bank: false, status: 'not_started' },
-    payoutSchedule: 'weekly',
-    createdAt: now(),
+    description: input.description?.trim() ?? '',
+    ownerIdChecked: true,
+    status: 'pending' as const,
+    rejectionReason: undefined,
+    submittedAt: now(),
   };
-  db.businesses.push(b);
-  if (!user.roles.includes('merchant')) user.roles.push('merchant');
-  audit(user.id, 'business.register', b.id);
-  notify(user.id, 'business', 'Business created', `${b.tradingName} is set up. Complete verification to receive payouts.`, '/business/merchant');
+  let id: ID;
+  if (existing) {
+    Object.assign(existing, fields);
+    id = existing.id;
+  } else {
+    const b: Business = { id: uid('biz'), ownerId: user.id, payoutSchedule: 'weekly', createdAt: now(), ...fields };
+    db.businesses.push(b);
+    id = b.id;
+  }
+  audit(user.id, 'store.apply', id);
+  notify(user.id, 'business', 'Application received', `${fields.tradingName} is being reviewed. This usually takes one business day.`, '/business/merchant');
   commit();
-  return b.id;
+  return id;
 }
 
 export function myBusiness() {
@@ -99,21 +128,23 @@ export function myBusiness() {
   return getDb().businesses.find((b) => b.ownerId === user.id) ?? null;
 }
 
-export function completeVerificationStep(step: 'identity' | 'bank') {
-  const user = requireRole('merchant');
+export function updateStoreProfile(patch: { description?: string; logo?: string; banner?: string; website?: string }) {
+  const user = me();
   const b = find(getDb().businesses, (x) => x.ownerId === user.id, 'Business');
-  b.verification[step] = true;
-  b.verification.status = b.verification.identity && b.verification.bank ? 'in_review' : 'not_started';
-  if (b.verification.status === 'in_review') {
-    // Simulation: reviews are approved instantly.
-    b.verification.status = 'verified';
-    notify(user.id, 'business', 'Business verified ✅', `${b.tradingName} can now accept Hayve Pay and receive payouts (simulated).`, '/business/merchant');
-  }
+  if (patch.description != null) assert(patch.description.length <= 400, 'invalid', 'Description can be up to 400 characters');
+  Object.assign(b, patch);
   commit();
 }
 
+/** Public store page data for a verified business. */
+export function storeFor(userId: ID) {
+  const b = getDb().businesses.find((x) => x.ownerId === userId && x.status === 'verified');
+  if (!b) return null;
+  return { name: b.tradingName, legalName: b.legalName, description: b.description, logo: b.logo, banner: b.banner, website: b.website, city: b.address.city, kvk: b.registrationNumber, since: b.reviewedAt ?? b.createdAt };
+}
+
 export function setPayoutSchedule(schedule: Business['payoutSchedule']) {
-  const user = requireRole('merchant');
+  const user = me();
   find(getDb().businesses, (x) => x.ownerId === user.id, 'Business').payoutSchedule = schedule;
   commit();
 }
@@ -129,6 +160,7 @@ export function createPaymentLink(title: string, amountCents: number) {
   const user = requireRole('merchant');
   const db = getDb();
   const b = find(db.businesses, (x) => x.ownerId === user.id, 'Business');
+  assert(b.status === 'verified', 'forbidden', 'Payment links are available once your business is verified');
   assert(title.trim().length >= 2, 'invalid', 'Give the link a name');
   assert(Number.isInteger(amountCents) && amountCents >= 100, 'invalid', 'Minimum amount is €1.00');
   const link = { id: uid('pl'), businessId: b.id, title: title.trim(), amountCents, active: true, payments: 0, createdAt: now() };
@@ -152,7 +184,7 @@ export function getCheckout(linkId: ID) {
   const db = getDb();
   const link = find(db.paymentLinks, (l) => l.id === linkId, 'Payment link');
   const b = find(db.businesses, (x) => x.id === link.businessId, 'Business');
-  return { id: link.id, title: link.title, amountCents: link.amountCents, active: link.active, merchant: b.tradingName, verified: b.verification.status === 'verified', isOwner: getSessionUserId() === b.ownerId };
+  return { id: link.id, title: link.title, amountCents: link.amountCents, active: link.active, merchant: b.tradingName, verified: b.status === 'verified', isOwner: getSessionUserId() === b.ownerId };
 }
 
 /** Customer pays a merchant with Hayve Pay (simulated). */

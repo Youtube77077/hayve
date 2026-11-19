@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../design/icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
@@ -32,7 +32,7 @@ export function TxRow({ t, first }: { t: TxView; first?: boolean }) {
   return (
     <Pressable onPress={() => router.push(`/pay/tx/${t.id}`)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14, borderTopWidth: first ? 0 : 1, borderTopColor: color.line, backgroundColor: pressed ? color.surfaceSunken : 'transparent' })}>
       <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: t.direction === 'in' ? color.limeSoft : color.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
-        <Ionicons name={TX_ICON[t.type] ?? 'ellipse'} size={19} color={t.direction === 'in' ? color.limeInk : color.primary} />
+        <Icon name={TX_ICON[t.type] ?? 'ellipse'} size={19} color={t.direction === 'in' ? color.limeInk : color.primary} />
       </View>
       <View style={{ flex: 1, gap: 1 }}>
         <T variant="headline" numberOfLines={1}>
@@ -105,7 +105,7 @@ export function PersonPicker({ selected, onSelect }: { selected: PublicUser | nu
               @{u.username} · {u.city}
             </T>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={color.textTertiary} />
+          <Icon name="chevron-forward" size={18} color={color.textTertiary} />
         </Pressable>
       ))}
     </View>

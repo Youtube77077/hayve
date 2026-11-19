@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../../../design/icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Share, View } from 'react-native';
 import { wallet } from '../../../backend/api';
@@ -37,7 +37,7 @@ export default function Receipt() {
     <Screen header={<Header back title="Receipt" fallback="/pay" />} maxWidth={520}>
       <View style={{ alignItems: 'center', gap: 8, marginTop: 12, marginBottom: 20 }}>
         <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: t.direction === 'in' ? color.limeSoft : color.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
-          <Ionicons name={t.direction === 'in' ? 'arrow-down' : 'arrow-up'} size={28} color={t.direction === 'in' ? color.limeInk : color.primary} />
+          <Icon name={t.direction === 'in' ? 'arrow-down' : 'arrow-up'} size={28} color={t.direction === 'in' ? color.limeInk : color.primary} />
         </View>
         <T variant="callout" color={color.textSecondary}>
           {t.counterparty}

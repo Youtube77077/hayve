@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../../design/icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
@@ -71,7 +71,7 @@ export default function Stay() {
           <HScroll>
             {upcoming.map((b) => (
               <Pressable key={b.id} onPress={() => router.push(`/stay/booking/${b.id}`)} style={{ width: 280, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.lg, backgroundColor: color.ink }}>
-                <Ionicons name="bed" size={22} color={color.lime} />
+                <Icon name="bed" size={22} color={color.lime} />
                 <View style={{ flex: 1 }}>
                   <T variant="headline" color="#fff" numberOfLines={1}>
                     {b.property.city}

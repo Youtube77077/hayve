@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon, type IconName } from '../design/icons';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -106,7 +106,7 @@ export default function Sell() {
               </View>
             )}
             <Pressable onPress={() => setImages((cur) => cur.filter((_, j) => j !== i))} accessibilityLabel="Remove photo" style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(17,13,46,0.7)', alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name="close" size={16} color="#fff" />
+              <Icon name="close" size={16} color="#fff" />
             </Pressable>
           </View>
         ))}
@@ -128,7 +128,7 @@ export default function Sell() {
           <Input containerStyle={{ flex: 1 }} label="Brand (optional)" value={brand} onChangeText={setBrand} />
           <Input containerStyle={{ flex: 1 }} label="Size (optional)" value={size} onChangeText={setSize} />
         </View>
-        <Input label="Price" icon="pricetag-outline" placeholder="0.00" keyboardType="decimal-pad" value={price} onChangeText={setPrice} hint={priceCents ? `Buyers pay ${money(priceCents + Math.round(priceCents * 0.05) + 70)} incl. Buyer Protection. You receive ${money(priceCents)}.` : 'You keep 100% of the item price.'} />
+        <Input label="Price" icon="pricetag-outline" placeholder="0.00" keyboardType="decimal-pad" value={price} onChangeText={setPrice} hint={priceCents ? `Buyers pay ${money(priceCents + shop.feeFor(priceCents))} incl. fees. You receive ${money(priceCents)}.` : 'You keep the full item price.'} />
         <View style={{ backgroundColor: color.surface, borderRadius: radius.md, padding: 14, borderWidth: 1, borderColor: color.line }}>
           <Stepper label="Quantity" sub="For identical items you can sell more than once" value={quantity} min={1} max={99} onChange={setQuantity} />
         </View>
@@ -157,10 +157,10 @@ export default function Sell() {
   );
 }
 
-function AddTile({ icon, label, onPress }: { icon: React.ComponentProps<typeof Ionicons>['name']; label: string; onPress: () => void }) {
+function AddTile({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} style={({ pressed }) => ({ width: 110, height: 140, borderRadius: radius.md, borderWidth: 1.5, borderStyle: 'dashed', borderColor: color.primary, backgroundColor: pressed ? color.primaryTint : color.primarySoft, alignItems: 'center', justifyContent: 'center', gap: 6 })}>
-      <Ionicons name={icon} size={26} color={color.primary} />
+      <Icon name={icon} size={26} color={color.primary} />
       <T variant="subhead" weight="700" color={color.primary}>
         {label}
       </T>

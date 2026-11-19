@@ -1,28 +1,10 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
+import { Icon } from '../icons';
 import { useMemo, useState } from 'react';
 import { ScrollView, type StyleProp, View, type ViewStyle } from 'react-native';
 import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
-import { OFFICIAL_LOGO, OFFICIAL_LOGO_ASPECT } from '../brand';
-import { alpha, color, type IconName, radius } from '../tokens';
+import { alpha, color, radius } from '../tokens';
+import type { IconName } from '../icons';
 import { Photo, T } from './primitives';
-
-/* ------------------------------------------------------------------ Logo -- */
-
-/**
- * Hayve brand mark. Renders the official logo once it is added in
- * src/design/brand.ts; until then a neutral typographic placeholder is shown.
- */
-export function HayveLogo({ height = 28, tone = 'dark' }: { height?: number; tone?: 'dark' | 'light' }) {
-  if (OFFICIAL_LOGO) {
-    return <Image source={OFFICIAL_LOGO} style={{ height, width: height * OFFICIAL_LOGO_ASPECT }} contentFit="contain" accessibilityLabel="Hayve" />;
-  }
-  return (
-    <T accessibilityLabel="Hayve" style={{ fontSize: height * 0.92, lineHeight: height * 1.05, fontWeight: '900', letterSpacing: -height * 0.045, color: tone === 'dark' ? color.ink : '#fff' }}>
-      hayve
-    </T>
-  );
-}
 
 /* ------------------------------------------------------------------- Map -- */
 
@@ -123,7 +105,7 @@ export function CityMap({ from, to, progress, vehicle = 'car', style, height = 2
             justifyContent: 'center',
           }}
         >
-          <Ionicons name={vIcon} size={17} color={color.ink} />
+          <Icon name={vIcon} size={17} color={color.ink} />
         </View>
       )}
     </View>
@@ -164,7 +146,7 @@ export function SimQR({ value, size = 180 }: { value: string; size?: number }) {
           <G key={i}>
             <Rect x={fx * s} y={fy * s} width={7 * s} height={7 * s} fill={color.ink} rx={s} />
             <Rect x={(fx + 1) * s} y={(fy + 1) * s} width={5 * s} height={5 * s} fill="#fff" rx={s * 0.6} />
-            <Rect x={(fx + 2) * s} y={(fy + 2) * s} width={3 * s} height={3 * s} fill={color.primary} rx={s * 0.4} />
+            <Rect x={(fx + 2) * s} y={(fy + 2) * s} width={3 * s} height={3 * s} fill={color.ink} rx={s * 0.4} />
           </G>
         ))}
       </Svg>
@@ -183,7 +165,7 @@ export function BarChart({ data, height = 120, light, format }: { data: { label:
         const last = i === data.length - 1;
         return (
           <View key={i} style={{ flex: 1, alignItems: 'center', gap: 6 }}>
-            <View accessibilityLabel={`${d.label}: ${format ? format(d.cents) : d.cents}`} style={{ width: '100%', maxWidth: 34, height: h, borderRadius: 8, backgroundColor: last ? color.lime : light ? 'rgba(255,255,255,0.18)' : color.primaryTint }} />
+            <View accessibilityLabel={`${d.label}: ${format ? format(d.cents) : d.cents}`} style={{ width: '100%', maxWidth: 34, height: h, borderRadius: 8, backgroundColor: last ? color.indigo : light ? 'rgba(255,255,255,0.25)' : color.grey200 }} />
             <T variant="caption" color={light ? color.textOnDarkSecondary : color.textTertiary}>
               {d.label}
             </T>
@@ -205,11 +187,11 @@ export function Timeline({ steps, current }: { steps: { key: string; label: stri
         return (
           <View key={s.key} style={{ flexDirection: 'row', gap: 14 }}>
             <View style={{ alignItems: 'center', width: 24 }}>
-              <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: done ? color.primary : active ? color.lime : color.surfaceSunken, borderWidth: active ? 2 : 0, borderColor: color.ink, alignItems: 'center', justifyContent: 'center' }}>
-                {done && <Ionicons name="checkmark" size={14} color="#fff" />}
-                {active && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color.ink }} />}
+              <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: done ? color.black : active ? color.white : color.grey100, borderWidth: active ? 2 : 0, borderColor: color.indigo, alignItems: 'center', justifyContent: 'center' }}>
+                {done && <Icon name="checkmark" size={14} color="#fff" />}
+                {active && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color.indigo }} />}
               </View>
-              {i < steps.length - 1 && <View style={{ width: 2, flex: 1, minHeight: 22, backgroundColor: done ? color.primary : color.line }} />}
+              {i < steps.length - 1 && <View style={{ width: 2, flex: 1, minHeight: 22, backgroundColor: done ? color.black : color.grey200 }} />}
             </View>
             <View style={{ flex: 1, paddingBottom: 18 }}>
               <T variant="headline" color={done || active ? color.text : color.textTertiary}>
@@ -257,7 +239,7 @@ export function Gallery({ images, aspect = 1, rounded = 0, icon = 'image-outline
       {images.length > 1 && (
         <View style={{ position: 'absolute', bottom: 14, alignSelf: 'center', flexDirection: 'row', gap: 6, backgroundColor: 'rgba(17,13,46,0.5)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill }}>
           {images.map((_, i) => (
-            <View key={i} style={{ width: i === index ? 18 : 6, height: 6, borderRadius: 3, backgroundColor: i === index ? color.lime : 'rgba(255,255,255,0.6)' }} />
+            <View key={i} style={{ width: i === index ? 18 : 6, height: 6, borderRadius: 3, backgroundColor: i === index ? color.white : 'rgba(255,255,255,0.55)' }} />
           ))}
         </View>
       )}

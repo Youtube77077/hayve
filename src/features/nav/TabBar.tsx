@@ -1,186 +1,157 @@
-import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { router } from 'expo-router';
-import { Pressable, ScrollView, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { business, social } from '../../backend/api';
-import { Avatar, color, HayveLogo, layout, radius, SERVICES, type ServiceKey, service, shadow, T, tap } from '../../design';
+import { Avatar, color, font, HayveLogo, Icon, type IconName, layout, T, tap } from '../../design';
 import { useLive } from '../../lib/hooks';
+import { type ProductKey, ProductWordmark } from './Wordmarks';
 
-/** Tab route name → service key. */
-const ROUTE_KEY: Record<string, ServiceKey> = {
-  index: 'home',
-  explore: 'explore',
-  shop: 'shop',
-  pay: 'pay',
-  ride: 'ride',
-  bites: 'bites',
-  drive: 'drive',
-  stay: 'stay',
-  send: 'send',
-  profile: 'profile',
-};
-
-/** Destinations that live directly in the iPhone bottom bar; the rest open from the centre launcher. */
-const PHONE_BAR: ServiceKey[] = ['home', 'shop', 'pay', 'profile'];
+/** Tab route name for each destination. */
+const ROUTE: Record<string, string> = { home: 'index', shop: 'shop', pay: 'pay', ride: 'ride', bites: 'bites', drive: 'drive', stay: 'stay', explore: 'explore', profile: 'profile' };
+const PRODUCTS: ProductKey[] = ['shop', 'pay', 'ride', 'bites', 'drive', 'stay'];
 
 export function HayveTabBar(props: BottomTabBarProps & { wide: boolean }) {
   return props.wide ? <Sidebar {...props} /> : <BottomBar {...props} />;
 }
 
-function useActiveKey({ state }: BottomTabBarProps): ServiceKey {
-  const name = state.routes[state.index]?.name;
-  return ROUTE_KEY[name] ?? 'home';
+function activeKey({ state }: BottomTabBarProps) {
+  const name = state.routes[state.index]?.name ?? 'index';
+  return Object.entries(ROUTE).find(([, r]) => r === name)?.[0] ?? 'home';
 }
 
-function go(navigation: BottomTabBarProps['navigation'], key: ServiceKey) {
-  const routeName = Object.entries(ROUTE_KEY).find(([, k]) => k === key)?.[0] ?? 'index';
+function go(navigation: BottomTabBarProps['navigation'], key: string) {
   tap();
-  navigation.navigate(routeName as never);
+  navigation.navigate((ROUTE[key] ?? 'index') as never);
 }
 
-/* ------------------------------------------------------------ iPhone -- */
+/* -------------------------------------------------------------- Mobile -- */
+
+const MOBILE: { key: string; label: string; icon: IconName }[] = [
+  { key: 'home', label: 'Home', icon: 'home-outline' },
+  { key: 'shop', label: 'Shop', icon: 'bag-handle-outline' },
+  { key: 'ride', label: 'Ride', icon: 'car-outline' },
+  { key: 'bites', label: 'Bites', icon: 'fast-food-outline' },
+];
 
 function BottomBar(props: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const active = useActiveKey(props);
-  const inLauncher = !PHONE_BAR.includes(active);
-  const activeService = service(active);
-  const unread = useLive(() => social.unreadNotificationCount()).data ?? 0;
+  const active = activeKey(props);
+  const inMore = !MOBILE.some((m) => m.key === active);
+  const unread = useLive(() => social.unreadNotificationCount() + social.unreadMessageCount()).data ?? 0;
 
-  const item = (key: ServiceKey) => {
-    const s = service(key);
-    const on = active === key;
-    return (
-      <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={s.short} onPress={() => go(props.navigation, key)} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3, paddingVertical: 6 }}>
-        <View>
-          <Ionicons name={on ? s.iconActive : s.icon} size={24} color={on ? color.primary : color.textTertiary} />
-          {key === 'profile' && unread > 0 && <View style={{ position: 'absolute', top: -1, right: -3, width: 10, height: 10, borderRadius: 5, backgroundColor: color.danger, borderWidth: 2, borderColor: color.surface }} />}
-        </View>
-        <T variant="caption" weight={on ? '700' : '600'} color={on ? color.primary : color.textTertiary}>
-          {s.short}
-        </T>
-      </Pressable>
-    );
-  };
+  const Item = ({ k, label, icon, onPress, on, badge }: { k: string; label: string; icon: IconName; onPress: () => void; on: boolean; badge?: boolean }) => (
+    <Pressable key={k} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={label} onPress={onPress} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4, paddingTop: 8, paddingBottom: 4 }}>
+      <View>
+        <Icon name={icon} size={23} color={on ? color.indigo : color.black} />
+        {badge && <View style={{ position: 'absolute', top: -1, right: -3, width: 8, height: 8, borderRadius: 4, backgroundColor: color.indigo }} />}
+      </View>
+      <Text style={[{ fontSize: 11, color: on ? color.indigo : color.black }, font(on ? '700' : '500')]}>{label}</Text>
+    </Pressable>
+  );
 
   return (
-    <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingBottom: Math.max(insets.bottom - 6, 8), paddingHorizontal: 12 }}>
-      <View style={[{ flexDirection: 'row', alignItems: 'center', backgroundColor: color.surface, borderRadius: 30, height: 68, paddingHorizontal: 6, borderWidth: 1, borderColor: color.line }, shadow.float]}>
-        {item('home')}
-        {item('shop')}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={inLauncher ? `${activeService.name} – all services` : 'All Hayve services'}
-          onPress={() => {
-            tap();
-            router.push('/services');
-          }}
-          style={{ flex: 1.1, alignItems: 'center', justifyContent: 'center', gap: 3 }}
-        >
-          <View style={{ width: 50, height: 50, borderRadius: 18, backgroundColor: inLauncher ? color.ink : color.primary, alignItems: 'center', justifyContent: 'center', marginTop: -2 }}>
-            <Ionicons name={inLauncher ? activeService.iconActive : 'grid'} size={24} color={inLauncher ? color.lime : '#fff'} />
-          </View>
-          <T variant="caption" weight="700" color={inLauncher ? color.ink : color.textTertiary} style={{ fontSize: 10 }}>
-            {inLauncher ? activeService.short : 'Services'}
-          </T>
-        </Pressable>
-        {item('pay')}
-        {item('profile')}
-      </View>
+    <View style={{ flexDirection: 'row', backgroundColor: color.white, borderTopWidth: 1, borderTopColor: color.grey200, paddingBottom: Math.max(insets.bottom, 8), paddingHorizontal: 4 }}>
+      {MOBILE.map((m) => (
+        <Item key={m.key} k={m.key} label={m.label} icon={m.icon} on={active === m.key} onPress={() => go(props.navigation, m.key)} />
+      ))}
+      <Item k="more" label="More" icon="menu" on={inMore} badge={unread > 0} onPress={() => {
+        tap();
+        router.push('/services');
+      }} />
     </View>
   );
 }
 
-/* ----------------------------------------------------- iPad / desktop -- */
+/* ------------------------------------------------------------- Desktop -- */
 
 function Sidebar(props: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const active = useActiveKey(props);
+  const active = activeKey(props);
   const me = useLive(() => social.myProfile()).data;
   const unreadN = useLive(() => social.unreadNotificationCount()).data ?? 0;
   const unreadM = useLive(() => social.unreadMessageCount()).data ?? 0;
   const roles = me?.user.roles ?? [];
   const partnerApps = business.PARTNER_APPS.filter((a) => roles.includes(a.role));
 
-  const NavItem = ({ k }: { k: ServiceKey }) => {
-    const s = service(k);
-    const on = active === k;
-    return (
-      <Pressable
-        accessibilityRole="tab"
-        accessibilityState={{ selected: on }}
-        onPress={() => go(props.navigation, k)}
-        style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 12,
-          height: 44,
-          paddingHorizontal: 12,
-          borderRadius: radius.md,
-          backgroundColor: on ? color.ink : pressed || hovered ? color.surfaceSunken : 'transparent',
-        })}
-      >
-        <Ionicons name={on ? s.iconActive : s.icon} size={20} color={on ? color.lime : color.textSecondary} />
-        <T variant="headline" weight={on ? '700' : '600'} color={on ? '#fff' : color.text}>
-          {k === 'home' ? 'Home' : s.name}
-        </T>
+  return (
+    <View style={{ width: layout.sidebar, backgroundColor: color.white, borderRightWidth: 1, borderRightColor: color.grey200, paddingTop: insets.top + 24 }}>
+      <Pressable onPress={() => go(props.navigation, 'home')} accessibilityRole="link" accessibilityLabel="Hayve home" style={{ paddingHorizontal: 24, paddingBottom: 24, alignSelf: 'flex-start' }}>
+        <HayveLogo height={30} />
       </Pressable>
-    );
-  };
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
+        <SideLink icon="home-outline" label="Home" on={active === 'home'} onPress={() => go(props.navigation, 'home')} />
+        <SideLink icon="search-outline" label="Search" on={active === 'explore'} onPress={() => go(props.navigation, 'explore')} />
+        <View style={{ height: 16 }} />
+        {PRODUCTS.map((p) => (
+          <ProductLink key={p} product={p} on={active === p} onPress={() => go(props.navigation, p)} />
+        ))}
+        <View style={{ height: 1, backgroundColor: color.grey200, marginVertical: 16, marginHorizontal: 12 }} />
+        <SideLink icon="receipt-outline" label="Activity" onPress={() => router.push('/orders')} />
+        <SideLink icon="chatbubble-outline" label="Messages" badge={unreadM} onPress={() => router.push('/messages')} />
+        <SideLink icon="notifications-outline" label="Notifications" badge={unreadN} onPress={() => router.push('/notifications')} />
+        {(partnerApps.length > 0 || roles.includes('admin')) && (
+          <>
+            <T variant="overline" color={color.grey500} style={{ paddingHorizontal: 12, marginTop: 20, marginBottom: 6 }}>
+              For business
+            </T>
+            {partnerApps.map((a) => (
+              <SideLink key={a.role} icon="briefcase-outline" label={a.name} onPress={() => router.push(a.route as never)} />
+            ))}
+            {roles.includes('admin') && <SideLink icon="shield-checkmark-outline" label="Admin" onPress={() => router.push('/admin')} />}
+          </>
+        )}
+      </ScrollView>
+      <Pressable onPress={() => go(props.navigation, 'profile')} accessibilityRole="link" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, paddingBottom: insets.bottom + 16, borderTopWidth: 1, borderTopColor: color.grey200, backgroundColor: pressed || active === 'profile' ? color.grey100 : color.white })}>
+        <Avatar uri={me?.profile.avatarThumb ?? me?.profile.avatar} name={me?.profile.displayName} size={36} />
+        <View style={{ flex: 1 }}>
+          <T variant="subhead" weight="700" numberOfLines={1}>
+            {me?.profile.displayName ?? 'Profile'}
+          </T>
+          <T variant="caption" color={color.grey500} numberOfLines={1}>
+            @{me?.profile.username}
+          </T>
+        </View>
+        <Icon name="settings-outline" size={18} />
+      </Pressable>
+    </View>
+  );
+}
 
-  const Link = ({ icon, label, to, badge }: { icon: React.ComponentProps<typeof Ionicons>['name']; label: string; to: string; badge?: number }) => (
-    <Pressable onPress={() => router.push(to as never)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, height: 40, paddingHorizontal: 12, borderRadius: radius.md, backgroundColor: pressed ? color.surfaceSunken : 'transparent' })}>
-      <Ionicons name={icon} size={19} color={color.textSecondary} />
-      <T variant="subhead" weight="600" style={{ flex: 1 }}>
+function ProductLink({ product, on, onPress }: { product: ProductKey; on: boolean; onPress: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <Pressable
+      accessibilityRole="tab"
+      accessibilityState={{ selected: on }}
+      onPress={onPress}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      onFocus={() => setHovered(true)}
+      onBlur={() => setHovered(false)}
+      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', minHeight: 52, paddingHorizontal: 12, borderRadius: 12, backgroundColor: pressed ? color.grey100 : hovered ? color.grey100 : 'transparent', marginBottom: 2 })}
+    >
+      <View style={{ position: 'absolute', left: 0, top: 14, bottom: 14, width: 3, borderRadius: 2, backgroundColor: on ? color.indigo : 'transparent' }} />
+      <ProductWordmark product={product} active={on} hovered={hovered} size={16} />
+    </Pressable>
+  );
+}
+
+function SideLink({ icon, label, onPress, on, badge }: { icon: IconName; label: string; onPress: () => void; on?: boolean; badge?: number }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="link" style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, height: 42, paddingHorizontal: 12, borderRadius: 12, backgroundColor: pressed || hovered ? color.grey100 : 'transparent' })}>
+      <Icon name={icon} size={19} color={on ? color.indigo : color.black} />
+      <T variant="subhead" weight={on ? '700' : '500'} color={on ? color.indigo : color.black} style={{ flex: 1 }}>
         {label}
       </T>
       {!!badge && (
-        <View style={{ minWidth: 20, height: 20, borderRadius: 10, backgroundColor: color.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 }}>
-          <T variant="caption" color="#fff" weight="800">
+        <View style={{ minWidth: 20, height: 20, borderRadius: 10, backgroundColor: color.indigo, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 }}>
+          <T variant="caption" color={color.white} weight="700">
             {badge}
           </T>
         </View>
       )}
     </Pressable>
-  );
-
-  return (
-    <View style={{ width: layout.sidebar, backgroundColor: color.surface, borderRightWidth: 1, borderRightColor: color.line, paddingTop: insets.top + 16 }}>
-      <View style={{ paddingHorizontal: 22, paddingBottom: 16 }}>
-        <HayveLogo height={30} />
-      </View>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 24, gap: 2 }} showsVerticalScrollIndicator={false}>
-        {SERVICES.filter((s) => s.key !== 'profile').map((s) => (
-          <NavItem key={s.key} k={s.key} />
-        ))}
-        <View style={{ height: 1, backgroundColor: color.line, marginVertical: 12, marginHorizontal: 8 }} />
-        <Link icon="chatbubbles-outline" label="Messages" to="/messages" badge={unreadM} />
-        <Link icon="notifications-outline" label="Notifications" to="/notifications" badge={unreadN} />
-        <Link icon="receipt-outline" label="Orders & bookings" to="/orders" />
-        <Link icon="heart-outline" label="Wishlist" to="/wishlist" />
-        <View style={{ height: 1, backgroundColor: color.line, marginVertical: 12, marginHorizontal: 8 }} />
-        <T variant="overline" color={color.textTertiary} style={{ paddingHorizontal: 12, marginBottom: 6 }}>
-          Partner apps
-        </T>
-        {partnerApps.map((a) => (
-          <Link key={a.role} icon="briefcase-outline" label={a.name} to={a.route} />
-        ))}
-        <Link icon="add-circle-outline" label="Hayve for Business" to="/business" />
-        {roles.includes('admin') && <Link icon="shield-checkmark-outline" label="Admin console" to="/admin" />}
-      </ScrollView>
-      <Pressable onPress={() => go(props.navigation, 'profile')} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, paddingBottom: insets.bottom + 16, borderTopWidth: 1, borderTopColor: color.line, backgroundColor: active === 'profile' ? color.primarySoft : 'transparent' }}>
-        <Avatar uri={me?.profile.avatar} name={me?.profile.displayName} size={38} />
-        <View style={{ flex: 1 }}>
-          <T variant="headline" numberOfLines={1}>
-            {me?.profile.displayName ?? 'Profile'}
-          </T>
-          <T variant="footnote" color={color.textSecondary} numberOfLines={1}>
-            @{me?.profile.username}
-          </T>
-        </View>
-        <Ionicons name="settings-outline" size={18} color={color.textTertiary} />
-      </Pressable>
-    </View>
   );
 }

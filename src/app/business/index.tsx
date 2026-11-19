@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../../design/icons';
 import { router } from 'expo-router';
 import { Pressable, View } from 'react-native';
 import { business } from '../../backend/api';
@@ -30,7 +30,7 @@ export default function BusinessHub() {
             <Pressable key={a.role} onPress={() => router.push(a.route as never)} style={({ pressed }) => ({ backgroundColor: active ? color.ink : color.surface, borderRadius: radius.xl, padding: 18, gap: 12, borderWidth: 1, borderColor: active ? color.ink : color.line, opacity: pressed ? 0.9 : 1, minHeight: 180 })}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <View style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: active ? color.lime : color.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name={ICON[a.role]} size={24} color={active ? color.ink : color.primary} />
+                  <Icon name={ICON[a.role]} size={24} color={active ? color.ink : color.primary} />
                 </View>
                 {active ? <Badge label="Active" tone="lime" /> : <Badge label="Get started" tone="primary" />}
               </View>

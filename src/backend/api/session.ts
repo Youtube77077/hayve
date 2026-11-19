@@ -1,3 +1,4 @@
+import { OWNER_ADMIN_EMAILS, SIM_CODE } from '../config';
 import { ensureAccount } from '../ledger';
 import { defaultProfile } from '../seed';
 import { assert, commit, getDb, getStorage, HayveError, now, SESSION_KEY, simHash, uid } from '../store';
@@ -42,7 +43,27 @@ export function me(): User {
   if (!currentUserId) throw new HayveError('unauthenticated', 'Please sign in to continue');
   const user = getDb().users.find((u) => u.id === currentUserId && !u.deletedAt);
   if (!user) throw new HayveError('unauthenticated', 'Please sign in to continue');
+  if (user.suspendedAt) throw new HayveError('forbidden', 'This account is suspended. Contact Hayve support.');
   return user;
+}
+
+/**
+ * Admin tools require the admin role AND a verified email AND two-step
+ * verification. (In PostgreSQL the same rule is enforced via the aal2 claim.)
+ */
+export function requireAdmin() {
+  const user = requireRole('admin');
+  const profile = getDb().profiles.find((p) => p.userId === user.id);
+  if (!user.emailVerified || !profile?.twoFactor) {
+    throw new HayveError('forbidden', 'Verify your email and turn on two-step verification to use admin tools.');
+  }
+  return user;
+}
+
+export function adminSetupStatus() {
+  const user = me();
+  const profile = getDb().profiles.find((p) => p.userId === user.id);
+  return { isAdmin: user.roles.includes('admin'), emailVerified: user.emailVerified, twoFactor: !!profile?.twoFactor };
 }
 
 export function hasRole(user: User, role: Role) {
@@ -79,7 +100,8 @@ export function signUp(input: {
     id: uid('u'),
     email,
     passwordHash: simHash(input.password),
-    roles: ['customer'],
+    // The owner account is granted admin on registration. Other admins can only be added by an admin.
+    roles: OWNER_ADMIN_EMAILS.includes(email) ? ['customer', 'admin'] : ['customer'],
     emailVerified: false,
     createdAt: now(),
   };
@@ -108,6 +130,7 @@ export function signIn(emailRaw: string, password: string) {
   if (!user || user.passwordHash !== simHash(password)) {
     throw new HayveError('unauthenticated', 'Email or password is incorrect');
   }
+  if (user.suspendedAt) throw new HayveError('forbidden', 'This account is suspended. Contact Hayve support.');
   setSession(user.id);
   return user;
 }
@@ -125,7 +148,7 @@ export function requestPasswordReset(emailRaw: string) {
 
 export function resetPassword(emailRaw: string, code: string, newPassword: string) {
   const db = getDb();
-  assert(code.trim() === '246810', 'invalid', 'That code is not valid. (Simulation code: 246810)');
+  assert(code.trim() === SIM_CODE, 'invalid', `That code is not valid. (Preview code: ${SIM_CODE})`);
   assert(newPassword.length >= 8, 'invalid', 'Password must be at least 8 characters');
   const user = db.users.find((u) => u.email === emailRaw.trim().toLowerCase() && !u.deletedAt);
   if (user) {
@@ -137,8 +160,26 @@ export function resetPassword(emailRaw: string, code: string, newPassword: strin
 
 export function verifyEmail(code: string) {
   const user = me();
-  assert(code.trim() === '246810', 'invalid', 'That code is not valid. (Simulation code: 246810)');
+  assert(code.trim() === SIM_CODE, 'invalid', `That code is not valid. (Preview code: ${SIM_CODE})`);
   user.emailVerified = true;
+  commit();
+}
+
+/** Turns on two-step verification after confirming an authenticator code. */
+export function enableTwoFactor(code: string) {
+  const user = me();
+  assert(code.trim() === SIM_CODE, 'invalid', `That code is not valid. (Preview code: ${SIM_CODE})`);
+  const p = getDb().profiles.find((x) => x.userId === user.id);
+  if (p) p.twoFactor = true;
+  getDb().notifications.push({ id: uid('n'), userId: user.id, kind: 'security', title: 'Two-step verification on', body: 'Your account now asks for a code on new devices.', read: false, createdAt: now() });
+  commit();
+}
+
+export function disableTwoFactor(password: string) {
+  const user = me();
+  assert(user.passwordHash === simHash(password), 'invalid', 'Password is incorrect');
+  const p = getDb().profiles.find((x) => x.userId === user.id);
+  if (p) p.twoFactor = false;
   commit();
 }
 
@@ -164,7 +205,8 @@ export function deleteAccount(password: string) {
     profile.bio = '';
     profile.avatar = undefined;
     profile.isPublic = false;
-    profile.wishlistPublic = false;
+    profile.wishlistVisibility = 'private';
+    profile.avatarThumb = undefined;
   }
   for (const p of db.products) if (p.sellerId === user.id && p.status === 'active') p.status = 'removed';
   db.wishlistItems = db.wishlistItems.filter((w) => w.ownerId !== user.id || w.status === 'sold');

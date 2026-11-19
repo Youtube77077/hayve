@@ -1,4 +1,7 @@
 export * from './tokens';
+export * from './icons';
+export * from './logo';
+export * from './emoji/Emoji';
 export * from './components/primitives';
 export * from './components/layout';
 export * from './components/feedback';

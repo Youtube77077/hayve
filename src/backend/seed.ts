@@ -1,3 +1,4 @@
+import { DEFAULT_FEE_TIERS, DEFAULT_WAVE_BACK } from './config';
 import { accountIdFor, createTransaction, ensureAccount, releaseTransaction, SYSTEM, systemAccounts } from './ledger';
 import { media } from './media';
 import { PLACES } from './places';
@@ -15,18 +16,18 @@ import type {
   User,
 } from './types';
 
-export const DB_VERSION = 4;
+export const DB_VERSION = 5;
 export const DEMO_PASSWORD = 'hayve123';
 
 export const DEMO_ACCOUNTS = [
   { email: 'sam@hayve.app', label: 'Sam Rivera', hint: 'Customer · Seller' },
   { email: 'noor@hayve.app', label: 'Noor Haddad', hint: 'Customer with a public wishlist' },
-  { email: 'lucas@hayve.app', label: 'Lucas Vermeer', hint: 'Hayve Seller' },
+  { email: 'lucas@hayve.app', label: 'Lucas Vermeer', hint: 'Verified Hayve Store business' },
   { email: 'marco@hayve.app', label: 'Marco Rossi', hint: 'Hayve Kitchen' },
-  { email: 'mila@hayve.app', label: 'Mila Jansen', hint: 'Hayve Host (stays + cars)' },
+  { email: 'mila@hayve.app', label: 'Mila Jansen', hint: 'Hayve Host (stays and cars)' },
+  { email: 'eva@hayve.app', label: 'Eva Smit', hint: 'Private seller · Store application pending' },
   { email: 'daan@hayve.app', label: 'Daan de Boer', hint: 'Hayve Driver' },
   { email: 'yara@hayve.app', label: 'Yara Bakker', hint: 'Hayve Courier' },
-  { email: 'admin@hayve.app', label: 'Hayve Admin', hint: 'Administrator' },
 ];
 
 const allPrefs = (): Record<NotificationKind, boolean> => ({
@@ -78,6 +79,8 @@ export function emptyDatabase(): Database {
     reviews: [],
     businesses: [],
     paymentLinks: [],
+    reports: [],
+    settings: { feeTiers: DEFAULT_FEE_TIERS, waveBack: DEFAULT_WAVE_BACK },
     audit: [],
   };
 }
@@ -91,7 +94,8 @@ export function defaultProfile(userId: string, username: string, displayName: st
     city: 'Amsterdam',
     accountType: 'individual',
     isPublic: true,
-    wishlistPublic: true,
+    wishlistVisibility: 'public',
+    wishlistToken: Math.random().toString(36).slice(2, 12),
     language: 'en',
     currency: 'EUR',
     notificationPrefs: allPrefs(),
@@ -119,8 +123,7 @@ export function createSeedDatabase(): Database {
     ['u_daan', 'daan@hayve.app', 'daan', 'Daan de Boer', ['customer', 'driver'], media.avatars.daan, 'Hayve Driver since 2025.'],
     ['u_yara', 'yara@hayve.app', 'yara', 'Yara Bakker', ['customer', 'courier'], media.avatars.yara, 'E-bike courier, Amsterdam centre.'],
     ['u_eva', 'eva@hayve.app', 'evasmit', 'Eva Smit', ['customer', 'seller'], media.avatars.eva, 'Home & interiors lover.'],
-    ['u_jonas', 'jonas@hayve.app', 'jonas', 'Jonas Kramer', ['customer'], media.avatars.jonas, 'Private account.', { isPublic: false, wishlistPublic: false }],
-    ['u_admin', 'admin@hayve.app', 'hayve.admin', 'Hayve Admin', ['customer', 'admin'], '', 'Hayve operations.', { isPublic: false }],
+    ['u_jonas', 'jonas@hayve.app', 'jonas', 'Jonas Kramer', ['customer'], media.avatars.jonas, 'Private account.', { isPublic: false, wishlistVisibility: 'private' }],
   ];
   for (const [id, email, username, name, roles, avatar, bio, extra] of people) {
     const user: User = { id, email, passwordHash: simHash(DEMO_PASSWORD), roles, emailVerified: true, createdAt: ago(400 - db.users.length * 20) };
@@ -242,7 +245,7 @@ export function createSeedDatabase(): Database {
     credits: [{ accountId: accountIdFor('u_sam'), amountCents: 2450 }],
     labelForFrom: 'Sam Rivera',
     labelForTo: 'Noor Haddad',
-    note: 'Dinner at Baan Thai 🍜',
+    note: 'Dinner at Baan Thai',
     method: 'wallet',
   });
   p2p.createdAt = ago(4);
@@ -253,7 +256,7 @@ export function createSeedDatabase(): Database {
   {
     const price = 500;
     const ship = 395;
-    const fee = 95;
+    const fee = 25;
     const tx = createTransaction({
       type: 'purchase',
       fromAccountId: accountIdFor('u_sam'),
@@ -279,9 +282,11 @@ export function createSeedDatabase(): Database {
       buyerId: 'u_sam',
       recipientId: 'u_sam',
       shipTo: { fullName: 'Sam Rivera', line1: 'Cornelis Dirkszoonlaan 51', city: 'Amsterdam', postcode: '1061 AB', country: 'Netherlands' },
+      delivery: 'ship',
+      shipment: { carrier: 'Hayve Send', trackingCode: 'HX-8KQ2PZ', labelCreatedAt: ago(8, 2), events: [{ status: 'label_created', at: ago(8, 2) }, { status: 'in_transit', at: ago(8) }, { status: 'delivered', at: ago(6) }] },
       priceCents: price,
       shippingCents: ship,
-      protectionFeeCents: fee,
+      feeCents: fee,
       totalCents: price + ship + fee,
       paymentTxId: tx.id,
       sellerTxId: tx.id,
@@ -495,9 +500,68 @@ export function createSeedDatabase(): Database {
     db.notifications.push({ id: `n_${db.notifications.length + 1}`, userId, kind, title, body, link, read, createdAt: t0 - hours * 3_600_000 });
   nt('u_sam', 'message', 'New message from Lucas', 'Happy to ship it with Hayve Send tomorrow…', 3, '/messages/th_1');
   nt('u_sam', 'payment', 'Payment request', 'Eva Smit requested €18.00 · Concert tickets', 24, '/pay/requests');
-  nt('u_sam', 'payment', 'You received €24.50', 'Noor Haddad · Dinner at Baan Thai 🍜', 96, '/pay', true);
+  nt('u_sam', 'payment', 'You received €24.50', 'Noor Haddad · Dinner at Baan Thai', 96, '/pay', true);
   nt('u_sam', 'order', 'Order delivered', 'Upcycled vinyl record bowl was delivered.', 144, '/orders/o_seed_1', true);
   nt('u_lucas', 'message', 'New message from Sam', 'Is the turntable still available?', 5, '/messages/th_1');
+
+  /* ------------------------------------------------- Hayve Store -- */
+  db.businesses.push(
+    {
+      id: 'biz_groove',
+      ownerId: 'u_lucas',
+      legalName: 'Groove Supply B.V.',
+      tradingName: 'Groove Supply',
+      category: 'Audio & vinyl',
+      registrationNumber: '81234567',
+      vatNumber: 'NL862345678B01',
+      address: { line1: 'Ferdinand Bolstraat 88', city: 'Amsterdam', postcode: '1072 LN', country: 'Netherlands' },
+      website: 'groovesupply.nl',
+      description: 'Serviced turntables, audio and vinyl objects. Every item tested in our De Pijp workshop.',
+      logo: media.products.turntable,
+      banner: media.products.vinyl,
+      ownerIdChecked: true,
+      status: 'verified',
+      reviewedAt: ago(200),
+      payoutSchedule: 'weekly',
+      submittedAt: ago(205),
+      createdAt: ago(205),
+    },
+    {
+      id: 'biz_casa',
+      ownerId: 'u_eva',
+      legalName: 'Casa Eva Interiors V.O.F.',
+      tradingName: 'Casa Eva',
+      category: 'Home & interiors',
+      registrationNumber: '90456123',
+      vatNumber: 'NL004561230B01',
+      address: { line1: 'Javastraat 140', city: 'Amsterdam', postcode: '1095 CJ', country: 'Netherlands' },
+      website: '',
+      description: 'Pre-loved furniture and handmade homeware.',
+      ownerIdChecked: true,
+      status: 'pending',
+      payoutSchedule: 'weekly',
+      submittedAt: ago(1),
+      createdAt: ago(1),
+    },
+  );
+  if (!db.users.find((u) => u.id === 'u_lucas')!.roles.includes('merchant')) db.users.find((u) => u.id === 'u_lucas')!.roles.push('merchant');
+
+  /* ------------------------------------------- seller review volume -- */
+  const texts = ['Exactly as described, fast shipping.', 'Lovely seller, well packed.', 'Great quality, would buy again.', 'Quick replies and smooth handover.', 'Item was even better in person.', 'Arrived in two days. Thank you!', 'Honest description, fair price.', 'Super friendly, recommended.'];
+  const reviewers = ['u_sam', 'u_noor', 'u_eva', 'u_jonas', 'u_ines', 'u_lucas', 'u_daan', 'u_yara', 'u_mila', 'u_marco'];
+  const volume = (sellerId: string, total: number, fours: number, threes: number) => {
+    const existing = db.reviews.filter((r) => r.targetKind === 'user' && r.targetId === sellerId).length;
+    for (let i = existing; i < total; i++) {
+      const authorId = reviewers.filter((r) => r !== sellerId)[i % (reviewers.length - 1)];
+      const rating = i < threes ? 3 : i < threes + fours ? 4 : 5;
+      db.reviews.push({ id: `rv_${sellerId}_${i}`, targetKind: 'user', targetId: sellerId, authorId, rating, text: texts[i % texts.length], createdAt: ago(10 + i * 2) });
+    }
+  };
+  volume('u_lucas', 132, 22, 2); // ★ 4.8
+  volume('u_ines', 87, 9, 0); // ★ 4.9
+  volume('u_eva', 41, 13, 2); // ★ 4.6
+  volume('u_sam', 12, 3, 0); // ★ 4.8
+  volume('u_noor', 3, 0, 0);
 
   db.audit.push({ id: 'au_1', actorId: null, action: 'seed', target: 'database', createdAt: t0 });
   return db;

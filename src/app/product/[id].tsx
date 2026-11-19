@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../../design/icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Share, View } from 'react-native';
@@ -19,6 +19,7 @@ import {
   radius,
   Rating,
   Screen,
+  VerifiedMark,
   Section,
   Split,
   T,
@@ -63,9 +64,10 @@ export default function ProductScreen() {
   const info = (
     <View style={{ paddingTop: isWide ? 8 : 18, gap: 4 }}>
       <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
-        <Badge label={shop.CATEGORY_LABEL[p.category]} tone="primary" />
+        {p.fromVerifiedBusiness && <Badge label="From verified business" icon="verified" tone="primary" />}
+        <Badge label={shop.CATEGORY_LABEL[p.category]} />
         <Badge label={shop.CONDITION_LABEL[p.condition]} />
-        {p.quantity > 1 && p.available && <Badge label={`${p.quantity} available`} tone="lime" />}
+        {p.quantity > 1 && p.available && <Badge label={`${p.quantity} available`} />}
       </View>
       <T variant="title2">{p.title}</T>
       {p.brand && (
@@ -77,10 +79,10 @@ export default function ProductScreen() {
       <View style={{ marginTop: 10, flexDirection: 'row', alignItems: 'baseline', gap: 10 }}>
         <T variant="title1">{money(p.priceCents)}</T>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <T variant="subhead" color={color.primary} weight="700">
-            {money(p.priceWithProtectionCents)} incl. Buyer Protection
+          <T variant="subhead" color={color.grey500} weight="600">
+            {money(p.priceWithFeesCents)} incl. fees
           </T>
-          <Ionicons name="shield-checkmark" size={14} color={color.primary} />
+
         </View>
       </View>
 
@@ -114,7 +116,7 @@ export default function ProductScreen() {
             onPress={() => run(() => shop.toggleFavourite(p.id))}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 46, paddingHorizontal: 18, borderRadius: radius.pill, borderWidth: 1, borderColor: color.lineStrong, backgroundColor: color.surface }}
           >
-            <Ionicons name={p.isFavourite ? 'heart' : 'heart-outline'} size={18} color={p.isFavourite ? color.primary : color.ink} />
+            <Icon name="heart" size={18} color={p.isFavourite ? color.indigo : color.ink} fill={p.isFavourite ? color.indigo : 'none'} />
             <T variant="subhead" weight="700">
               {p.favouriteCount}
             </T>
@@ -137,26 +139,36 @@ export default function ProductScreen() {
 
       <Card style={{ marginTop: 12 }} onPress={() => router.push(`/u/${p.seller.username}`)}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <Avatar uri={p.seller.avatar} name={p.seller.displayName} size={48} />
-          <View style={{ flex: 1 }}>
-            <T variant="headline">{p.seller.displayName}</T>
+          <Avatar uri={p.seller.avatarThumb ?? p.seller.avatar} name={p.seller.displayName} size={48} />
+          <View style={{ flex: 1, gap: 2 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Rating value={p.sellerRating.average} count={p.sellerRating.count} />
-              <T variant="footnote" color={color.textSecondary}>
-                · {p.sellerListings} listings
+              <T variant="headline" weight="700">
+                {p.seller.storeName ?? p.seller.displayName}
               </T>
+              {p.seller.verified && <VerifiedMark />}
             </View>
+            <Rating value={p.sellerRating.average} count={p.sellerRating.count} />
+            <T variant="footnote" color={color.grey500}>
+              {p.seller.verified ? 'Verified Hayve Store business' : 'Private seller'} · {p.sellerListings} listings
+            </T>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={color.textTertiary} />
+          <Icon name="chevron-forward" size={18} color={color.textTertiary} />
         </View>
       </Card>
 
-      <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', marginTop: 14, padding: 14, borderRadius: radius.md, backgroundColor: color.primarySoft }}>
-        <Ionicons name="shield-checkmark" size={20} color={color.primary} />
-        <T variant="footnote" color={color.inkSoft} style={{ flex: 1 }}>
-          Hayve Buyer Protection: payment is held until you confirm the item arrived as described. Refunds go straight back to Hayve Pay.
+      <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start', marginTop: 16 }}>
+        <Icon name="shield-checkmark-outline" size={18} />
+        <T variant="footnote" color={color.grey500} style={{ flex: 1 }}>
+          Your payment is held until you confirm the item arrived as described. Ships with Hayve Send, or pick it up in person.
         </T>
       </View>
+      {!p.isMine && sessionId && (
+        <Pressable onPress={() => run(() => social.report('listing', p.id, 'Reported from listing page'), { success: 'Thanks. Our team will review this listing.' })} style={{ marginTop: 16, alignSelf: 'flex-start' }} accessibilityRole="button">
+          <T variant="footnote" color={color.grey500} style={{ textDecorationLine: 'underline' }}>
+            Report this listing
+          </T>
+        </Pressable>
+      )}
     </View>
   );
 

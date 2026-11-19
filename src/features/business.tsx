@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon, type IconName } from '../design/icons';
 import { router } from 'expo-router';
 import { type ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
@@ -67,12 +67,12 @@ export function RoleGate({ role, title, children, onboarding }: { role: PartnerR
   return <>{children}</>;
 }
 
-export function MetricRow({ items }: { items: { label: string; value: string; icon: React.ComponentProps<typeof Ionicons>['name'] }[] }) {
+export function MetricRow({ items }: { items: { label: string; value: string; icon: IconName }[] }) {
   return (
     <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
       {items.map((m) => (
         <Card key={m.label} style={{ flexGrow: 1, flexBasis: 140, gap: 6 }}>
-          <Ionicons name={m.icon} size={20} color={color.primary} />
+          <Icon name={m.icon} size={20} color={color.primary} />
           <T variant="title3">{m.value}</T>
           <T variant="footnote" color={color.textSecondary}>
             {m.label}

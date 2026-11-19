@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../../design/icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
@@ -33,7 +33,7 @@ export default function SendMoney() {
       <Screen header={<Header title="Sent" />} maxWidth={520}>
         <View style={{ alignItems: 'center', gap: 12, marginTop: 32 }}>
           <View style={{ width: 84, height: 84, borderRadius: 42, backgroundColor: color.lime, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="paper-plane" size={38} color={color.ink} />
+            <Icon name="paper-plane" size={38} color={color.ink} />
           </View>
           <T variant="title2" center>
             {money(cents)} sent to {person.displayName.split(' ')[0]}

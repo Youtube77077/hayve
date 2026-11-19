@@ -1,6 +1,6 @@
 import { accountIdFor, createTransaction, SYSTEM } from '../ledger';
 import { assert, commit, find, getDb, HayveError, now, reference, uid } from '../store';
-import type { GiftReservation, ID, Order, WishlistItem } from '../types';
+import type { GiftReservation, ID, Order, Profile, WishlistItem } from '../types';
 import {
   abortPayment,
   audit,
@@ -10,7 +10,8 @@ import {
   notify,
   type PayMethod,
   profileOf,
-  protectionFee,
+  marketplaceFee,
+  previewWaveBack,
   publicUser,
   type PublicUser,
   SHIPPING_CENTS,
@@ -51,7 +52,10 @@ export interface WishlistItemView {
 export interface WishlistView {
   owner: PublicUser;
   isOwner: boolean;
-  isPublic: boolean;
+  /** Owner's chosen visibility (only returned to the owner). */
+  visibility: Profile['wishlistVisibility'] | null;
+  /** Share link token (only returned to the owner). */
+  shareToken: string | null;
   visible: boolean;
   items: WishlistItemView[];
 }
@@ -117,19 +121,32 @@ function itemView(item: WishlistItem, viewerId: ID | null): WishlistItemView {
   };
 }
 
-function wishlistOf(ownerId: ID, viewerId: ID | null): WishlistView {
+/**
+ * Who can see a wishlist:
+ *  public  – anyone viewing the (public) profile
+ *  link    – only people who have the share link (token)
+ *  private – only the owner
+ */
+export function canViewWishlist(profile: Profile, viewerId: ID | null, token?: string | null) {
+  if (viewerId === profile.userId) return true;
+  if (profile.wishlistVisibility === 'public') return profile.isPublic || (!!token && token === profile.wishlistToken);
+  if (profile.wishlistVisibility === 'link') return !!token && token === profile.wishlistToken;
+  return false;
+}
+
+function wishlistOf(ownerId: ID, viewerId: ID | null, token?: string | null): WishlistView {
   sweepReservations();
   const db = getDb();
   const profile = profileOf(ownerId);
   const isOwner = viewerId === ownerId;
-  const visible = isOwner || (profile.isPublic && profile.wishlistPublic);
+  const visible = canViewWishlist(profile, viewerId, token);
   const items = visible
     ? db.wishlistItems
         .filter((w) => w.ownerId === ownerId)
         .sort((a, b) => a.position - b.position)
         .map((w) => itemView(w, viewerId))
     : [];
-  return { owner: publicUser(ownerId), isOwner, isPublic: profile.wishlistPublic, visible, items };
+  return { owner: publicUser(ownerId), isOwner, visibility: isOwner ? profile.wishlistVisibility : null, shareToken: isOwner ? profile.wishlistToken : null, visible, items };
 }
 
 export function myWishlist(): WishlistView {
@@ -137,9 +154,9 @@ export function myWishlist(): WishlistView {
   return wishlistOf(user.id, user.id);
 }
 
-export function getWishlistByUsername(username: string): WishlistView {
+export function getWishlistByUsername(username: string, token?: string | null): WishlistView {
   const profile = find(getDb().profiles, (p) => p.username === username.toLowerCase(), 'Profile');
-  return wishlistOf(profile.userId, getSessionUserId());
+  return wishlistOf(profile.userId, getSessionUserId(), token);
 }
 
 export function addToWishlist(productId: ID) {
@@ -190,9 +207,17 @@ export function moveWishlistItem(itemId: ID, direction: -1 | 1) {
   commit();
 }
 
-export function setWishlistVisibility(isPublic: boolean) {
+export function setWishlistVisibility(visibility: Profile['wishlistVisibility']) {
   const user = me();
-  profileOf(user.id).wishlistPublic = isPublic;
+  assert(['public', 'link', 'private'].includes(visibility), 'invalid', 'Unknown visibility');
+  profileOf(user.id).wishlistVisibility = visibility;
+  commit();
+}
+
+/** Issues a new share link; the old link stops working. */
+export function resetWishlistLink() {
+  const user = me();
+  profileOf(user.id).wishlistToken = Math.random().toString(36).slice(2, 12) + Math.random().toString(36).slice(2, 6);
   commit();
 }
 
@@ -205,8 +230,9 @@ export interface GiftQuote {
   product: { id: ID; title: string; image?: string; seller: string };
   priceCents: number;
   shippingCents: number;
-  protectionFeeCents: number;
+  feeCents: number;
   totalCents: number;
+  waveBackCents: number;
 }
 
 /**
@@ -215,14 +241,15 @@ export interface GiftQuote {
  * in Postgres the same logic runs in `reserve_wishlist_gift()` with
  * `SELECT … FOR UPDATE`.
  */
-export function reserveGift(wishlistItemId: ID): GiftQuote {
+export function reserveGift(wishlistItemId: ID, token?: string | null): GiftQuote {
   const user = me();
   sweepReservations();
   const db = getDb();
   const item = find(db.wishlistItems, (w) => w.id === wishlistItemId, 'Wishlist item');
   const owner = profileOf(item.ownerId);
   // Only items visible on a public wishlist can be gifted.
-  assert(owner.isPublic && owner.wishlistPublic, 'forbidden', 'This wishlist is private');
+  // Only items on a wishlist the purchaser is allowed to see can be gifted.
+  assert(item.ownerId !== user.id ? canViewWishlist(owner, user.id, token) : true, 'forbidden', 'This wishlist is private');
   const view = itemView(item, user.id);
   if (!view.canGift) throw new HayveError('conflict', view.giftBlockedReason ?? 'This item cannot be gifted');
   const product = find(db.products, (p) => p.id === item.productId, 'Listing');
@@ -242,7 +269,7 @@ export function reserveGift(wishlistItemId: ID): GiftQuote {
   item.reservation = { id: reservation.id, expiresAt: reservation.expiresAt };
   commit();
 
-  const fee = protectionFee(product.priceCents);
+  const fee = marketplaceFee(product.priceCents);
   return {
     reservationId: reservation.id,
     expiresAt: reservation.expiresAt,
@@ -250,8 +277,9 @@ export function reserveGift(wishlistItemId: ID): GiftQuote {
     product: { id: product.id, title: product.title, image: product.images[0], seller: displayName(product.sellerId) },
     priceCents: product.priceCents,
     shippingCents: SHIPPING_CENTS,
-    protectionFeeCents: fee,
+    feeCents: fee,
     totalCents: product.priceCents + SHIPPING_CENTS + fee,
+    waveBackCents: previewWaveBack(user.id, 'shop', product.priceCents),
   };
 }
 
@@ -284,6 +312,7 @@ export interface GiftReceipt {
   productTitle: string;
   recipientName: string;
   totalCents: number;
+  waveBackCents: number;
   status: Order['status'];
   createdAt: number;
 }
@@ -306,7 +335,7 @@ export function confirmGift(reservationId: ID, method: PayMethod): GiftReceipt {
   try {
     assert(product.status === 'active' && product.quantity > 0, 'conflict', 'This item is no longer available');
     assert(address, 'conflict', 'Gifting is not available for this person yet');
-    const fee = protectionFee(product.priceCents);
+    const fee = marketplaceFee(product.priceCents);
     const total = product.priceCents + SHIPPING_CENTS + fee;
     const orderId = uid('o');
 
@@ -320,8 +349,9 @@ export function confirmGift(reservationId: ID, method: PayMethod): GiftReceipt {
       labelForPayee: 'Hayve Gift',
       note: product.title,
       ref: { kind: 'order', id: orderId },
+      waveBack: { category: 'shop', baseCents: product.priceCents },
     });
-    completePayment(tx, 'posted');
+    const captured = completePayment(tx, 'posted');
     // 2) Escrow → seller (pending until delivery). The seller's ledger never references the purchaser.
     const sellerTx = createTransaction({
       type: 'sale',
@@ -346,9 +376,10 @@ export function confirmGift(reservationId: ID, method: PayMethod): GiftReceipt {
       buyerId: null,
       recipientId: item.ownerId,
       shipTo: { fullName: address.fullName, line1: address.line1, city: address.city, postcode: address.postcode, country: address.country },
+      delivery: 'ship',
       priceCents: product.priceCents,
       shippingCents: SHIPPING_CENTS,
-      protectionFeeCents: fee,
+      feeCents: fee,
       totalCents: total,
       paymentTxId: tx.id,
       sellerTxId: sellerTx.id,
@@ -366,7 +397,7 @@ export function confirmGift(reservationId: ID, method: PayMethod): GiftReceipt {
     if (product.quantity <= 0) product.status = 'sold_out';
 
     // Purchaser and seller are informed. The recipient deliberately is NOT.
-    notify(user.id, 'order', 'Gift confirmed 🎁', `${product.title} for ${displayName(item.ownerId)} · ${order.reference}`, `/orders/${order.id}`);
+    notify(user.id, 'order', 'Gift confirmed', `${product.title} for ${displayName(item.ownerId)} · ${order.reference}`, `/orders/${order.id}`);
     notify(product.sellerId, 'sale', 'New Hayve Gift order', `${product.title} sold. Ship to the address on the order within 3 days.`, `/orders/${order.id}`);
     audit(null, 'gift.confirm', order.id);
     commit();
@@ -378,6 +409,7 @@ export function confirmGift(reservationId: ID, method: PayMethod): GiftReceipt {
       productTitle: product.title,
       recipientName: displayName(item.ownerId),
       totalCents: total,
+      waveBackCents: captured.waveBackCents ?? 0,
       status: order.status,
       createdAt: order.createdAt,
     };

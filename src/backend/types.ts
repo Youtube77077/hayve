@@ -27,6 +27,8 @@ export interface User {
   emailVerified: boolean;
   createdAt: number;
   deletedAt?: number;
+  suspendedAt?: number;
+  suspensionReason?: string;
 }
 
 export interface Profile {
@@ -34,11 +36,16 @@ export interface Profile {
   username: string;
   displayName: string;
   bio: string;
+  /** 400×400 picture URL (object storage). */
   avatar?: string;
+  /** 96×96 thumbnail URL. */
+  avatarThumb?: string;
   city: string;
   accountType: 'individual' | 'business';
   isPublic: boolean;
-  wishlistPublic: boolean;
+  /** public: on the profile · link: only with the share link · private: owner only. */
+  wishlistVisibility: 'public' | 'link' | 'private';
+  wishlistToken: string;
   language: 'en' | 'nl' | 'fr' | 'de';
   currency: 'EUR';
   notificationPrefs: Record<NotificationKind, boolean>;
@@ -105,6 +112,13 @@ export interface WishlistItem {
 
 export type OrderStatus = 'paid' | 'shipped' | 'delivered' | 'completed' | 'cancelled' | 'refunded';
 
+export interface Shipment {
+  carrier: 'Hayve Send';
+  trackingCode: string;
+  labelCreatedAt: number;
+  events: { status: 'label_created' | 'in_transit' | 'out_for_delivery' | 'delivered' | 'returned'; at: number }[];
+}
+
 export interface Order {
   id: ID;
   reference: string;
@@ -119,14 +133,20 @@ export interface Order {
   /** Who receives the parcel (buyer for purchases, wishlist owner for gifts). */
   recipientId: ID;
   shipTo: Omit<Address, 'id' | 'userId' | 'isDefault' | 'label'>;
+  /** ship = Hayve Send parcel, pickup = handed over in person. */
+  delivery: 'ship' | 'pickup';
+  shipment?: Shipment;
   priceCents: Cents;
   shippingCents: Cents;
-  protectionFeeCents: Cents;
+  /** Marketplace buyer fee (tiered, see config.ts). */
+  feeCents: Cents;
   totalCents: Cents;
   paymentTxId: ID;
   sellerTxId: ID;
   status: OrderStatus;
   timeline: { status: OrderStatus | 'label_created'; at: number }[];
+  /** The buyer's review of the seller (one per order). */
+  reviewId?: ID;
   createdAt: number;
 }
 
@@ -190,6 +210,7 @@ export type TxType =
   | 'earning'
   | 'refund'
   | 'merchant_payment'
+  | 'wave_back'
   | 'fee';
 
 export type TxStatus = 'pending' | 'completed' | 'failed' | 'refunded' | 'reserved';
@@ -209,6 +230,12 @@ export interface Transaction {
   method: 'wallet' | 'card' | 'bank' | 'system';
   /** For card payments: the card → wallet funding transaction. */
   fundingTxId?: ID;
+  /** Wave Back eligibility, granted when the payment is captured from the balance. */
+  waveBack?: { category: 'shop' | 'services'; baseCents: Cents };
+  /** Wave Back credited for this payment. */
+  waveBackCents?: Cents;
+  /** wave_back transactions: whether the welcome rate applied. */
+  meta?: { newUser?: boolean };
   simulated: true;
   createdAt: number;
 }
@@ -525,24 +552,47 @@ export interface Review {
   createdAt: number;
 }
 
+/** Hayve Store: a registered business, verified by a Hayve admin. */
 export interface Business {
   id: ID;
   ownerId: ID;
   legalName: string;
   tradingName: string;
   category: string;
-  country: string;
+  /** Chamber of Commerce / company registration number (e.g. KVK). */
   registrationNumber: string;
   vatNumber: string;
+  address: { line1: string; city: string; postcode: string; country: string };
   website: string;
-  verification: {
-    details: boolean;
-    identity: boolean;
-    bank: boolean;
-    status: 'not_started' | 'in_review' | 'verified';
-  };
+  description: string;
+  logo?: string;
+  banner?: string;
+  /** Owner identity check (simulated document scan in this build). */
+  ownerIdChecked: boolean;
+  status: 'pending' | 'verified' | 'rejected';
+  rejectionReason?: string;
+  reviewedAt?: number;
+  reviewedBy?: ID;
   payoutSchedule: 'daily' | 'weekly' | 'monthly';
+  submittedAt: number;
   createdAt: number;
+}
+
+export interface Report {
+  id: ID;
+  reporterId: ID;
+  targetKind: 'listing' | 'user' | 'review';
+  targetId: ID;
+  reason: string;
+  status: 'open' | 'resolved' | 'dismissed';
+  resolution?: string;
+  resolvedBy?: ID;
+  createdAt: number;
+}
+
+export interface Settings {
+  feeTiers: import('./config').FeeTier[];
+  waveBack: import('./config').WaveBackSettings;
 }
 
 export interface PaymentLink {
@@ -599,5 +649,7 @@ export interface Database {
   reviews: Review[];
   businesses: Business[];
   paymentLinks: PaymentLink[];
+  reports: Report[];
+  settings: Settings;
   audit: AuditEvent[];
 }

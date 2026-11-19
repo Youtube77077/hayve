@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon, type IconName } from '../../design/icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Share, View } from 'react-native';
@@ -8,7 +8,7 @@ import { PayMethodPicker } from '../../features/common';
 import { memberSince, money } from '../../lib/format';
 import { useAction, useLive, useSessionId } from '../../lib/hooks';
 
-const AMENITY_ICON: Record<string, React.ComponentProps<typeof Ionicons>['name']> = {
+const AMENITY_ICON: Record<string, IconName> = {
   'Wi-Fi': 'wifi',
   Kitchen: 'restaurant-outline',
   Kitchenette: 'restaurant-outline',
@@ -109,7 +109,7 @@ export default function PropertyDetail() {
                 ['water-outline', `${p.baths} bath${p.baths === 1 ? '' : 's'}`],
               ].map(([icon, label]) => (
                 <View key={label} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 36, borderRadius: radius.pill, backgroundColor: color.surface, borderWidth: 1, borderColor: color.line }}>
-                  <Ionicons name={icon as 'bed-outline'} size={16} color={color.ink} />
+                  <Icon name={icon as 'bed-outline'} size={16} color={color.ink} />
                   <T variant="subhead">{label}</T>
                 </View>
               ))}
@@ -138,7 +138,7 @@ export default function PropertyDetail() {
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 14 }}>
                 {p.amenities.map((a) => (
                   <View key={a} style={{ width: isWide ? '33%' : '50%', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    <Ionicons name={AMENITY_ICON[a] ?? 'checkmark-circle-outline'} size={20} color={color.ink} />
+                    <Icon name={AMENITY_ICON[a] ?? 'checkmark-circle-outline'} size={20} color={color.ink} />
                     <T>{a}</T>
                   </View>
                 ))}
@@ -151,7 +151,7 @@ export default function PropertyDetail() {
             </Section>
             <Section title="Location">
               <Card tone="soft" style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-                <Ionicons name="location" size={22} color={color.primary} />
+                <Icon name="location" size={22} color={color.primary} />
                 <View style={{ flex: 1 }}>
                   <T variant="headline">
                     {p.neighbourhood}, {p.city}

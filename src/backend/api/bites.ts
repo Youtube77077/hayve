@@ -1,8 +1,8 @@
 import { accountIdFor, createTransaction, SYSTEM } from '../ledger';
 import { assert, commit, find, getDb, HayveError, now, reference, uid } from '../store';
 import type { FoodOrder, FoodOrderLine, FoodOrderStatus, ID, MenuItem, Restaurant } from '../types';
-import { abortPayment, audit, beginPayment, completePayment, displayName, notify, type PayMethod } from './common';
-import { me, requireRole } from './session';
+import { abortPayment, audit, beginPayment, completePayment, displayName, notify, type PayMethod, previewWaveBack } from './common';
+import { getSessionUserId, me, requireRole } from './session';
 
 /** Hayve Bites (customers) and Hayve Kitchen (restaurants). */
 
@@ -85,6 +85,7 @@ export function priceCart(restaurantId: ID, lines: CartLine[]) {
     totalCents: subtotal + r.deliveryFeeCents + SERVICE_FEE_CENTS,
     minOrderCents: r.minOrderCents,
     meetsMinimum: subtotal >= r.minOrderCents,
+    waveBackCents: previewWaveBack(getSessionUserId(), 'services', subtotal),
   };
 }
 
@@ -118,6 +119,8 @@ export function placeFoodOrder(input: { restaurantId: ID; lines: CartLine[]; add
     labelForPayer: r.name,
     labelForPayee: `Hayve Bites order · ${displayName(user.id)}`,
     ref: { kind: 'food', id },
+    // Wave Back applies to the food, never to delivery or service fees.
+    waveBack: { category: 'services', baseCents: priced.subtotalCents },
   });
   const order: FoodOrder = {
     id,

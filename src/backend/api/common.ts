@@ -1,6 +1,7 @@
+import { DEFAULT_FEE_TIERS, DEFAULT_WAVE_BACK, marketplaceFeeCents, SEND_SHIPPING_CENTS, type WaveBackCategory } from '../config';
 import { accountIdFor, captureHold, createTransaction, type Credit, refundTransaction, SYSTEM, voidHold } from '../ledger';
 import { getDb, HayveError, now, uid } from '../store';
-import type { ID, NotificationKind, Profile, Transaction, TxType } from '../types';
+import type { ID, NotificationKind, Profile, Settings, Transaction, TxType } from '../types';
 
 export type PayMethod = 'wallet' | 'card' | 'card_declined';
 
@@ -15,8 +16,13 @@ export interface PublicUser {
   username: string;
   displayName: string;
   avatar?: string;
+  avatarThumb?: string;
   city: string;
   isPublic: boolean;
+  /** Verified Hayve Store business. */
+  verified: boolean;
+  /** Store name for verified businesses. */
+  storeName?: string;
 }
 
 export function profileOf(userId: ID): Profile {
@@ -25,9 +31,24 @@ export function profileOf(userId: ID): Profile {
   return p;
 }
 
+export function verifiedBusinessOf(userId: ID) {
+  return getDb().businesses.find((b) => b.ownerId === userId && b.status === 'verified') ?? null;
+}
+
 export function publicUser(userId: ID): PublicUser {
   const p = profileOf(userId);
-  return { id: userId, username: p.username, displayName: p.displayName, avatar: p.avatar, city: p.city, isPublic: p.isPublic };
+  const biz = verifiedBusinessOf(userId);
+  return {
+    id: userId,
+    username: p.username,
+    displayName: p.displayName,
+    avatar: p.avatar,
+    avatarThumb: p.avatarThumb ?? p.avatar,
+    city: p.city,
+    isPublic: p.isPublic,
+    verified: !!biz,
+    storeName: biz?.tradingName,
+  };
 }
 
 export function displayName(userId: ID) {
@@ -46,10 +67,81 @@ export function audit(actorId: ID | null, action: string, target: string) {
   getDb().audit.push({ id: uid('au'), actorId, action, target, createdAt: now() });
 }
 
-export const SHIPPING_CENTS = 395;
-/** Buyer protection: 5% + €0.70, like leading resale marketplaces. */
-export function protectionFee(priceCents: number) {
-  return Math.round(priceCents * 0.05) + 70;
+export const SHIPPING_CENTS = SEND_SHIPPING_CENTS;
+
+/** Runtime settings (admin-editable), falling back to config.ts defaults. */
+export function settings(): Settings {
+  const db = getDb();
+  if (!db.settings) db.settings = { feeTiers: DEFAULT_FEE_TIERS, waveBack: DEFAULT_WAVE_BACK };
+  return db.settings;
+}
+
+/** Marketplace buyer fee for an item price (tiered; see config.ts). */
+export function marketplaceFee(priceCents: number) {
+  return marketplaceFeeCents(priceCents, settings().feeTiers);
+}
+
+/* ------------------------------------------------------------ Wave Back -- */
+
+function monthStart(t = now()) {
+  const d = new Date(t);
+  return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+}
+
+/**
+ * How much Wave Back a balance payment earns. Pure calculation, no side effects.
+ * Never applies to top-ups, transfers or fees (callers pass the item/service base only).
+ */
+export function computeWaveBack(userId: ID, category: WaveBackCategory, baseCents: number) {
+  const db = getDb();
+  const s = settings().waveBack;
+  const user = db.users.find((u) => u.id === userId);
+  if (!user || baseCents <= 0) return { cents: 0, newUser: false };
+  const acc = accountIdFor(userId);
+  const mine = db.transactions.filter((t) => t.type === 'wave_back' && t.toAccountId === acc && t.status === 'completed');
+  const paidThisMonth = mine.filter((t) => t.createdAt >= monthStart()).reduce((a, t) => a + t.amountCents, 0);
+  const paidWelcome = mine.filter((t) => t.meta?.newUser).reduce((a, t) => a + t.amountCents, 0);
+
+  const capShop = (c: number) => (category === 'shop' ? Math.min(c, s.shopMaxPerPurchaseCents) : c);
+  let cents = capShop(Math.round(baseCents * (category === 'shop' ? s.shopRate : s.servicesRate)));
+  let newUser = false;
+  const isNew = now() - user.createdAt < s.newUserDays * 86_400_000;
+  if (isNew && paidWelcome < s.newUserMaxTotalCents) {
+    const welcome = Math.min(capShop(Math.round(baseCents * s.newUserRate)), s.newUserMaxTotalCents - paidWelcome);
+    if (welcome > cents) {
+      cents = welcome;
+      newUser = true;
+    }
+  }
+  cents = Math.max(0, Math.min(cents, s.monthlyMaxCents - paidThisMonth));
+  return { cents, newUser };
+}
+
+/** Wave Back the signed-in user would earn by paying with their balance (for checkout hints). */
+export function previewWaveBack(userId: ID | null, category: WaveBackCategory, baseCents: number) {
+  if (!userId) return 0;
+  return computeWaveBack(userId, category, baseCents).cents;
+}
+
+function grantWaveBack(tx: Transaction) {
+  if (!tx.waveBack || tx.method !== 'wallet' || tx.waveBackCents) return;
+  const db = getDb();
+  const payerId = db.accounts.find((a) => a.id === tx.fromAccountId)?.ownerId;
+  if (!payerId) return;
+  const { cents, newUser } = computeWaveBack(payerId, tx.waveBack.category, tx.waveBack.baseCents);
+  if (cents <= 0) return;
+  const wb = createTransaction({
+    type: 'wave_back',
+    fromAccountId: SYSTEM.waveBack,
+    credits: [{ accountId: accountIdFor(payerId), amountCents: cents }],
+    labelForFrom: 'Wave Back',
+    labelForTo: 'Wave Back',
+    note: tx.note,
+    ref: { kind: 'payment', id: tx.id },
+    method: 'system',
+  });
+  wb.meta = { newUser };
+  tx.waveBackCents = cents;
 }
 
 /**
@@ -65,6 +157,8 @@ export function beginPayment(input: {
   labelForPayee: string;
   note?: string;
   ref?: { kind: string; id: ID };
+  /** Eligible amount for Wave Back when paid with the Hayve balance. */
+  waveBack?: { category: WaveBackCategory; baseCents: number };
 }): Transaction {
   if (input.method === 'card_declined') {
     throw new HayveError('payment_failed', 'Your card was declined (simulated). No money was taken.');
@@ -97,11 +191,15 @@ export function beginPayment(input: {
     mode: 'hold',
   });
   tx.fundingTxId = fundingTxId;
+  if (input.waveBack && input.method === 'wallet') tx.waveBack = input.waveBack;
   return tx;
 }
 
+/** Captures a held payment and credits Wave Back for balance payments. */
 export function completePayment(tx: Transaction, creditStatus: 'posted' | 'pending' = 'posted') {
-  return captureHold(tx.id, creditStatus);
+  const captured = captureHold(tx.id, creditStatus);
+  grantWaveBack(captured);
+  return captured;
 }
 
 export function abortPayment(tx: Transaction | null | undefined) {
