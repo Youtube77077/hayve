@@ -42,7 +42,7 @@ export function tap(kind: 'light' | 'success' | 'warning' = 'light') {
 
 /* ---------------------------------------------------------------- Button -- */
 
-type ButtonVariant = 'primary' | 'accent' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'dark';
+type ButtonVariant = 'primary' | 'accent' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'dark' | 'glass';
 
 const BUTTON: Record<ButtonVariant, { bg: string; fg: string; border?: string; pressed: string }> = {
   primary: { bg: color.primary, fg: '#fff', pressed: color.primaryPressed },
@@ -52,6 +52,7 @@ const BUTTON: Record<ButtonVariant, { bg: string; fg: string; border?: string; p
   outline: { bg: color.surface, fg: color.ink, border: color.lineStrong, pressed: color.surfaceSunken },
   ghost: { bg: 'transparent', fg: color.primary, pressed: color.primarySoft },
   danger: { bg: color.dangerSoft, fg: color.danger, pressed: '#F9D5DA' },
+  glass: { bg: 'rgba(255,255,255,0.12)', fg: '#fff', pressed: 'rgba(255,255,255,0.2)' },
 };
 
 export interface ButtonProps extends Omit<PressableProps, 'style' | 'children'> {
@@ -322,9 +323,10 @@ export function Divider({ style, inset = 0 }: { style?: StyleProp<ViewStyle>; in
 
 /* ---------------------------------------------------------- Photo/Avatar -- */
 
-export function Photo({ uri, style, icon = 'image-outline', label, contentFit = 'cover', rounded }: { uri?: string; style?: StyleProp<ViewStyle>; icon?: IconName; label?: string; contentFit?: 'cover' | 'contain'; rounded?: number }) {
+export function Photo({ uri, style, icon = 'image-outline', label, contentFit = 'cover', rounded, plain }: { uri?: string; style?: StyleProp<ViewStyle>; icon?: IconName; label?: string; contentFit?: 'cover' | 'contain'; rounded?: number; plain?: boolean }) {
   const [failed, setFailed] = useState(false);
   const r = rounded != null ? { borderRadius: rounded, overflow: 'hidden' as const } : null;
+  if ((!uri || failed) && plain) return <View style={[{ backgroundColor: color.ink }, r, style]} />;
   if (!uri || failed) {
     return (
       <View style={[{ backgroundColor: color.primarySoft, alignItems: 'center', justifyContent: 'center', gap: 6, overflow: 'hidden' }, r, style]}>

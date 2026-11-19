@@ -17,7 +17,7 @@ export default function Welcome() {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: color.ink }} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
       <View style={{ minHeight: isWide ? 640 : 560 }}>
-        <Photo uri={media.city.amsterdam} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} icon="business-outline" />
+        <Photo uri={media.city.amsterdam} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} plain />
         <LinearGradient colors={['rgba(17,13,46,0.35)', 'rgba(17,13,46,0.75)', color.ink]} locations={[0, 0.55, 1]} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
         <View style={{ width: '100%', maxWidth: layout.maxContent, alignSelf: 'center', paddingHorizontal: gutter + 4, paddingTop: insets.top + 16, flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -25,7 +25,7 @@ export default function Welcome() {
             <View style={{ flex: 1 }} />
             {isWide && (
               <View style={{ flexDirection: 'row', gap: 10 }}>
-                <Button title="Sign in" variant="ghost" onPress={() => router.push('/sign-in')} style={{ backgroundColor: 'rgba(255,255,255,0.1)' }} />
+                <Button title="Sign in" variant="glass" onPress={() => router.push('/sign-in')} />
                 <Button title="Create account" variant="accent" onPress={() => router.push('/sign-up')} />
               </View>
             )}
@@ -47,7 +47,7 @@ export default function Welcome() {
             {!isWide && (
               <View style={{ gap: 10, marginTop: 28 }}>
                 <Button title="Create your Hayve account" variant="accent" size="lg" full onPress={() => router.push('/sign-up')} />
-                <Button title="Sign in" variant="ghost" size="lg" full onPress={() => router.push('/sign-in')} style={{ backgroundColor: 'rgba(255,255,255,0.1)' }} />
+                <Button title="Sign in" variant="glass" size="lg" full onPress={() => router.push('/sign-in')} />
               </View>
             )}
           </View>
