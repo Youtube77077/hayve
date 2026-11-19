@@ -47,8 +47,6 @@ Build the website for hosting: `npm run build:web` → static files in `dist/`. 
 
 ## Demo accounts
 
-All passwords are `hayve123`.
-
 | Email | Who |
 |---|---|
 | sam@hayve.app | Customer & seller (main demo account) |
