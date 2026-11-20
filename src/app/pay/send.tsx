@@ -1,10 +1,9 @@
-import { Icon } from '../../design/icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { wallet, type PublicUser } from '../../backend/api';
 import { publicUser } from '../../backend/api/common';
-import { Button, Card, color, Header, Input, KeyValue, parseEuro, Screen, Section, T } from '../../design';
+import { SuccessMark, Button, Card, color, Header, Input, KeyValue, parseEuro, Screen, Section, T } from '../../design';
 import { SimNote } from '../../features/common';
 import { AmountInput, PersonPicker } from '../../features/pay';
 import { money } from '../../lib/format';
@@ -32,9 +31,7 @@ export default function SendMoney() {
     return (
       <Screen header={<Header title="Sent" />} maxWidth={520}>
         <View style={{ alignItems: 'center', gap: 12, marginTop: 32 }}>
-          <View style={{ width: 84, height: 84, borderRadius: 42, borderWidth: 1, borderColor: color.line, alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="checkmark" size={36} color={color.indigo} />
-          </View>
+          <SuccessMark size={84} />
           <T variant="title2" center>
             {money(cents)} sent to {person.displayName.split(' ')[0]}
           </T>

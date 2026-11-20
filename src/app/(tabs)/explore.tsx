@@ -1,10 +1,10 @@
 import { Icon } from '../../design/icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Pressable, type TextInput, View } from 'react-native';
 import { bites, bookings, shop } from '../../backend/api';
 import { media } from '../../backend/media';
-import { Chip, color, EmptyState, Grid, HScroll, Input, Photo, radius, Rating, Screen, Section, T, tap, type IconName } from '../../design';
+import { useHotkey, Chip, color, EmptyState, Grid, HScroll, Input, Photo, radius, Rating, Screen, Section, T, tap, type IconName } from '../../design';
 import { ProductTile, TabHeader } from '../../features/common';
 import { money } from '../../lib/format';
 import { useLive } from '../../lib/hooks';
@@ -35,6 +35,8 @@ type Scope = 'all' | 'products' | 'food' | 'stays' | 'cars';
 
 export default function Explore() {
   const params = useLocalSearchParams<{ q?: string }>();
+  const inputRef = useRef<TextInput>(null);
+  useHotkey('/', () => inputRef.current?.focus());
   const [q, setQ] = useState(params.q ?? '');
   const [scope, setScope] = useState<Scope>('all');
   const [sort, setSort] = useState<'recommended' | 'price_asc' | 'price_desc'>('recommended');
@@ -52,7 +54,7 @@ export default function Explore() {
 
   return (
     <Screen header={<TabHeader service="explore" subtitle="Discover everything on Hayve" />}>
-      <Input icon="search" placeholder="Try 'camera', 'pizza', 'Lisbon' or 'Tesla'" value={q} onChangeText={setQ} returnKeyType="search" autoCorrect={false} right={q ? <Pressable onPress={() => setQ('')} accessibilityLabel="Clear search" hitSlop={8}><Icon name="close-circle" size={20} color={color.grey500} /></Pressable> : null} />
+      <Input ref={inputRef} icon="search" placeholder="Try 'camera', 'pizza', 'Lisbon' or 'Tesla'" value={q} onChangeText={setQ} returnKeyType="search" autoCorrect={false} right={q ? <Pressable onPress={() => setQ('')} accessibilityLabel="Clear search" hitSlop={8}><Icon name="close-circle" size={20} color={color.grey500} /></Pressable> : null} />
 
       {term ? (
         <>
@@ -77,8 +79,8 @@ export default function Explore() {
           {show('products') && products.length > 0 && (
             <Section title="Hayve Shop" subtitle={`${products.length} listings`} action="Open Shop" onAction={() => router.push(`/shop?q=${encodeURIComponent(term)}`)}>
               <Grid min={160}>
-                {products.slice(0, 8).map((p) => (
-                  <ProductTile key={p.id} p={p} />
+                {products.slice(0, 8).map((p, i) => (
+                  <ProductTile key={p.id} index={i} p={p} />
                 ))}
               </Grid>
             </Section>
@@ -158,8 +160,8 @@ export default function Explore() {
 
           <Section title="Trending on Hayve Shop" action="See all" onAction={() => router.push('/shop?sort=popular')}>
             <HScroll>
-              {trending.map((p) => (
-                <ProductTile key={p.id} p={p} width={150} />
+              {trending.map((p, i) => (
+                <ProductTile key={p.id} index={i} p={p} width={150} />
               ))}
             </HScroll>
           </Section>

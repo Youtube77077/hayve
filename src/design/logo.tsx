@@ -1,43 +1,44 @@
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { color, FONT } from './tokens';
-
-/** The wave-v: one smooth stroke, like a hand waving hello. */
-export const WAVE_PATH = 'M12 18 C 22 42, 33 86, 50 86 C 67 86, 74 28, 94 20';
-
-export function WaveV({ size = 24, stroke = color.indigo, weight = 17 }: { size?: number; stroke?: string; weight?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 100 100" accessibilityElementsHidden>
-      <Path d={WAVE_PATH} stroke={stroke} strokeWidth={weight} strokeLinecap="round" strokeLinejoin="round" fill="none" />
-    </Svg>
-  );
-}
+import { LOGO_LETTERS, LOGO_VIEWBOX, LOGO_WAVE, MARK_VIEWBOX, MARK_WAVE, WAVE_WEIGHT } from './logoPaths';
+import { color } from './tokens';
 
 /**
- * The Hayve wordmark: lowercase "hayve" in a heavy geometric sans with tight
- * spacing; the "v" is the indigo wave, the other letters black (or white).
+ * The Hayve wordmark: lowercase "hayve" built from Plus Jakarta Sans ExtraBold outlines
+ * (scripts/build-logo.py). The "v" is one indigo wave stroke whose edges sit exactly on the
+ * baseline and the x-height, like the other letters. `height` is the cap-to-descender height.
  */
 export function HayveLogo({ height = 28, tone = 'dark' }: { height?: number; tone?: 'dark' | 'light' }) {
-  const fs = height;
   const ink = tone === 'dark' ? color.black : color.white;
-  const textStyle = { fontFamily: FONT.extrabold, fontSize: fs, lineHeight: fs * 1.12, letterSpacing: -fs * 0.055, color: ink } as const;
-  const v = fs * 0.62;
+  const width = (height * LOGO_VIEWBOX.width) / LOGO_VIEWBOX.height;
   return (
-    <View accessible accessibilityRole="image" accessibilityLabel="Hayve" style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-      <Text style={textStyle}>hay</Text>
-      <View style={{ marginHorizontal: -fs * 0.045, marginBottom: fs * 0.22 }}>
-        <WaveV size={v} weight={19} />
-      </View>
-      <Text style={textStyle}>e</Text>
+    <View accessible accessibilityRole="image" accessibilityLabel="Hayve">
+      <Svg width={width} height={height} viewBox={`0 0 ${LOGO_VIEWBOX.width} ${LOGO_VIEWBOX.height}`}>
+        {LOGO_LETTERS.map((d) => (
+          <Path key={d.slice(0, 12)} d={d} fill={ink} />
+        ))}
+        <Path d={LOGO_WAVE} fill="none" stroke={color.indigo} strokeWidth={WAVE_WEIGHT} strokeLinecap="round" strokeLinejoin="round" />
+      </Svg>
     </View>
   );
 }
 
-/** App icon mark: the wave-v on its own. */
-export function HayveMark({ size = 40, background = color.black }: { size?: number; background?: string }) {
+/** The wave-v on its own (app icon, favicon, small marks). `size` is the box it is fitted into. */
+export function WaveV({ size = 24, stroke = color.indigo }: { size?: number; stroke?: string; weight?: number }) {
+  const w = MARK_VIEWBOX.width + WAVE_WEIGHT;
+  const h = MARK_VIEWBOX.height + WAVE_WEIGHT;
   return (
-    <View style={{ width: size, height: size, borderRadius: size * 0.26, backgroundColor: background, alignItems: 'center', justifyContent: 'center' }}>
-      <WaveV size={size * 0.62} weight={16} />
+    <Svg width={size} height={(size * h) / w} viewBox={`${-WAVE_WEIGHT / 2} ${-WAVE_WEIGHT / 2} ${w} ${h}`} accessibilityElementsHidden>
+      <Path d={MARK_WAVE} stroke={stroke} strokeWidth={WAVE_WEIGHT} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </Svg>
+  );
+}
+
+/** App icon mark: indigo wave-v on white. */
+export function HayveMark({ size = 40, background = color.white, bordered = true }: { size?: number; background?: string; bordered?: boolean }) {
+  return (
+    <View style={{ width: size, height: size, borderRadius: size * 0.24, backgroundColor: background, alignItems: 'center', justifyContent: 'center', borderWidth: bordered ? 1 : 0, borderColor: color.grey200 }}>
+      <WaveV size={size * 0.58} />
     </View>
   );
 }

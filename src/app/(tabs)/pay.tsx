@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { wallet } from '../../backend/api';
-import { Avatar, BarChart, Card, color, EmptyState, focusRing, Icon, IconButton, radius, Screen, Section, Segmented, SimBadge, Split, T, tap, useLayout, type IconName } from '../../design';
+import { Appear, Avatar, BarChart, Card, color, EmptyState, focusRing, Icon, IconButton, radius, Screen, Section, Segmented, SimBadge, Split, T, tap, useLayout, type IconName } from '../../design';
 import { TabHeader } from '../../features/common';
 import { TxRow } from '../../features/pay';
 import { money, shortDate } from '../../lib/format';
@@ -114,7 +114,7 @@ export default function Pay() {
                 />
               </View>
               <Card padded={false}>
-                {!txs ? null : txs.length === 0 ? <EmptyState compact icon="receipt-outline" title="No transactions yet" body="Add money to get started." /> : txs.slice(0, 40).map((t, i) => <TxRow key={t.id} t={t} first={i === 0} />)}
+                {!txs ? null : txs.length === 0 ? <EmptyState compact icon="receipt-outline" title="No transactions yet" body="Add money to get started." /> : txs.slice(0, 40).map((t, i) => <Appear key={t.id} index={i}><TxRow t={t} first={i === 0} /></Appear>)}
               </Card>
             </Section>
           </View>

@@ -5,7 +5,7 @@ import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { bites } from '../backend/api';
 import type { MenuItem } from '../backend/types';
-import { Button, color, Photo, radius, shadow, Sheet, Stepper, T, tap, useLayout, useToast } from '../design';
+import { Appear, Bump, Button, color, Photo, radius, shadow, Sheet, Stepper, T, tap, useLayout, useToast } from '../design';
 import { cart, useCart } from '../lib/cart';
 import { money } from '../lib/format';
 import { useLive } from '../lib/hooks';
@@ -20,16 +20,18 @@ export function BasketBar() {
   if (!priced) return null;
   const count = c.lines.reduce((s, l) => s + l.qty, 0);
   return (
-    <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: isWide ? 24 : insets.bottom + 84, alignItems: 'center', paddingHorizontal: 16 }}>
+    <Appear from={40} pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: isWide ? 24 : insets.bottom + 84, alignItems: 'center', paddingHorizontal: 16 }}>
       <Pressable
         onPress={() => router.push('/bites/cart')}
         style={[{ width: '100%', maxWidth: 520, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: color.ink, borderRadius: radius.pill, height: 58, paddingHorizontal: 8 }, shadow.float]}
         accessibilityRole="button"
         accessibilityLabel={`View basket, ${count} items`}
       >
-        <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: color.indigo, alignItems: 'center', justifyContent: 'center' }}>
-          <T variant="headline" color={color.white}>{count}</T>
-        </View>
+        <Bump value={count}>
+          <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: color.indigo, alignItems: 'center', justifyContent: 'center' }}>
+            <T variant="headline" color={color.white}>{count}</T>
+          </View>
+        </Bump>
         <View style={{ flex: 1 }}>
           <T variant="headline" color="#fff">
             View basket
@@ -42,7 +44,7 @@ export function BasketBar() {
           {money(priced.subtotalCents)}
         </T>
       </Pressable>
-    </View>
+    </Appear>
   );
 }
 

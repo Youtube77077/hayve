@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { type PayMethod, shop, social } from '../../backend/api';
 import type { DeliveryMethod } from '../../backend/api/shop';
-import { Button, Card, color, Divider, Emoji, ErrorState, Header, Icon, type IconName, KeyValue, Photo, radius, Screen, Section, Split, T } from '../../design';
+import { SuccessMark, Button, Card, color, Divider, Emoji, ErrorState, Header, Icon, type IconName, KeyValue, Photo, radius, Screen, Section, Split, T } from '../../design';
 import { PayMethodPicker, SellerLine, WaveBackLine } from '../../features/common';
 import { money } from '../../lib/format';
 import { NONE, useAction, useLive } from '../../lib/hooks';
@@ -30,9 +30,7 @@ export default function Checkout() {
     return (
       <Screen header={<Header title="Order confirmed" />} maxWidth={520}>
         <View style={{ alignItems: 'center', marginTop: 32, gap: 12 }}>
-          <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: color.indigo, alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="checkmark" size={34} color={color.white} />
-          </View>
+          <SuccessMark size={72} />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <T variant="title2" center>
               It's yours

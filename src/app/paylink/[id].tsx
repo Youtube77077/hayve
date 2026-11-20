@@ -1,9 +1,8 @@
-import { Icon } from '../../design/icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { business, type PayMethod } from '../../backend/api';
-import { Button, Card, color, ErrorState, HayveLogo, Header, Notice, Screen, T } from '../../design';
+import { SuccessMark, Button, Card, color, ErrorState, HayveLogo, Header, Notice, Screen, T } from '../../design';
 import { PayMethodPicker } from '../../features/common';
 import { money } from '../../lib/format';
 import { useAction, useLive, useSessionId } from '../../lib/hooks';
@@ -36,9 +35,7 @@ export default function PayLinkCheckout() {
       </Card>
       {paid ? (
         <View style={{ alignItems: 'center', gap: 12, marginTop: 24 }}>
-          <View style={{ width: 72, height: 72, borderRadius: 36, borderWidth: 1, borderColor: color.line, alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="checkmark" size={36} color={color.indigo} />
-          </View>
+          <SuccessMark size={72} />
           <T variant="title2">Paid</T>
           <Button title="View receipt" variant="outline" full onPress={() => router.replace(`/pay/tx/${paid}`)} />
         </View>

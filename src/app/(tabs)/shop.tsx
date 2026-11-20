@@ -1,11 +1,11 @@
 import { Icon } from '../../design/icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Pressable, type TextInput, View } from 'react-native';
 import { shop } from '../../backend/api';
 import type { ProductSort } from '../../backend/api/shop';
 import type { ProductCategory, ProductCondition } from '../../backend/types';
-import { Button, Chip, color, EmptyState, Grid, HScroll, IconButton, Input, parseEuro, radius, Screen, Sheet, T, useLayout } from '../../design';
+import { Button, useHotkey, Chip, color, EmptyState, Grid, HScroll, IconButton, Input, parseEuro, radius, Screen, Sheet, T, useLayout } from '../../design';
 import { ProductTile, TabHeader } from '../../features/common';
 import { useLive } from '../../lib/hooks';
 
@@ -22,6 +22,8 @@ export default function Shop() {
   const { isWide } = useLayout();
   const [category, setCategory] = useState<ProductCategory | 'all'>((params.category as ProductCategory) ?? 'all');
   const [q, setQ] = useState(params.q ?? '');
+  const inputRef = useRef<TextInput>(null);
+  useHotkey('/', () => inputRef.current?.focus());
   const [sort, setSort] = useState<ProductSort>((params.sort as ProductSort) ?? 'recommended');
   const [min, setMin] = useState('');
   const [max, setMax] = useState('');
@@ -55,7 +57,7 @@ export default function Shop() {
     >
       <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
         <View style={{ flex: 1 }}>
-          <Input icon="search" placeholder="Search for items or members" value={q} onChangeText={setQ} returnKeyType="search" autoCorrect={false} />
+          <Input ref={inputRef} icon="search" placeholder="Search for items or members" value={q} onChangeText={setQ} returnKeyType="search" autoCorrect={false} />
         </View>
         <Pressable onPress={() => setFiltersOpen(true)} accessibilityLabel="Filters and sorting" style={{ height: 50, paddingHorizontal: 16, borderRadius: radius.md, backgroundColor: activeFilters ? color.ink : color.surface, borderWidth: 1, borderColor: activeFilters ? color.ink : color.line, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Icon name="options-outline" size={20} color={activeFilters ? color.white : color.black} />
@@ -101,8 +103,8 @@ export default function Shop() {
         <EmptyState icon="bag-handle-outline" title="No items found" body="Try removing filters or searching for something else." action="Clear filters" onAction={() => { setQ(''); setCategory('all'); setMin(''); setMax(''); setConditions([]); setSort('recommended'); }} />
       ) : (
         <Grid min={isWide ? 190 : 150} gap={14}>
-          {products.map((p) => (
-            <ProductTile key={p.id} p={p} />
+          {products.map((p, i) => (
+            <ProductTile key={p.id} index={i} p={p} />
           ))}
         </Grid>
       )}

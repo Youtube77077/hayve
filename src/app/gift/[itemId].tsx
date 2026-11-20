@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { type PayMethod, wishlist } from '../../backend/api';
 import type { GiftQuote, GiftReceipt } from '../../backend/api/wishlist';
-import { Button, Card, color, Divider, Emoji, Header, KeyValue, Loading, Notice, Photo, radius, Screen, Section, Split, T, tap } from '../../design';
+import { SuccessMark, Button, Card, color, Divider, Emoji, Header, KeyValue, Loading, Notice, Photo, radius, Screen, Section, Split, T, tap } from '../../design';
 import { PayMethodPicker, WaveBackLine } from '../../features/common';
 import { money } from '../../lib/format';
 
@@ -83,9 +83,7 @@ export default function GiftCheckout() {
     return (
       <Screen header={<Header title="Gift sent" />} maxWidth={560}>
         <View style={{ alignItems: 'center', marginTop: 24, gap: 12 }}>
-          <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: color.indigo, alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="gift" size={32} color={color.white} />
-          </View>
+          <SuccessMark size={72} />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <T variant="title2" center>
               Your gift is on its way

@@ -5,6 +5,7 @@ import { Emoji, splitEmoji } from '../emoji/Emoji';
 import { Icon } from '../icons';
 import { color, radius, shadow, space } from '../tokens';
 import type { IconName } from '../icons';
+import { MOTION, ND, useHotkey, usePresence } from '../motion';
 import { useLayout } from './layout';
 import { Button, T, tap } from './primitives';
 
@@ -31,9 +32,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       if (timer.current) clearTimeout(timer.current);
       setMsg({ id: Date.now(), text, kind });
       tap(kind === 'error' ? 'warning' : kind === 'success' ? 'success' : 'light');
-      Animated.timing(anim, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+      anim.setValue(0);
+      Animated.spring(anim, { toValue: 1, useNativeDriver: ND, speed: 16, bounciness: 6 }).start();
       timer.current = setTimeout(() => {
-        Animated.timing(anim, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => setMsg(null));
+        Animated.timing(anim, { toValue: 0, duration: MOTION.base, easing: MOTION.easeIn, useNativeDriver: ND }).start(() => setMsg(null));
       }, 3200);
     },
     [anim],
@@ -55,7 +57,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             right: 16,
             alignItems: 'center',
             opacity: anim,
-            transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [-12, 0] }) }],
+            transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [-16, 0] }) }, { scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) }],
             zIndex: 1000,
           }}
         >
@@ -155,11 +157,20 @@ export function SkeletonGrid({ count = 6 }: { count?: number }) {
 export function Sheet({ visible, onClose, title, children, footer }: { visible: boolean; onClose: () => void; title?: string; children: ReactNode; footer?: ReactNode }) {
   const insets = useSafeAreaInsets();
   const { isWide, height } = useLayout();
+  // Springs in (grows on desktop, rises on phones); interruptible; Esc closes on the web.
+  const { mounted, progress } = usePresence(visible);
+  useHotkey('Escape', onClose, visible);
+  if (!mounted) return null;
+  const panelMotion = isWide
+    ? { opacity: progress, transform: [{ scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) }, { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }
+    : { transform: [{ translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [height * 0.6, 0] }) }] };
   return (
-    <Modal visible={visible} transparent animationType={isWide ? 'fade' : 'slide'} onRequestClose={onClose} statusBarTranslucent>
+    <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
       <View style={{ flex: 1, justifyContent: isWide ? 'center' : 'flex-end', alignItems: 'center' }}>
-        <Pressable style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: color.overlay }} onPress={onClose} accessibilityLabel="Close" />
-        <View
+        <Animated.View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: progress }}>
+          <Pressable style={{ flex: 1, backgroundColor: color.overlay }} onPress={onClose} accessibilityLabel="Close" />
+        </Animated.View>
+        <Animated.View
           accessibilityViewIsModal
           style={[
             {
@@ -175,6 +186,7 @@ export function Sheet({ visible, onClose, title, children, footer }: { visible: 
               overflow: 'hidden',
             },
             shadow.float,
+            panelMotion,
           ]}
         >
           {!isWide && <View style={{ alignSelf: 'center', width: 36, height: 4, borderRadius: 2, backgroundColor: color.grey200, marginTop: 8 }} />}
@@ -192,7 +204,7 @@ export function Sheet({ visible, onClose, title, children, footer }: { visible: 
             {children}
           </ScrollView>
           {footer && <View style={{ paddingHorizontal: space.xl, paddingTop: space.sm }}>{footer}</View>}
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );

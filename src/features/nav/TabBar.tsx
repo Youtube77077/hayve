@@ -1,12 +1,12 @@
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { router } from 'expo-router';
-import { useState } from 'react';
+
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { business, social } from '../../backend/api';
 import { Avatar, color, font, HayveLogo, Icon, type IconName, layout, T, tap } from '../../design';
 import { useLive } from '../../lib/hooks';
-import { type ProductKey, ProductWordmark } from './Wordmarks';
+import { PRODUCT_ICON, type ProductKey, ProductWordmark } from './Wordmarks';
 
 /** Tab route name for each destination. */
 const ROUTE: Record<string, string> = { home: 'index', shop: 'shop', pay: 'pay', ride: 'ride', bites: 'bites', drive: 'drive', stay: 'stay', explore: 'explore', profile: 'profile' };
@@ -120,20 +120,15 @@ function Sidebar(props: BottomTabBarProps) {
 }
 
 function ProductLink({ product, on, onPress }: { product: ProductKey; on: boolean; onPress: () => void }) {
-  const [hovered, setHovered] = useState(false);
   return (
     <Pressable
       accessibilityRole="tab"
       accessibilityState={{ selected: on }}
       onPress={onPress}
-      onHoverIn={() => setHovered(true)}
-      onHoverOut={() => setHovered(false)}
-      onFocus={() => setHovered(true)}
-      onBlur={() => setHovered(false)}
-      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', minHeight: 52, paddingHorizontal: 12, borderRadius: 12, backgroundColor: pressed ? color.grey100 : hovered ? color.grey100 : 'transparent', marginBottom: 2 })}
+      style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, height: 44, paddingHorizontal: 12, borderRadius: 12, backgroundColor: pressed || hovered || on ? color.grey100 : 'transparent', marginBottom: 2 })}
     >
-      <View style={{ position: 'absolute', left: 0, top: 14, bottom: 14, width: 3, borderRadius: 2, backgroundColor: on ? color.indigo : 'transparent' }} />
-      <ProductWordmark product={product} active={on} hovered={hovered} size={16} />
+      <Icon name={PRODUCT_ICON[product]} size={19} color={on ? color.indigo : color.black} />
+      <ProductWordmark product={product} active={on} size={15} />
     </Pressable>
   );
 }

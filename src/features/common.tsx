@@ -1,9 +1,9 @@
 import { router } from 'expo-router';
 import { type ReactNode, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Animated, Pressable, View } from 'react-native';
 import { type PayMethod, shop, social, wallet, wishlist } from '../backend/api';
 import type { ProductCard } from '../backend/api/shop';
-import { Avatar, color, Icon, type IconName, layout, Photo, Rating, radius, service, type ServiceKey, T, tap, useLayout, useToast, VerifiedMark } from '../design';
+import { Appear, Avatar, color, HeartButton, Tilt, usePressScale, Icon, type IconName, layout, Photo, Rating, radius, service, type ServiceKey, T, tap, useLayout, useToast, VerifiedMark } from '../design';
 import { money } from '../lib/format';
 import { useLive } from '../lib/hooks';
 import { type ProductKey, ProductWordmark } from './nav/Wordmarks';
@@ -91,30 +91,31 @@ export function SellerLine({ p }: { p: Pick<ProductCard, 'fromVerifiedBusiness' 
   );
 }
 
-export function ProductTile({ p, width }: { p: ProductCard; width?: number }) {
+export function ProductTile({ p, width, index = 0 }: { p: ProductCard; width?: number; index?: number }) {
   const toast = useToast();
+  const press = usePressScale(0.97);
   return (
-    <Pressable onPress={() => router.push(`/product/${p.id}`)} style={({ pressed }) => ({ width, opacity: pressed ? 0.85 : 1 })} accessibilityRole="link" accessibilityLabel={`${p.title}, ${money(p.priceCents)}`}>
-      <View>
+    <Appear index={index} style={{ width }}>
+    <Animated.View style={{ transform: [{ scale: press.scale }] }}>
+    <Pressable onPress={() => router.push(`/product/${p.id}`)} onPressIn={press.onPressIn} onPressOut={press.onPressOut} accessibilityRole="link" accessibilityLabel={`${p.title}, ${money(p.priceCents)}`}>
+      <Tilt>
         <Photo uri={p.image} style={{ width: '100%', aspectRatio: 0.8 }} rounded={radius.md} icon="bag-handle-outline" label={p.title} />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={p.isFavourite ? 'Remove favourite' : 'Add favourite'}
-          onPress={() => {
-            tap();
-            try {
-              shop.toggleFavourite(p.id);
-            } catch (e) {
-              toast((e as Error).message, 'error');
-            }
-          }}
-          style={{ position: 'absolute', right: 8, bottom: 8, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: color.white, borderRadius: radius.pill, paddingHorizontal: 10, height: 30 }}
-        >
-          <Icon name="heart" size={15} color={p.isFavourite ? color.indigo : color.black} fill={p.isFavourite ? color.indigo : 'none'} />
-          <T variant="caption" weight="600">
-            {p.favouriteCount}
-          </T>
-        </Pressable>
+        <View style={{ position: 'absolute', right: 8, bottom: 8, backgroundColor: color.white, borderRadius: radius.pill, paddingHorizontal: 10, height: 30, justifyContent: 'center' }}>
+          <HeartButton
+            on={p.isFavourite}
+            size={15}
+            count={p.favouriteCount}
+            label={p.isFavourite ? 'Remove favourite' : 'Add favourite'}
+            onPress={() => {
+              tap();
+              try {
+                shop.toggleFavourite(p.id);
+              } catch (e) {
+                toast((e as Error).message, 'error');
+              }
+            }}
+          />
+        </View>
         {!p.available && (
           <View style={{ position: 'absolute', left: 8, top: 8, backgroundColor: color.black, borderRadius: radius.sm, paddingHorizontal: 8, height: 24, justifyContent: 'center' }}>
             <T variant="caption" color={color.white} weight="700">
@@ -122,7 +123,7 @@ export function ProductTile({ p, width }: { p: ProductCard; width?: number }) {
             </T>
           </View>
         )}
-      </View>
+      </Tilt>
       <View style={{ paddingTop: 10, gap: 2 }}>
         <T variant="subhead" weight="600" numberOfLines={1}>
           {p.title}
@@ -141,6 +142,8 @@ export function ProductTile({ p, width }: { p: ProductCard; width?: number }) {
         </View>
       </View>
     </Pressable>
+    </Animated.View>
+    </Appear>
   );
 }
 

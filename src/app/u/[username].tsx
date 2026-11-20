@@ -94,8 +94,8 @@ export default function PublicProfile() {
               <EmptyState icon="pricetags-outline" title="No active listings" body={profile.isMe ? 'Items you sell on Hayve Shop show up here.' : undefined} action={profile.isMe ? 'Sell an item' : undefined} onAction={() => router.push('/sell')} />
             ) : (
               <Grid min={isWide ? 200 : 150} gap={16}>
-                {profile.listings.map((p) => (
-                  <ProductTile key={p.id} p={p} />
+                {profile.listings.map((p, i) => (
+                  <ProductTile key={p.id} index={i} p={p} />
                 ))}
               </Grid>
             )}

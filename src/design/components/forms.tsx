@@ -1,6 +1,7 @@
 import { Icon } from '../icons';
-import { useMemo, useState } from 'react';
-import { Pressable, Switch, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Pressable, Switch, View } from 'react-native';
+import { MOTION, ND, useReducedMotion } from '../motion';
 import { color, radius, space } from '../tokens';
 import type { IconName } from '../icons';
 import { Sheet } from './feedback';
@@ -8,9 +9,51 @@ import { T, tap } from './primitives';
 
 /* ------------------------------------------------------------- Segmented -- */
 
-export function Segmented<K extends string>({ options, value, onChange, dark }: { options: { key: K; label: string; icon?: IconName }[]; value: K; onChange: (k: K) => void; dark?: boolean }) {
+export function Segmented<K extends string>({ options, value, onChange }: { options: { key: K; label: string; icon?: IconName }[]; value: K; onChange: (k: K) => void; dark?: boolean }) {
+  const [w, setW] = useState(0);
+  const reduced = useReducedMotion();
+  const idx = Math.max(0, options.findIndex((o) => o.key === value));
+  const seg = w ? (w - 8) / options.length : 0;
+  const x = useRef(new Animated.Value(0)).current;
+  const stretch = useRef(new Animated.Value(1)).current;
+  const placed = useRef(false);
+  useEffect(() => {
+    if (!seg) return;
+    if (!placed.current || reduced) {
+      x.setValue(idx * seg);
+      placed.current = true;
+      return;
+    }
+    // Squish and stretch: the pill stretches while it travels, then lands softly.
+    Animated.parallel([
+      Animated.spring(x, { toValue: idx * seg, useNativeDriver: ND, speed: 14, bounciness: 6 }),
+      Animated.sequence([
+        Animated.timing(stretch, { toValue: 1.12, duration: 110, easing: MOTION.easeOut, useNativeDriver: ND }),
+        Animated.spring(stretch, { toValue: 1, useNativeDriver: ND, speed: 12, bounciness: 10 }),
+      ]),
+    ]).start();
+  }, [idx, seg, reduced, x, stretch]);
   return (
-    <View style={{ flexDirection: 'row', backgroundColor: dark ? 'rgba(255,255,255,0.08)' : color.surfaceSunken, borderRadius: radius.pill, padding: 4 }}>
+    <View onLayout={(e) => setW(e.nativeEvent.layout.width)} accessibilityRole="tablist" style={{ flexDirection: 'row', backgroundColor: color.grey100, borderRadius: radius.pill, padding: 4 }}>
+      {seg > 0 && (
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: 4,
+            left: 4,
+            height: 38,
+            width: seg,
+            borderRadius: radius.pill,
+            backgroundColor: color.white,
+            shadowColor: color.black,
+            shadowOpacity: 0.08,
+            shadowRadius: 4,
+            shadowOffset: { width: 0, height: 1 },
+            transform: [{ translateX: x }, { scaleX: stretch }, { scaleY: stretch.interpolate({ inputRange: [1, 1.12], outputRange: [1, 0.94] }) }],
+          }}
+        />
+      )}
       {options.map((o) => {
         const active = o.key === value;
         return (
@@ -22,10 +65,10 @@ export function Segmented<K extends string>({ options, value, onChange, dark }: 
               tap();
               onChange(o.key);
             }}
-            style={{ flex: 1, flexDirection: 'row', gap: 6, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: radius.pill, backgroundColor: active ? (dark ? color.lime : color.surface) : 'transparent' }}
+            style={{ flex: 1, flexDirection: 'row', gap: 6, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: radius.pill, backgroundColor: !seg && active ? color.white : 'transparent' }}
           >
-            {o.icon && <Icon name={o.icon} size={16} color={active ? color.ink : dark ? '#fff' : color.textSecondary} />}
-            <T variant="subhead" weight={active ? '700' : '600'} color={active ? color.ink : dark ? '#fff' : color.textSecondary} numberOfLines={1}>
+            {o.icon && <Icon name={o.icon} size={16} color={active ? color.black : color.grey500} />}
+            <T variant="subhead" weight={active ? '700' : '600'} color={active ? color.black : color.grey500} numberOfLines={1}>
               {o.label}
             </T>
           </Pressable>

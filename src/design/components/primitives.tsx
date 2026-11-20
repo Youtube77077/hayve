@@ -1,8 +1,9 @@
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
-import { forwardRef, type ReactNode, useState } from 'react';
+import { forwardRef, type ReactNode, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Platform,
   Pressable,
   type PressableProps,
@@ -17,6 +18,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { Icon } from '../icons';
+import { usePressScale, useShake } from '../motion';
 import { color, font, radius, space, type, type TypeVariant } from '../tokens';
 import type { IconName } from '../icons';
 
@@ -77,11 +79,15 @@ export function Button({ title, variant = 'primary', size = 'md', icon, iconRigh
   const [hovered, setHovered] = useState(false);
   const h = size === 'lg' ? 52 : size === 'md' ? 44 : 36;
   const fs = size === 'sm' ? 14 : 15;
+  const press = usePressScale(0.97);
   return (
+    <Animated.View style={[{ alignSelf: full ? 'stretch' : 'auto', transform: [{ scale: press.scale }] }, style]}>
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ disabled: !!disabled, busy: !!loading }}
       disabled={disabled || loading}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
       onHoverIn={() => setHovered(true)}
@@ -102,11 +108,11 @@ export function Button({ title, variant = 'primary', size = 'md', icon, iconRigh
           alignItems: 'center',
           justifyContent: 'center',
           gap: 8,
-          opacity: disabled ? 0.4 : pressed ? 0.8 : hovered ? 0.9 : 1,
-          alignSelf: full ? 'stretch' : 'auto',
+          opacity: disabled ? 0.4 : pressed ? 0.85 : hovered ? 0.92 : 1,
+          alignSelf: 'stretch',
+          flexGrow: 1,
         },
         focusRing(focused),
-        style,
       ]}
       {...rest}
     >
@@ -122,6 +128,7 @@ export function Button({ title, variant = 'primary', size = 'md', icon, iconRigh
         </>
       )}
     </Pressable>
+    </Animated.View>
   );
 }
 
@@ -147,10 +154,14 @@ export function IconButton({
   const [focused, setFocused] = useState(false);
   const bg = { surface: color.white, soft: color.grey100, dark: color.black, clear: 'transparent', lime: color.indigo, glass: color.white }[tone];
   const fg = iconColor ?? (tone === 'dark' || tone === 'lime' ? color.white : color.black);
+  const press = usePressScale(0.92);
   return (
+    <Animated.View style={{ transform: [{ scale: press.scale }] }}>
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
       onPress={() => {
@@ -188,6 +199,7 @@ export function IconButton({
         </View>
       )}
     </Pressable>
+    </Animated.View>
   );
 }
 
@@ -204,6 +216,14 @@ export interface InputProps extends TextInputProps {
 
 export const Input = forwardRef<TextInput, InputProps>(function Input({ label, hint, error, icon, right, containerStyle, style, multiline, onFocus, onBlur, ...rest }, ref) {
   const [focused, setFocused] = useState(false);
+  const { style: shakeStyle, shake } = useShake();
+  // A wrong value shakes the field (every time a new error appears).
+  useEffect(() => {
+    if (error) {
+      shake();
+      tap('warning');
+    }
+  }, [error, shake]);
   return (
     <View style={[{ gap: 6 }, containerStyle]}>
       {label && (
@@ -211,8 +231,8 @@ export const Input = forwardRef<TextInput, InputProps>(function Input({ label, h
           {label}
         </T>
       )}
-      <View
-        style={{
+      <Animated.View
+        style={[shakeStyle, {
           flexDirection: 'row',
           alignItems: multiline ? 'flex-start' : 'center',
           backgroundColor: color.white,
@@ -222,7 +242,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input({ label, h
           paddingHorizontal: 14,
           minHeight: multiline ? 104 : 48,
           gap: 10,
-        }}
+        }]}
       >
         {icon && <Icon name={icon} size={18} color={focused ? color.indigo : color.grey500} style={multiline ? { marginTop: 14 } : undefined} />}
         <TextInput
@@ -246,7 +266,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input({ label, h
           {...rest}
         />
         {right}
-      </View>
+      </Animated.View>
       {error ? (
         <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
           <Icon name="warning-outline" size={14} />
@@ -347,11 +367,14 @@ export function Card({ children, style, onPress, padded = true, tone = 'surface'
     { backgroundColor: bg, borderRadius: radius.lg, padding: padded ? space.lg : 0, overflow: 'hidden', borderWidth: tone === 'surface' ? 1 : 0, borderColor: color.grey200 },
     style,
   ];
+  const press = usePressScale(0.985);
   if (!onPress) return <View style={base}>{children}</View>;
   return (
-    <Pressable onPress={onPress} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [base, (pressed || hovered) && tone === 'surface' && { borderColor: color.black }, focusRing(focused)]}>
-      {children}
-    </Pressable>
+    <Animated.View style={{ transform: [{ scale: press.scale }] }}>
+      <Pressable onPress={onPress} onPressIn={press.onPressIn} onPressOut={press.onPressOut} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [base, (pressed || hovered) && tone === 'surface' && { borderColor: color.black }, focusRing(focused)]}>
+        {children}
+      </Pressable>
+    </Animated.View>
   );
 }
 

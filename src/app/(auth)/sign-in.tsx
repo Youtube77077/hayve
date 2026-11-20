@@ -13,11 +13,13 @@ export default function SignIn() {
   const [error, setError] = useState<string | null>(null);
   const { run, busy } = useAction();
 
-  const submit = (e = email, p = password) =>
-    run(() => session.signIn(e, p), {
+  const submit = (e = email, p = password) => {
+    setError(null); // clear first so a repeated wrong password shakes again
+    return run(() => session.signIn(e, p), {
       onDone: () => router.replace('/'),
-      onError: (err) => setError(err.message),
+      onError: (err) => setTimeout(() => setError(err.message), 0),
     });
+  };
 
   return (
     <Screen header={<Header back fallback="/welcome" />} maxWidth={480} keyboard>

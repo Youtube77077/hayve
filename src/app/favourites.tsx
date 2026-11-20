@@ -13,8 +13,8 @@ export default function Favourites() {
         <EmptyState icon="heart-outline" title="No favourites yet" body="Tap the heart on any item to save it here." action="Browse Hayve Shop" onAction={() => router.push('/shop')} />
       ) : (
         <Grid min={isWide ? 190 : 150} gap={14}>
-          {items.map((p) => (
-            <ProductTile key={p.id} p={p} />
+          {items.map((p, i) => (
+            <ProductTile key={p.id} index={i} p={p} />
           ))}
         </Grid>
       )}

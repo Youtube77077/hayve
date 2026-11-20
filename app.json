@@ -17,11 +17,16 @@
         "NSPhotoLibraryUsageDescription": "Hayve uses your photo library so you can add photos to listings and your profile.",
         "NSCameraUsageDescription": "Hayve uses the camera so you can photograph items you want to sell.",
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "icon": "./assets/images/icon.png"
     },
     "android": {
       "package": "com.hayve.app",
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
+      }
     },
     "web": {
       "output": "single",
@@ -36,9 +41,9 @@
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 180,
+          "imageWidth": 160,
           "resizeMode": "contain",
-          "backgroundColor": "#0E0E10"
+          "backgroundColor": "#FFFFFF"
         }
       ],
       [

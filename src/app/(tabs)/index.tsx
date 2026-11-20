@@ -1,9 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import { bites, bookings, ride, shop, social, wallet } from '../../backend/api';
-import { color, Emoji, font, HScroll, Icon, type IconName, Photo, radius, Rating, Screen, Section, Split, T, tap, useLayout } from '../../design';
+import { Appear, color, Emoji, font, useHotkey, HScroll, Icon, type IconName, Photo, radius, Rating, Screen, Section, Split, T, tap, useLayout } from '../../design';
 import { ServiceShortcuts, StatusPill } from '../../features/common';
 import { ago, money } from '../../lib/format';
 import { useLive } from '../../lib/hooks';
@@ -16,6 +16,9 @@ export default function Home() {
   const w = useLive(() => wallet.wallet()).data;
   const [hidden, setHidden] = useState(false);
   const [q, setQ] = useState('');
+  const searchRef = useRef<TextInput>(null);
+  // Web: press / to search from anywhere on Home.
+  useHotkey('/', () => searchRef.current?.focus());
   useEffect(() => {
     AsyncStorage.getItem(HIDE_KEY)
       .then((v) => setHidden(v === '1'))
@@ -78,6 +81,7 @@ export default function Home() {
         <View style={{ marginTop: isWide ? 24 : 20, flexDirection: 'row', alignItems: 'center', gap: 12, height: isWide ? 64 : 56, paddingHorizontal: 20, borderRadius: radius.lg, borderWidth: 1, borderColor: color.grey200, backgroundColor: color.white }}>
           <Icon name="search" size={22} />
           <TextInput
+            ref={searchRef}
             value={q}
             onChangeText={setQ}
             onSubmitEditing={submitSearch}
@@ -138,8 +142,9 @@ export default function Home() {
                 ) : (
                   <View style={{ borderWidth: 1, borderColor: color.grey200, borderRadius: radius.lg }}>
                     {activity.map((t, i) => (
-                      <Pressable key={t.id} onPress={() => router.push(`/pay/tx/${t.id}`)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: i ? 1 : 0, borderTopColor: color.grey200, backgroundColor: pressed ? color.grey100 : 'transparent' })}>
-                        <Icon name={t.type === 'wave_back' ? 'sparkles-outline' : t.direction === 'in' ? 'arrow-down' : 'arrow-up'} size={18} color={t.type === 'wave_back' ? color.indigo : color.black} />
+                      <Appear key={t.id} index={i}>
+                      <Pressable onPress={() => router.push(`/pay/tx/${t.id}`)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: i ? 1 : 0, borderTopColor: color.grey200, backgroundColor: pressed ? color.grey100 : 'transparent' })}>
+                        <Icon name={t.type === 'wave_back' ? 'wave' : t.direction === 'in' ? 'arrow-down' : 'arrow-up'} size={18} color={t.type === 'wave_back' ? color.indigo : color.black} />
                         <View style={{ flex: 1 }}>
                           <T variant="subhead" weight="600" numberOfLines={1}>
                             {t.counterparty}
@@ -153,6 +158,7 @@ export default function Home() {
                           {hidden ? '•••' : `${t.direction === 'in' ? '+' : '−'}${money(t.amountCents)}`}
                         </T>
                       </Pressable>
+                      </Appear>
                     ))}
                   </View>
                 )}

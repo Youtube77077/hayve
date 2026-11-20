@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, ScrollView, TextInput, View, type LayoutC
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { type PayMethod, ride, social } from '../../backend/api';
 import type { RideCategory } from '../../backend/types';
-import { Avatar, Button, color, ConfirmSheet, Emoji, font, Icon, type IconName, IconButton, radius, Rating, shadow, Sheet, SimBadge, Stars, T, tap, useLayout, useToast } from '../../design';
+import { Appear, Avatar, Button, color, ConfirmSheet, Emoji, font, Icon, type IconName, IconButton, radius, Rating, shadow, Sheet, SimBadge, Stars, T, tap, useLayout, useToast } from '../../design';
 import { PayMethodPicker, WaveBackLine } from '../../features/common';
 import { along, directions, driverStart, HayveMap, type HayveMapHandle, type LngLat, type MapCar, type MapMarker, type PlaceResult, reverseGeocode, type RouteResult, searchPlaces, toLngLat } from '../../features/map';
 import { ProductWordmark } from '../../features/nav/Wordmarks';
@@ -452,16 +452,23 @@ function SheetContent(p: {
             </View>
           ) : (
             <View style={{ gap: 8 }} accessibilityRole="radiogroup">
-              {p.options.map((o) => {
+              {p.options.map((o, i) => {
                 const on = o.category === p.category;
+                const best = o.category === 'go';
                 return (
-                  <Pressable key={o.category} onPress={() => { tap(); p.setCategory(o.category); }} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={`${o.label}, ${money(o.priceCents)}, ${o.pickupEtaMin} minutes away`} style={({ hovered }: { pressed: boolean; hovered?: boolean }) => ({ flexDirection: 'row', alignItems: 'center', gap: 16, padding: 12, borderRadius: radius.md, borderWidth: on ? 2 : 1, borderColor: on || hovered ? color.black : color.grey200 })}>
+                  <Appear key={o.category} index={i}>
+                  <Pressable onPress={() => { tap(); p.setCategory(o.category); }} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={`${o.label}, ${money(o.priceCents)}, ${o.pickupEtaMin} minutes away`} style={({ hovered }: { pressed: boolean; hovered?: boolean }) => ({ flexDirection: 'row', alignItems: 'center', gap: 16, padding: 12, borderRadius: radius.md, borderWidth: on ? 2 : 1, borderColor: on || hovered ? color.black : color.grey200 })}>
                     <View style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}>
                       <Icon name={CAR_ICON[o.category]} size={28} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         <T variant="headline">{o.label}</T>
+                        {best && (
+                          <View style={{ backgroundColor: color.indigo, borderRadius: 6, paddingHorizontal: 6, height: 20, justifyContent: 'center' }}>
+                            <T variant="caption" weight="700" color={color.white}>Best value</T>
+                          </View>
+                        )}
                         <Icon name="person-outline" size={13} color={color.grey500} />
                         <T variant="footnote" color={color.textSecondary}>{o.seats}</T>
                       </View>
@@ -471,6 +478,7 @@ function SheetContent(p: {
                     </View>
                     <T variant="headline">{money(o.priceCents)}</T>
                   </Pressable>
+                  </Appear>
                 );
               })}
             </View>
