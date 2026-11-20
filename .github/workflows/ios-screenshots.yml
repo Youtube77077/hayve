@@ -81,17 +81,25 @@ jobs:
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
 
       - name: Capture screenshots
+        id: capture
         run: |
-          mkdir -p shots
-          cd shots
-          maestro --device "$UDID" test "$GITHUB_WORKSPACE/.maestro/screenshots.yaml"
-          ls -la
+          mkdir -p shots maestro-out
+          set +e
+          maestro --device "$UDID" test --test-output-dir "$GITHUB_WORKSPACE/maestro-out" "$GITHUB_WORKSPACE/.maestro/screenshots.yaml"
+          status=$?
+          set -e
+          # Maestro writes screenshots to its output folder or next to the flow; collect them all.
+          find "$GITHUB_WORKSPACE/maestro-out" "$GITHUB_WORKSPACE/.maestro" "$HOME/.maestro/tests" "$GITHUB_WORKSPACE" -maxdepth 4 -name '[0-9][0-9]*.png' -not -path '*/shots/*' -exec cp {} shots/ \; 2>/dev/null || true
+          ls -la shots
+          echo "status=$status" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: hayve-ios-screenshots
-          path: shots
+          path: |
+            shots
+            maestro-out
           retention-days: 30
 
       - name: Commit screenshots to the branch
@@ -101,6 +109,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/screenshots/ios
-          git commit -m "iOS app screenshots from the Simulator [skip ci]" || exit 0
+          ls shots/*.png >/dev/null 2>&1 || { echo "No screenshots captured"; exit 1; }
+          git commit -m "iOS app screenshots from the Simulator [skip ci]" || true
           git pull --rebase origin "${GITHUB_REF_NAME}"
           git push origin "HEAD:${GITHUB_REF_NAME}"
+          test "${{ steps.capture.outputs.status }}" = "0"

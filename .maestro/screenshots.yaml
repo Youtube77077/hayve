@@ -14,9 +14,17 @@ appId: com.hayve.app
 - takeScreenshot: 01-welcome
 - tapOn: "Sign in"
 - extendedWaitUntil:
-    visible: "Sam Rivera"
-    timeout: 20000
+    visible: "Welcome back"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
 - takeScreenshot: 02-sign-in
+# The demo accounts are below the form on a phone screen.
+- scrollUntilVisible:
+    element:
+      text: "Sam Rivera"
+    direction: DOWN
+    timeout: 20000
 - tapOn: "Sam Rivera"
 - extendedWaitUntil:
     visible: "Recent activity"
