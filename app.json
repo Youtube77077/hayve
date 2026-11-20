@@ -59,6 +59,12 @@
           "locationWhenInUsePermission": "Hayve uses your location to set your pickup point and show nearby rides, restaurants and cars."
         }
       ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Hayve uses Face ID to show your Hayve Card details and confirm payments."
+        }
+      ],
       "@rnmapbox/maps"
     ],
     "experiments": {

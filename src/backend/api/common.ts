@@ -1,4 +1,4 @@
-import { DEFAULT_FEE_TIERS, DEFAULT_WAVE_BACK, marketplaceFeeCents, SEND_SHIPPING_CENTS, type WaveBackCategory } from '../config';
+import { DEFAULT_FEE_TIERS, DEFAULT_TAP_TO_PAY, DEFAULT_WAVE_BACK, marketplaceFeeCents, SEND_SHIPPING_CENTS, type TapToPaySettings, type WaveBackCategory, type WaveBackSettings } from '../config';
 import { accountIdFor, captureHold, createTransaction, type Credit, refundTransaction, SYSTEM, voidHold } from '../ledger';
 import { getDb, HayveError, now, uid } from '../store';
 import type { ID, NotificationKind, Profile, Settings, Transaction, TxType } from '../types';
@@ -70,10 +70,13 @@ export function audit(actorId: ID | null, action: string, target: string) {
 export const SHIPPING_CENTS = SEND_SHIPPING_CENTS;
 
 /** Runtime settings (admin-editable), falling back to config.ts defaults. */
-export function settings(): Settings {
+export function settings(): Settings & { waveBack: WaveBackSettings; tapToPay: TapToPaySettings } {
   const db = getDb();
-  if (!db.settings) db.settings = { feeTiers: DEFAULT_FEE_TIERS, waveBack: DEFAULT_WAVE_BACK };
-  return db.settings;
+  if (!db.settings) db.settings = { feeTiers: DEFAULT_FEE_TIERS, waveBack: DEFAULT_WAVE_BACK, tapToPay: DEFAULT_TAP_TO_PAY };
+  // Fill values added in later versions so older saved settings keep working.
+  db.settings.waveBack = { ...DEFAULT_WAVE_BACK, ...db.settings.waveBack };
+  db.settings.tapToPay = { ...DEFAULT_TAP_TO_PAY, ...db.settings.tapToPay };
+  return db.settings as Settings & { waveBack: WaveBackSettings; tapToPay: TapToPaySettings };
 }
 
 /** Marketplace buyer fee for an item price (tiered; see config.ts). */
@@ -92,7 +95,32 @@ export function monthStart(t = now()) {
  * How much Wave Back a balance payment earns. Pure calculation, no side effects.
  * Never applies to top-ups, transfers or fees (callers pass the item/service base only).
  */
-export function computeWaveBack(userId: ID, category: WaveBackCategory, baseCents: number) {
+/** Active admin boost for a merchant (e.g. 5% at a partner for one week). */
+export function activeBoost(merchant: string | undefined) {
+  if (!merchant) return null;
+  const t = now();
+  const boosts = (getDb().waveBackBoosts ?? []).filter((b) => b.merchant.toLowerCase() === merchant.toLowerCase() && b.startsAt <= t && t < b.endsAt);
+  return boosts.sort((a, b) => b.rate - a.rate)[0] ?? null;
+}
+
+export function waveBackRate(category: WaveBackCategory, s: WaveBackSettings) {
+  switch (category) {
+    case 'shop':
+      return s.shopRate;
+    case 'services':
+      return s.servicesRate;
+    case 'tap_hayve':
+      return s.tapHayveRate;
+    case 'tap_card':
+      return s.tapCardRate;
+    case 'card_partner':
+      return s.cardPartnerRate;
+    case 'card_other':
+      return s.cardOtherRate;
+  }
+}
+
+export function computeWaveBack(userId: ID, category: WaveBackCategory, baseCents: number, merchant?: string) {
   const db = getDb();
   const s = settings().waveBack;
   const user = db.users.find((u) => u.id === userId);
@@ -103,10 +131,13 @@ export function computeWaveBack(userId: ID, category: WaveBackCategory, baseCent
   const paidWelcome = mine.filter((t) => t.meta?.newUser).reduce((a, t) => a + t.amountCents, 0);
 
   const capShop = (c: number) => (category === 'shop' ? Math.min(c, s.shopMaxPerPurchaseCents) : c);
-  let cents = capShop(Math.round(baseCents * (category === 'shop' ? s.shopRate : s.servicesRate)));
+  const boost = category === 'card_partner' || category === 'card_other' ? activeBoost(merchant) : null;
+  const rate = Math.max(waveBackRate(category, s), boost?.rate ?? 0);
+  let cents = capShop(Math.round(baseCents * rate));
   let newUser = false;
   const isNew = now() - user.createdAt < s.newUserDays * 86_400_000;
-  if (isNew && paidWelcome < s.newUserMaxTotalCents) {
+  // The welcome rate applies to purchases on Hayve's own services.
+  if ((category === 'shop' || category === 'services') && isNew && paidWelcome < s.newUserMaxTotalCents) {
     const welcome = Math.min(capShop(Math.round(baseCents * s.newUserRate)), s.newUserMaxTotalCents - paidWelcome);
     if (welcome > cents) {
       cents = welcome;
@@ -128,7 +159,7 @@ function grantWaveBack(tx: Transaction) {
   const db = getDb();
   const payerId = db.accounts.find((a) => a.id === tx.fromAccountId)?.ownerId;
   if (!payerId) return;
-  const { cents, newUser } = computeWaveBack(payerId, tx.waveBack.category, tx.waveBack.baseCents);
+  const { cents, newUser } = computeWaveBack(payerId, tx.waveBack.category, tx.waveBack.baseCents, tx.waveBack.merchant);
   if (cents <= 0) return;
   const wb = createTransaction({
     type: 'wave_back',
@@ -142,6 +173,27 @@ function grantWaveBack(tx: Transaction) {
   });
   wb.meta = { newUser };
   tx.waveBackCents = cents;
+}
+
+/**
+ * Credits Wave Back to `userId` for a payment (Tap to Pay payers, Hayve Card purchases).
+ * Linked to the payment so a refund reverses it. Returns the amount credited.
+ */
+export function creditWaveBack(userId: ID, category: WaveBackCategory, baseCents: number, opts: { paymentTxId: ID; note?: string; merchant?: string }) {
+  const { cents, newUser } = computeWaveBack(userId, category, baseCents, opts.merchant);
+  if (cents <= 0) return 0;
+  const wb = createTransaction({
+    type: 'wave_back',
+    fromAccountId: SYSTEM.waveBack,
+    credits: [{ accountId: accountIdFor(userId), amountCents: cents }],
+    labelForFrom: 'Wave Back',
+    labelForTo: 'Wave Back',
+    note: opts.note,
+    ref: { kind: 'payment', id: opts.paymentTxId },
+    method: 'system',
+  });
+  wb.meta = { newUser };
+  return cents;
 }
 
 /**

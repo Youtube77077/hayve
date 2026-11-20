@@ -572,3 +572,167 @@ describe('Hayve Store and admin', () => {
     expect(data.listings.length).toBeGreaterThan(0);
   });
 });
+
+describe('Tap to Pay', () => {
+  const wb = (email: string) => {
+    as(email);
+    return api.wallet.waveBackSummary().totalCents;
+  };
+
+  it('requires an identity check and enforces amounts and the private monthly limit', () => {
+    as(SAM);
+    expect(() => api.tap.createCharge(2400)).toThrow(/Verify your identity/);
+    api.tap.verifyIdentity();
+    expect(() => api.tap.createCharge(10)).toThrow(/at least/);
+    expect(() => api.tap.createCharge(60_000)).toThrow(/most you can take/);
+    getDb().settings!.tapToPay = { ...getDb().settings!.tapToPay!, privateMonthlyLimitCents: 3000 };
+    expect(() => api.tap.createCharge(4000)).toThrow(/monthly limit/);
+  });
+
+  it('takes a card tap: receiver gets amount minus Fees as pending, then available; payer pays nothing extra', () => {
+    as(SAM);
+    api.tap.verifyIdentity();
+    const acc = accountIdFor('u_sam');
+    const before = balancesFor(acc);
+    const id = api.tap.createCharge(2400, 'Concert tickets');
+    const v = api.tap.simulateTap(id, { method: 'card', brand: 'Visa', last4: '4417' });
+    expect(v.feeCents).toBe(60); // 2.5%
+    expect(v.netCents).toBe(2340);
+    expect(v.status).toBe('pending');
+    expect(balancesFor(acc).pending - before.pending).toBe(2340);
+    expect(v.waveBackClaimable).toBe(true); // payer unknown: QR claim offered
+    // Settlement
+    getDb().tapPayments.find((t) => t.id === id)!.settleAt = Date.now() - 1;
+    expect(api.tap.getTap(id).status).toBe('available');
+    expect(balancesFor(acc).available - before.available).toBe(2340);
+    expect(ledgerIsBalanced()).toBe(true);
+  });
+
+  it('never marks a payment paid without provider confirmation (offline, declined)', () => {
+    as(SAM);
+    api.tap.verifyIdentity();
+    const id = api.tap.createCharge(1000);
+    expect(() => api.tap.simulateTap(id, { method: 'card', offline: true })).toThrow(/No connection/);
+    expect(api.tap.getTap(id).status).toBe('awaiting_tap');
+    expect(() => api.tap.simulateTap(id, { method: 'card', decline: true })).toThrow(/declined/);
+    expect(api.tap.getTap(id).status).toBe('failed');
+    expect(api.tap.history().find((t) => t.id === id)?.txId).toBeUndefined();
+  });
+
+  it('pays 1% Wave Back when the payer uses their Hayve balance, 0.5% for a saved card, none for self', () => {
+    const noorBefore = wb(NOOR);
+    as(SAM);
+    api.tap.verifyIdentity();
+    let id = api.tap.createCharge(2000);
+    api.tap.simulateTap(id, { method: 'hayve_balance', payerUsername: 'noor' });
+    expect(wb(NOOR) - noorBefore).toBe(20);
+    const noorMid = wb(NOOR);
+    as(SAM);
+    id = api.tap.createCharge(2000);
+    api.tap.simulateTap(id, { method: 'card', brand: 'Mastercard', last4: '5100', payerUsername: 'noor' }); // Noor's saved card
+    expect(wb(NOOR) - noorMid).toBe(10);
+    as(SAM);
+    id = api.tap.createCharge(2000);
+    expect(() => api.tap.simulateTap(id, { method: 'hayve_balance', payerUsername: 'samrivera' })).toThrow(/pay yourself/);
+  });
+
+  it('lets the payer claim Wave Back once with the receipt QR within 24 hours', () => {
+    as(SAM);
+    api.tap.verifyIdentity();
+    const id = api.tap.createCharge(3000);
+    api.tap.simulateTap(id, { method: 'apple_pay', last4: '9999' });
+    const token = api.tap.getTap(id).receiptToken;
+    expect(() => api.tap.claimWaveBack(token)).toThrow(/yourself/);
+    const before = wb(NOOR);
+    expect(api.tap.receipt(token).claimable).toBe(true);
+    expect(api.tap.claimWaveBack(token)).toBe(15);
+    expect(wb(NOOR) - before).toBe(15);
+    expect(() => api.tap.claimWaveBack(token)).toThrow(/already been claimed/);
+  });
+
+  it('refunds within 30 days, reverses the payer Wave Back, and blocks later refunds', () => {
+    as(SAM);
+    api.tap.verifyIdentity();
+    const id = api.tap.createCharge(2000);
+    api.tap.simulateTap(id, { method: 'hayve_balance', payerUsername: 'noor' });
+    const noorAfterPay = wb(NOOR);
+    as(SAM);
+    api.tap.refund(id);
+    expect(api.tap.getTap(id).status).toBe('refunded');
+    expect(wb(NOOR)).toBe(noorAfterPay - 20);
+    as(SAM);
+    const id2 = api.tap.createCharge(1500);
+    api.tap.simulateTap(id2, { method: 'card' });
+    getDb().tapPayments.find((t) => t.id === id2)!.paidAt = Date.now() - 31 * 86_400_000;
+    expect(() => api.tap.refund(id2)).toThrow(/within 30 days/);
+    expect(ledgerIsBalanced()).toBe(true);
+  });
+});
+
+describe('Hayve Card', () => {
+  it('issues after identity check, applies controls and limits, and pays Wave Back by merchant type', () => {
+    as(SAM);
+    expect(() => api.card.issue()).toThrow(/Verify your identity/);
+    api.tap.verifyIdentity();
+    api.card.issue();
+    const before = api.wallet.waveBackSummary().totalCents;
+    const r1 = api.card.simulatePurchase({ merchantId: 'ah', amountCents: 1240, channel: 'contactless' });
+    expect(r1.waveBackCents).toBe(1); // 0.1%
+    const r2 = api.card.simulatePurchase({ merchantId: 'napoli', amountCents: 2000, channel: 'chip' });
+    expect(r2.waveBackCents).toBe(20); // partner 1%
+    expect(api.wallet.waveBackSummary().totalCents - before).toBe(21);
+    expect(() => api.card.simulatePurchase({ merchantId: 'casino', amountCents: 1000, channel: 'chip' })).toThrow(/Gambling/);
+    api.card.setBlocks({ online: true });
+    expect(() => api.card.simulatePurchase({ merchantId: 'bol', amountCents: 1000, channel: 'online' })).toThrow(/Online payments are blocked/);
+    api.card.setFrozen(true);
+    expect(() => api.card.simulatePurchase({ merchantId: 'ah', amountCents: 100, channel: 'contactless' })).toThrow(/frozen/);
+    api.card.setFrozen(false);
+    api.card.setLimits({ dailyCents: 5000, monthlyCents: 10000 });
+    expect(() => api.card.simulatePurchase({ merchantId: 'ah', amountCents: 2000, channel: 'chip' })).toThrow(/daily/);
+    expect(ledgerIsBalanced()).toBe(true);
+  });
+
+  it('tops up from the linked bank in batches when the balance is too low', () => {
+    as(SAM);
+    api.tap.verifyIdentity();
+    api.card.issue();
+    const acc = accountIdFor('u_sam');
+    const bal = balancesFor(acc).available;
+    api.card.setLimits({ dailyCents: 1_000_000, monthlyCents: 2_000_000 });
+    getDb().linkedBanks = [];
+    expect(() => api.card.simulatePurchase({ merchantId: 'bol', amountCents: bal + 100, channel: 'chip' })).toThrow(/auto top-up/);
+    api.card.linkBank({ holder: 'Sam Rivera', iban: 'NL91 ABNA 0417 1643 00', method: 'sepa_debit' });
+    api.card.setAutoTopUp({ enabled: true, amountCents: 5000 });
+    const r = api.card.simulatePurchase({ merchantId: 'bol', amountCents: bal + 7000, channel: 'chip' });
+    expect(r.toppedUpCents).toBe(10000); // two batches of €50
+    expect(balancesFor(acc).available).toBe(bal + 10000 - (bal + 7000) + r.waveBackCents);
+  });
+
+  it('applies admin Wave Back boosts and keeps the monthly maximum', () => {
+    as(SAM);
+    api.tap.verifyIdentity();
+    api.card.issue();
+    api.card.setLimits({ dailyCents: 1_000_000, monthlyCents: 2_000_000 });
+    getDb().waveBackBoosts.push({ id: 'b1', merchant: 'Albert Heijn', rate: 0.05, startsAt: Date.now() - 1000, endsAt: Date.now() + 86_400_000, createdBy: 'u_admin', createdAt: Date.now() });
+    const r = api.card.simulatePurchase({ merchantId: 'ah', amountCents: 2000, channel: 'chip' });
+    expect(r.waveBackCents).toBe(100); // 5% boost
+    api.card.linkBank({ holder: 'Sam Rivera', iban: 'NL91ABNA0417164300', method: 'ideal_wero' });
+    const big = api.card.simulatePurchase({ merchantId: 'ah', amountCents: 100_000, channel: 'chip' });
+    const month = api.wallet.waveBackSummary().thisMonthCents;
+    expect(month).toBeLessThanOrEqual(2000);
+    expect(big.waveBackCents).toBeLessThan(5000);
+  });
+
+  it('reveals details only after re-authentication and validates PIN and IBAN', () => {
+    as(SAM);
+    api.tap.verifyIdentity();
+    api.card.issue();
+    expect(() => api.card.revealDetails({ password: 'nope' })).toThrow(/incorrect/);
+    const d = api.card.revealDetails({ password: DEMO_PASSWORD });
+    expect(d.number.replace(/\s/g, '')).toHaveLength(16);
+    expect(d.number.endsWith(api.card.get().card!.last4)).toBe(true);
+    expect(() => api.card.changePin('1234')).toThrow(/harder to guess/);
+    api.card.changePin('8302');
+    expect(() => api.card.linkBank({ holder: 'Sam', iban: '123', method: 'sepa_debit' })).toThrow(/valid IBAN/);
+  });
+});

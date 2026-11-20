@@ -51,8 +51,16 @@ export interface WaveBackSettings {
   newUserRate: number;
   newUserDays: number;
   newUserMaxTotalCents: number;
-  /** Hard cap per user per calendar month. */
+  /** Hard cap per user per calendar month (all sources combined). */
   monthlyMaxCents: number;
+  /** Tap to Pay, payer pays with Hayve balance or Hayve Card (both people use Hayve). */
+  tapHayveRate: number;
+  /** Tap to Pay, payer uses another card that is saved in their Hayve account (or claims via QR). */
+  tapCardRate: number;
+  /** Hayve Card at Hayve Business partners and on Hayve's own services. */
+  cardPartnerRate: number;
+  /** Hayve Card at all other shops. */
+  cardOtherRate: number;
 }
 
 export const DEFAULT_WAVE_BACK: WaveBackSettings = {
@@ -63,9 +71,55 @@ export const DEFAULT_WAVE_BACK: WaveBackSettings = {
   newUserDays: 30,
   newUserMaxTotalCents: 1_000,
   monthlyMaxCents: 2_000,
+  tapHayveRate: 0.01,
+  tapCardRate: 0.005,
+  cardPartnerRate: 0.01,
+  cardOtherRate: 0.001,
 };
 
-export type WaveBackCategory = 'shop' | 'services';
+/**
+ * shop/services: Hayve purchases paid with balance (welcome rate applies).
+ * tap_hayve/tap_card: Tap to Pay payer rewards. card_partner/card_other: Hayve Card spending.
+ */
+export type WaveBackCategory = 'shop' | 'services' | 'tap_hayve' | 'tap_card' | 'card_partner' | 'card_other';
+
+/* -------------------------------------------------------- Tap to Pay -- */
+
+export interface TapToPaySettings {
+  /** Fee for the RECEIVER, shown only as "Fees €X.XX". The payer pays nothing extra. */
+  receiverFeeRate: number;
+  /** Monthly receiving limit for private (non-business) accounts. */
+  privateMonthlyLimitCents: number;
+  /** Largest single tap payment. */
+  maxPaymentCents: number;
+  /** Receivers can refund to the payer's card within this many days. */
+  refundWindowDays: number;
+  /** "Have Hayve? Scan to get your Wave Back" must be claimed within this many hours. */
+  claimWindowHours: number;
+  /** Simulation: seconds until a tap payment moves from Pending to Available. */
+  settleSeconds: number;
+}
+
+export const DEFAULT_TAP_TO_PAY: TapToPaySettings = {
+  receiverFeeRate: 0.025,
+  privateMonthlyLimitCents: 250_000,
+  maxPaymentCents: 50_000,
+  refundWindowDays: 30,
+  claimWindowHours: 24,
+  settleSeconds: 60,
+};
+
+/* --------------------------------------------------------- Hayve Card -- */
+
+export const HAYVE_CARD = {
+  network: 'Visa' as const,
+  /** Default batch size for automatic top-ups from the linked bank. */
+  defaultAutoTopUpCents: 5_000,
+  defaultDailyLimitCents: 100_000,
+  defaultMonthlyLimitCents: 500_000,
+  /** Merchant category codes treated as gambling (blockable). */
+  gamblingMcc: ['7995', '7800', '7801', '7802'],
+};
 
 /* -------------------------------------------------------------- Other -- */
 

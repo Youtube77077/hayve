@@ -1,9 +1,10 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { wallet } from '../../backend/api';
-import { Appear, Avatar, BarChart, Card, color, EmptyState, focusRing, Icon, IconButton, radius, Screen, Section, Segmented, SimBadge, Split, T, tap, useLayout, type IconName } from '../../design';
+import { card as cardApi, tap as tapApi, wallet } from '../../backend/api';
+import { Appear, Avatar, WaveV, BarChart, Card, color, EmptyState, focusRing, Icon, IconButton, radius, Screen, Section, Segmented, SimBadge, Split, T, tap, useLayout, type IconName } from '../../design';
 import { TabHeader } from '../../features/common';
+import { HayveCardVisual } from '../../features/card';
 import { TxRow } from '../../features/pay';
 import { money, shortDate } from '../../lib/format';
 import { useLive } from '../../lib/hooks';
@@ -12,13 +13,15 @@ const ACTIONS: { icon: IconName; label: string; to: string }[] = [
   { icon: 'add', label: 'Add money', to: '/pay/add' },
   { icon: 'arrow-up', label: 'Send', to: '/pay/send' },
   { icon: 'arrow-down', label: 'Request', to: '/pay/request' },
-  { icon: 'arrow-redo-outline', label: 'Withdraw', to: '/pay/withdraw' },
+  { icon: 'tap-to-pay', label: 'Get paid', to: '/pay/get-paid' },
 ];
 
 export default function Pay() {
   const { isWide } = useLayout();
   const w = useLive(() => wallet.wallet()).data;
   const wb = useLive(() => wallet.waveBackSummary()).data;
+  const cardView = useLive(() => cardApi.get()).data;
+  const taps = useLive(() => tapApi.history().slice(0, 3)).data ?? [];
   const [filter, setFilter] = useState<'all' | 'in' | 'out'>('all');
   const txs = useLive(() => wallet.transactions({ type: filter }), [filter]).data;
   const spend = useLive(() => wallet.weeklySpend()).data ?? [];
@@ -122,6 +125,43 @@ export default function Pay() {
         right={
           <View>
             {isWide && waveBack}
+            <Section title="Hayve Card" action={cardView?.card ? 'Manage' : undefined} onAction={() => router.push('/pay/card')}>
+              <Pressable onPress={() => router.push('/pay/card')} accessibilityRole="link" accessibilityLabel="Hayve Card">
+                {cardView?.card ? (
+                  <HayveCardVisual last4={cardView.card.last4} holder={cardView.holder} frozen={cardView.card.status === 'frozen'} width="100%" />
+                ) : (
+                  <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                    <View style={{ width: 64, height: 42, borderRadius: 8, backgroundColor: color.black, alignItems: 'center', justifyContent: 'center' }}>
+                      <WaveV size={22} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <T variant="headline">Get the Hayve Card</T>
+                      <T variant="footnote" color={color.textSecondary}>Pay anywhere from your balance and earn Wave Back</T>
+                    </View>
+                    <Icon name="chevron-forward" size={18} color={color.grey500} />
+                  </Card>
+                )}
+              </Pressable>
+            </Section>
+            {taps.length > 0 && (
+              <Section title="Received with Tap to Pay" action="Get paid" onAction={() => router.push('/pay/get-paid')}>
+                <Card padded={false}>
+                  {taps.map((t, i) => (
+                    <Pressable key={t.id} onPress={() => router.push(`/pay/tap/${t.id}`)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderTopWidth: i ? 1 : 0, borderTopColor: color.grey200, backgroundColor: pressed ? color.grey100 : color.white })}>
+                      <Icon name="tap-to-pay" size={20} />
+                      <View style={{ flex: 1 }}>
+                        <T variant="headline" numberOfLines={1}>{t.note || 'Tap to Pay'}</T>
+                        <T variant="footnote" color={color.textSecondary}>{t.cardBrand}{t.last4 ? ` •••• ${t.last4}` : ''} · Fees {money(t.feeCents)}</T>
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <T variant="headline" color={t.status === 'refunded' ? color.grey500 : color.indigo}>+{money(t.amountCents)}</T>
+                        <T variant="caption" color={color.textSecondary}>{t.status === 'available' ? 'Available' : t.status === 'pending' ? 'Pending' : 'Refunded'}</T>
+                      </View>
+                    </Pressable>
+                  ))}
+                </Card>
+              </Section>
+            )}
             <Section title="This week">
               <Card>
                 <T variant="title2">{money(weekTotal)}</T>
@@ -136,7 +176,7 @@ export default function Pay() {
                 {[
                   { icon: 'card-outline' as IconName, label: 'Payment methods', to: '/pay/methods' },
                   { icon: 'hand-left-outline' as IconName, label: 'Money requests', to: '/pay/requests' },
-                  { icon: 'credit-card-outline' as IconName, label: 'Hayve Card', sub: 'Coming soon', to: '/pay/card' },
+                  { icon: 'arrow-redo-outline' as IconName, label: 'Withdraw to bank', to: '/pay/withdraw' },
                   { icon: 'storefront-outline' as IconName, label: 'Accept Hayve Pay', sub: 'For business', to: '/business/merchant' },
                 ].map((r, i) => (
                   <Pressable key={r.to} onPress={() => router.push(r.to as never)} accessibilityRole="button" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderTopWidth: i ? 1 : 0, borderTopColor: color.line, backgroundColor: pressed ? color.grey100 : color.white })}>

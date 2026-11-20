@@ -22,7 +22,7 @@ import { deviceStorage } from '../lib/storage';
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 /** Routes anyone can open without an account (public web pages and shared links). */
-const PUBLIC_ROOTS = new Set(['(auth)', 'u', 'product', 'paylink', 'track', 'privacy']);
+const PUBLIC_ROOTS = new Set(['(auth)', 'u', 'product', 'paylink', 'track', 'privacy', 'claim']);
 
 function AuthGate() {
   const sessionId = useSessionId();

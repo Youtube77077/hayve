@@ -50,6 +50,8 @@ export interface Profile {
   currency: 'EUR';
   notificationPrefs: Record<NotificationKind, boolean>;
   twoFactor: boolean;
+  /** Identity check through the payment partner (needed for Tap to Pay and the Hayve Card). */
+  kyc?: { status: 'pending' | 'verified'; verifiedAt?: number };
 }
 
 export interface Address {
@@ -211,6 +213,9 @@ export type TxType =
   | 'refund'
   | 'merchant_payment'
   | 'wave_back'
+  | 'tap_payment'
+  | 'card_purchase'
+  | 'auto_topup'
   | 'fee';
 
 export type TxStatus = 'pending' | 'completed' | 'failed' | 'refunded' | 'reserved';
@@ -231,11 +236,11 @@ export interface Transaction {
   /** For card payments: the card → wallet funding transaction. */
   fundingTxId?: ID;
   /** Wave Back eligibility, granted when the payment is captured from the balance. */
-  waveBack?: { category: 'shop' | 'services'; baseCents: Cents };
+  waveBack?: { category: import('./config').WaveBackCategory; baseCents: Cents; merchant?: string };
   /** Wave Back credited for this payment. */
   waveBackCents?: Cents;
-  /** wave_back transactions: whether the welcome rate applied. */
-  meta?: { newUser?: boolean };
+  /** Extra details: welcome rate (wave_back), card used (tap/card), merchant (card purchases). */
+  meta?: { newUser?: boolean; card?: { brand: string; last4: string }; merchant?: { name: string; category: string; partner: boolean }; tapId?: ID };
   simulated: true;
   createdAt: number;
 }
@@ -592,6 +597,75 @@ export interface Report {
 export interface Settings {
   feeTiers: import('./config').FeeTier[];
   waveBack: import('./config').WaveBackSettings;
+  tapToPay?: import('./config').TapToPaySettings;
+}
+
+export type TapPayerMethod = 'card' | 'apple_pay' | 'google_pay' | 'hayve_card' | 'hayve_balance';
+
+/** A contactless payment received on the user's phone (Tap to Pay). */
+export interface TapPayment {
+  id: ID;
+  receiverId: ID;
+  amountCents: Cents;
+  feeCents: Cents;
+  note: string;
+  status: 'awaiting_tap' | 'pending' | 'available' | 'refunded' | 'cancelled' | 'failed';
+  payerMethod?: TapPayerMethod;
+  cardBrand?: string;
+  last4?: string;
+  /** Set when the payer is a Hayve user (balance, Hayve Card, matched card or QR claim). */
+  payerUserId?: ID;
+  txId?: ID;
+  /** Payment partner reference (e.g. Stripe PaymentIntent id). */
+  providerRef: string;
+  receiptToken: string;
+  waveBackCents?: Cents;
+  waveBackClaimable?: boolean;
+  createdAt: number;
+  paidAt?: number;
+  settleAt?: number;
+  refundedAt?: number;
+  failureReason?: string;
+}
+
+export interface HayveCard {
+  id: ID;
+  userId: ID;
+  network: 'Visa';
+  last4: string;
+  expMonth: number;
+  expYear: number;
+  status: 'active' | 'frozen' | 'replaced';
+  kind: 'virtual' | 'physical';
+  physical?: { orderedAt: number; status: 'ordered' | 'shipped' | 'activated' };
+  limits: { dailyCents: Cents; monthlyCents: Cents };
+  blocks: { online: boolean; contactless: boolean; gambling: boolean };
+  autoTopUp: { enabled: boolean; amountCents: Cents };
+  wallets: { apple: boolean; google: boolean };
+  pinSet: boolean;
+  /** Issuer reference (e.g. Stripe Issuing card id). Full card numbers are never stored by Hayve. */
+  issuerRef: string;
+  createdAt: number;
+}
+
+export interface LinkedBank {
+  userId: ID;
+  holder: string;
+  ibanLast4: string;
+  bank: string;
+  method: 'ideal_wero' | 'sepa_debit';
+  mandateRef: string;
+  linkedAt: number;
+}
+
+export interface WaveBackBoost {
+  id: ID;
+  merchant: string;
+  rate: number;
+  startsAt: number;
+  endsAt: number;
+  createdBy: ID;
+  createdAt: number;
 }
 
 export interface PaymentLink {
@@ -648,6 +722,10 @@ export interface Database {
   reviews: Review[];
   businesses: Business[];
   paymentLinks: PaymentLink[];
+  tapPayments: TapPayment[];
+  cards: HayveCard[];
+  linkedBanks: LinkedBank[];
+  waveBackBoosts: WaveBackBoost[];
   reports: Report[];
   settings: Settings;
   audit: AuditEvent[];

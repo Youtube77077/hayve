@@ -25,7 +25,7 @@ const TYPE_LABEL: Record<string, string> = {
   fee: 'Fee',
 };
 
-const REF_ROUTE: Record<string, string> = { order: '/orders/', food: '/bites/order/', ride: '/ride/', rental: '/drive/booking/', stay: '/stay/booking/' };
+const REF_ROUTE: Record<string, string> = { order: '/orders/', food: '/bites/order/', ride: '/ride/', rental: '/drive/booking/', stay: '/stay/booking/', tap: '/pay/tap/' };
 
 /** Payment receipt. */
 export default function Receipt() {

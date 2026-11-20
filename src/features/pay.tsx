@@ -26,6 +26,9 @@ const TX_ICON: Record<string, IconName> = {
   merchant_payment: 'storefront',
   fee: 'receipt',
   wave_back: 'wave',
+  tap_payment: 'tap-to-pay',
+  card_purchase: 'card-hayve',
+  auto_topup: 'bank-outline',
 };
 
 export function TxRow({ t, first }: { t: TxView; first?: boolean }) {

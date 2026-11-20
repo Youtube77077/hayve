@@ -1,6 +1,6 @@
-import { DEFAULT_FEE_TIERS, DEFAULT_WAVE_BACK, type FeeTier, marketplaceFeeCents, type WaveBackSettings } from '../config';
+import { DEFAULT_FEE_TIERS, DEFAULT_TAP_TO_PAY, DEFAULT_WAVE_BACK, type FeeTier, marketplaceFeeCents, type TapToPaySettings, type WaveBackSettings } from '../config';
 import { ledgerIsBalanced } from '../ledger';
-import { assert, commit, find, getDb, HayveError, now } from '../store';
+import { assert, commit, find, getDb, HayveError, now, uid } from '../store';
 import type { ID, Role } from '../types';
 import { audit, displayName, notify, publicUser, settings } from './common';
 import { requireAdmin } from './session';
@@ -242,7 +242,7 @@ export function reviewBusiness(id: ID, decision: 'approve' | 'reject', reason = 
 export function getSettings() {
   requireAdmin();
   const s = settings();
-  return { feeTiers: s.feeTiers, waveBack: s.waveBack, defaults: { feeTiers: DEFAULT_FEE_TIERS, waveBack: DEFAULT_WAVE_BACK } };
+  return { feeTiers: s.feeTiers, waveBack: s.waveBack, tapToPay: s.tapToPay, defaults: { feeTiers: DEFAULT_FEE_TIERS, waveBack: DEFAULT_WAVE_BACK, tapToPay: DEFAULT_TAP_TO_PAY } };
 }
 
 export function updateFeeTiers(tiers: FeeTier[]) {
@@ -260,12 +260,58 @@ export function updateFeeTiers(tiers: FeeTier[]) {
 export function updateWaveBack(patch: Partial<WaveBackSettings>) {
   const admin = requireAdmin();
   const next = { ...settings().waveBack, ...patch };
-  const rates = [next.shopRate, next.servicesRate, next.newUserRate];
+  const rates = [next.shopRate, next.servicesRate, next.newUserRate, next.tapHayveRate, next.tapCardRate, next.cardPartnerRate, next.cardOtherRate];
   assert(rates.every((r) => r >= 0 && r <= 0.2), 'invalid', 'Rates must be between 0 and 20%');
   assert([next.shopMaxPerPurchaseCents, next.newUserMaxTotalCents, next.monthlyMaxCents].every((c) => Number.isInteger(c) && c >= 0), 'invalid', 'Caps must be whole cents');
   assert(next.newUserDays >= 0 && next.newUserDays <= 365, 'invalid', 'Welcome period must be 0–365 days');
   settings().waveBack = next;
   log(admin.id, 'settings.wave_back', JSON.stringify(next));
+  commit();
+}
+
+export function updateTapToPay(patch: Partial<TapToPaySettings>) {
+  const admin = requireAdmin();
+  const next = { ...settings().tapToPay, ...patch };
+  assert(next.receiverFeeRate >= 0 && next.receiverFeeRate <= 0.1, 'invalid', 'The receiver fee must be between 0 and 10%');
+  assert(Number.isInteger(next.privateMonthlyLimitCents) && next.privateMonthlyLimitCents >= 0, 'invalid', 'Monthly limit must be whole cents');
+  assert(Number.isInteger(next.maxPaymentCents) && next.maxPaymentCents >= 100, 'invalid', 'Maximum payment must be at least €1');
+  assert(next.refundWindowDays >= 1 && next.refundWindowDays <= 180, 'invalid', 'Refund window must be 1–180 days');
+  assert(next.claimWindowHours >= 1 && next.claimWindowHours <= 168, 'invalid', 'Claim window must be 1–168 hours');
+  settings().tapToPay = next;
+  log(admin.id, 'settings.tap_to_pay', JSON.stringify(next));
+  commit();
+}
+
+/* ------------------------------------------------------ Wave Back boosts -- */
+
+export function boosts() {
+  requireAdmin();
+  const t = now();
+  return getDb()
+    .waveBackBoosts.slice()
+    .sort((a, b) => b.startsAt - a.startsAt)
+    .map((b) => ({ ...b, active: b.startsAt <= t && t < b.endsAt, ended: b.endsAt <= t }));
+}
+
+/** e.g. 5% Wave Back on Hayve Card payments at one partner for a week. */
+export function createBoost(input: { merchant: string; rate: number; days: number; startsAt?: number }) {
+  const admin = requireAdmin();
+  assert(input.merchant.trim().length >= 2, 'invalid', 'Enter the shop or partner name');
+  assert(input.rate > 0 && input.rate <= 0.2, 'invalid', 'Boost rate must be above 0 and at most 20%');
+  assert(input.days >= 1 && input.days <= 90, 'invalid', 'A boost runs 1–90 days');
+  const startsAt = input.startsAt ?? now();
+  const b = { id: uid('boost'), merchant: input.merchant.trim(), rate: input.rate, startsAt, endsAt: startsAt + input.days * 86_400_000, createdBy: admin.id, createdAt: now() };
+  getDb().waveBackBoosts.push(b);
+  log(admin.id, 'wave_back.boost.create', `${b.merchant} ${b.rate} ${input.days}d`);
+  commit();
+  return b.id;
+}
+
+export function endBoost(id: ID) {
+  const admin = requireAdmin();
+  const b = find(getDb().waveBackBoosts, (x) => x.id === id, 'Boost');
+  b.endsAt = Math.min(b.endsAt, now());
+  log(admin.id, 'wave_back.boost.end', b.merchant);
   commit();
 }
 
