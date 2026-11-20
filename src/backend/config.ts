@@ -109,6 +109,40 @@ export const DEFAULT_TAP_TO_PAY: TapToPaySettings = {
   settleSeconds: 60,
 };
 
+/* ----------------------------------------------------- Payment requests -- */
+
+/**
+ * Payment requests and links (Hayve Pay "Request money"). Personal requests, splits and
+ * personal QR codes are free. Business requests pay a small fee per payment, shown to the
+ * business as "Fees €X.XX"; the person paying never pays a fee.
+ */
+export interface PayRequestSettings {
+  businessFeeRate: number;
+  businessFeeFixedCents: number;
+  defaultExpiryDays: number;
+  maxExpiryDays: number;
+  maxSplitPeople: number;
+}
+
+export const DEFAULT_PAY_REQUESTS: PayRequestSettings = {
+  businessFeeRate: 0.012,
+  businessFeeFixedCents: 20,
+  defaultExpiryDays: 14,
+  maxExpiryDays: 90,
+  maxSplitPeople: 20,
+};
+
+/* ---------------------------------------------------------------- Ride -- */
+
+/** Hayve Ride: drivers keep the fare minus Hayve's commission (paid after each trip). */
+export interface RideSettings {
+  commissionRate: number;
+  /** Seconds a driver has to answer an offer before it goes to the next driver. */
+  offerSeconds: number;
+}
+
+export const DEFAULT_RIDE: RideSettings = { commissionRate: 0.15, offerSeconds: 15 };
+
 /* --------------------------------------------------------- Hayve Card -- */
 
 export const HAYVE_CARD = {

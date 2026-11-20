@@ -106,6 +106,7 @@ function Dashboard() {
                 ))}
               </Group>
             )}
+            <Button title="Request a deposit or payment" icon="link-outline" variant="secondary" full style={{ marginTop: 12 }} onPress={() => router.push('/pay/request')} />
           </Section>
         </>
       )}

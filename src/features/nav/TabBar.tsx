@@ -31,7 +31,7 @@ function go(navigation: BottomTabBarProps['navigation'], key: string) {
 const MOBILE: { key: string; label: string; icon: IconName }[] = [
   { key: 'home', label: 'Home', icon: 'home-outline' },
   { key: 'shop', label: 'Shop', icon: 'bag-handle-outline' },
-  { key: 'ride', label: 'Ride', icon: 'car-outline' },
+  { key: 'ride', label: 'Ride', icon: 'taxi-outline' },
   { key: 'bites', label: 'Bites', icon: 'fast-food-outline' },
 ];
 

@@ -1,15 +1,24 @@
-import { DEFAULT_FEE_TIERS, DEFAULT_TAP_TO_PAY, DEFAULT_WAVE_BACK, marketplaceFeeCents, SEND_SHIPPING_CENTS, type TapToPaySettings, type WaveBackCategory, type WaveBackSettings } from '../config';
+import { DEFAULT_FEE_TIERS, DEFAULT_PAY_REQUESTS, DEFAULT_RIDE, DEFAULT_TAP_TO_PAY, DEFAULT_WAVE_BACK, marketplaceFeeCents, type PayRequestSettings, type RideSettings, SEND_SHIPPING_CENTS, type TapToPaySettings, type WaveBackCategory, type WaveBackSettings } from '../config';
 import { accountIdFor, captureHold, createTransaction, type Credit, refundTransaction, SYSTEM, voidHold } from '../ledger';
 import { getDb, HayveError, now, uid } from '../store';
 import type { ID, NotificationKind, Profile, Settings, Transaction, TxType } from '../types';
 
-export type PayMethod = 'wallet' | 'card' | 'card_declined';
+export type PayMethod = 'wallet' | 'card' | 'bank' | 'card_declined';
 
 export const PAY_METHOD_LABEL: Record<PayMethod, string> = {
   wallet: 'Hayve Pay balance',
-  card: 'Card (simulated)',
+  card: 'Debit or credit card',
+  bank: 'Bank (iDEAL | Wero)',
   card_declined: 'Card (simulated decline)',
 };
+
+/** The user's saved card (default first) and connected bank, used to label card and bank payments. */
+export function savedMethodsOf(userId: ID) {
+  const all = getDb().paymentMethods.filter((m) => m.userId === userId);
+  const card = all.filter((m) => m.kind === 'card').sort((a, b) => Number(b.isDefault) - Number(a.isDefault))[0] ?? null;
+  const bank = all.filter((m) => m.kind === 'bank').sort((a, b) => Number(b.isDefault) - Number(a.isDefault))[0] ?? null;
+  return { card, bank };
+}
 
 export interface PublicUser {
   id: ID;
@@ -70,13 +79,17 @@ export function audit(actorId: ID | null, action: string, target: string) {
 export const SHIPPING_CENTS = SEND_SHIPPING_CENTS;
 
 /** Runtime settings (admin-editable), falling back to config.ts defaults. */
-export function settings(): Settings & { waveBack: WaveBackSettings; tapToPay: TapToPaySettings } {
+type FullSettings = Settings & { waveBack: WaveBackSettings; tapToPay: TapToPaySettings; payRequests: PayRequestSettings; ride: RideSettings };
+
+export function settings(): FullSettings {
   const db = getDb();
   if (!db.settings) db.settings = { feeTiers: DEFAULT_FEE_TIERS, waveBack: DEFAULT_WAVE_BACK, tapToPay: DEFAULT_TAP_TO_PAY };
   // Fill values added in later versions so older saved settings keep working.
   db.settings.waveBack = { ...DEFAULT_WAVE_BACK, ...db.settings.waveBack };
   db.settings.tapToPay = { ...DEFAULT_TAP_TO_PAY, ...db.settings.tapToPay };
-  return db.settings as Settings & { waveBack: WaveBackSettings; tapToPay: TapToPaySettings };
+  db.settings.payRequests = { ...DEFAULT_PAY_REQUESTS, ...db.settings.payRequests };
+  db.settings.ride = { ...DEFAULT_RIDE, ...db.settings.ride };
+  return db.settings as FullSettings;
 }
 
 /** Marketplace buyer fee for an item price (tiered; see config.ts). */
@@ -217,17 +230,19 @@ export function beginPayment(input: {
   }
   const wallet = accountIdFor(input.payerId);
   let fundingTxId: ID | undefined;
-  if (input.method === 'card') {
-    // Card payments pass through the wallet so every receipt lives in one history.
+  if (input.method === 'card' || input.method === 'bank') {
+    // Card and bank payments pass through the wallet so every receipt lives in one history.
+    const saved = savedMethodsOf(input.payerId);
+    if (input.method === 'bank' && !saved.bank) throw new HayveError('invalid', 'Connect a bank first (Pay → Cards and banks).');
     const total = input.credits.reduce((s, c) => s + c.amountCents, 0);
     const funding = createTransaction({
       type: 'deposit',
-      fromAccountId: SYSTEM.card,
+      fromAccountId: input.method === 'card' ? SYSTEM.card : SYSTEM.bank,
       credits: [{ accountId: wallet, amountCents: total }],
-      labelForFrom: 'Card',
-      labelForTo: 'Card payment •••• 4242 (simulated)',
+      labelForFrom: input.method === 'card' ? 'Card' : 'Bank',
+      labelForTo: input.method === 'card' ? `${saved.card ? `${saved.card.brand ?? 'Card'} •••• ${saved.card.last4}` : 'Card'} (simulated)` : `iDEAL | Wero · ${saved.bank!.bank ?? saved.bank!.label} (simulated)`,
       note: input.note,
-      method: 'card',
+      method: input.method,
     });
     fundingTxId = funding.id;
   }
@@ -239,7 +254,7 @@ export function beginPayment(input: {
     labelForTo: input.labelForPayee,
     note: input.note,
     ref: input.ref,
-    method: input.method === 'wallet' ? 'wallet' : 'card',
+    method: input.method === 'wallet' ? 'wallet' : input.method === 'bank' ? 'bank' : 'card',
     mode: 'hold',
   });
   tx.fundingTxId = fundingTxId;

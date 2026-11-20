@@ -154,6 +154,19 @@ export function PayMethodPicker({ value, onChange, totalCents, waveBackCents = 0
   const w = useLive(() => wallet.wallet()).data;
   const [showDev, setShowDev] = useState(false);
   const enough = (w?.available ?? 0) >= totalCents;
+  const saved = useLive(() => {
+    const all = wallet.paymentMethods();
+    return { card: all.filter((m) => m.kind === 'card').sort((a, b) => Number(b.isDefault) - Number(a.isDefault))[0] ?? null, bank: all.find((m) => m.kind === 'bank') ?? null };
+  }).data ?? { card: null, bank: null };
+  const addRow = (icon: IconName, title: string) => (
+    <Pressable key={title} accessibilityRole="button" onPress={() => router.push('/pay/methods')} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: radius.md, borderWidth: 1, borderStyle: 'dashed', borderColor: color.grey200 }}>
+      <Icon name={icon} size={22} />
+      <T variant="headline" style={{ flex: 1 }}>
+        {title}
+      </T>
+      <Icon name="add" size={20} />
+    </Pressable>
+  );
   const option = (m: PayMethod, icon: IconName, title: string, sub: string, disabled = false) => {
     const on = value === m;
     return (
@@ -182,7 +195,8 @@ export function PayMethodPicker({ value, onChange, totalCents, waveBackCents = 0
   return (
     <View style={{ gap: 10 }}>
       {option('wallet', 'wallet-outline', 'Hayve balance', enough ? `${money(w?.available ?? 0)} available${waveBackCents ? ` · ${money(waveBackCents)} Wave Back` : ''}` : `${money(w?.available ?? 0)} available · not enough`, !enough)}
-      {option('card', 'card-outline', 'Visa •••• 4242', 'Card payment')}
+      {saved.card ? option('card', 'card-outline', `${saved.card.brand ?? 'Card'} •••• ${saved.card.last4}`, saved.card.funding === 'credit' ? 'Credit card' : 'Debit card') : addRow('card-outline', 'Add a debit or credit card')}
+      {saved.bank ? option('bank', 'bank-outline', saved.bank.label, 'Bank payment · iDEAL | Wero') : addRow('bank-outline', 'Connect your bank (iDEAL | Wero)')}
       {value !== 'wallet' && waveBackCents > 0 && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4 }}>
           <Icon name="sparkles-outline" size={16} color={color.indigo} />
@@ -273,6 +287,10 @@ const STATUS: Record<string, [string, 'indigo' | 'black' | 'grey']> = {
   open: ['Open', 'black'],
   resolved: ['Resolved', 'grey'],
   dismissed: ['Dismissed', 'grey'],
+  expired: ['Expired', 'grey'],
+  held: ['Held', 'indigo'],
+  released: ['Released', 'grey'],
+  captured: ['Claimed', 'black'],
 };
 
 export function StatusPill({ status }: { status: string }) {

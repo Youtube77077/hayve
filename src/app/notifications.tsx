@@ -12,7 +12,7 @@ const ICON: Record<NotificationKind, IconName> = {
   sale: 'pricetag-outline',
   delivery: 'cube-outline',
   ride: 'car-sport-outline',
-  rental: 'key-outline',
+  rental: 'car-outline',
   stay: 'bed-outline',
   payment: 'wallet-outline',
   refund: 'return-down-back-outline',

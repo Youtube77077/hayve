@@ -10,23 +10,28 @@ import { useAction, useLive } from '../../lib/hooks';
 
 export default function AddMoney() {
   const [amount, setAmount] = useState('');
-  const [source, setSource] = useState<'card' | 'bank'>('card');
+  const [source, setSource] = useState<'card' | 'bank'>('bank');
   const w = useLive(() => wallet.wallet()).data;
+  const methods = useLive(() => wallet.paymentMethods()).data ?? [];
+  const card = methods.filter((m) => m.kind === 'card').sort((a, b) => Number(b.isDefault) - Number(a.isDefault))[0];
+  const bank = methods.find((m) => m.kind === 'bank');
+  const from = source === 'card' ? card : bank;
   const { run, busy } = useAction();
   const cents = parseEuro(amount) ?? 0;
   return (
-    <Screen header={<Header back title="Add money" fallback="/pay" />} maxWidth={520} keyboard footer={<Button title={cents ? `Add ${money(cents)}` : 'Add money'} size="lg" variant="accent" full loading={busy} disabled={cents < 100} onPress={() => run(() => wallet.addMoney(cents, source), { success: `${money(cents)} added`, onDone: () => router.replace('/pay') })} />}>
+    <Screen header={<Header back title="Add money" fallback="/pay" />} maxWidth={520} keyboard footer={<Button title={cents ? `Add ${money(cents)}` : 'Add money'} size="lg" variant="accent" full loading={busy} disabled={cents < 100 || !from} onPress={() => run(() => wallet.addMoney(cents, source), { success: `${money(cents)} added`, onDone: () => router.replace('/pay') })} />}>
       <Segmented
         value={source}
         onChange={setSource}
         options={[
+          { key: 'bank', label: 'Bank', icon: 'bank-outline' },
           { key: 'card', label: 'Card', icon: 'card-outline' },
-          { key: 'bank', label: 'Bank transfer', icon: 'business-outline' },
         ]}
       />
       <AmountInput value={amount} onChange={setAmount} />
+      {!from && <Button title={source === 'card' ? 'Add a debit or credit card' : 'Connect your bank'} icon="add" variant="secondary" full onPress={() => router.push('/pay/methods')} style={{ marginBottom: 12 }} />}
       <Card>
-        <KeyValue label="From" value={source === 'card' ? 'Visa •••• 4242' : 'iDEAL / SEPA transfer'} />
+        <KeyValue label="From" value={from ? (source === 'card' ? `${from.brand ?? 'Card'} •••• ${from.last4}` : `${from.label} · iDEAL | Wero`) : 'Not connected'} />
         <KeyValue label="Arrives" value="Instantly" />
         <KeyValue label="Fee" value="Free" />
         <KeyValue label="New balance" value={money((w?.available ?? 0) + cents)} strong />

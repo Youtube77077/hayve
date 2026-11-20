@@ -88,7 +88,7 @@ export default function Profile() {
                 <ListRow icon="paper-plane-outline" title="Gifts sent" onPress={() => router.push('/orders?tab=gifts')} />
                 <ListRow icon="car-sport-outline" title="Ride history" onPress={() => router.push('/orders?tab=rides')} />
                 <ListRow icon="fast-food-outline" title="Food orders" onPress={() => router.push('/orders?tab=food')} />
-                <ListRow icon="key-outline" title="Rental history" onPress={() => router.push('/orders?tab=rentals')} />
+                <ListRow icon="car-outline" title="Rental history" onPress={() => router.push('/orders?tab=rentals')} />
                 <ListRow icon="bed-outline" title="Stay bookings" onPress={() => router.push('/orders?tab=stays')} />
                 <ListRow icon="cube-outline" title="Courier history" onPress={() => router.push('/orders?tab=parcels')} />
               </Group>

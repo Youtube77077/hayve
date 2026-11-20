@@ -1,7 +1,7 @@
 import { accountIdFor, balancesFor, createTransaction, SYSTEM, type TxView, viewTransaction } from '../ledger';
 import { assert, commit, find, getDb, HayveError, now, uid } from '../store';
 import type { ID, MoneyRequest, PaymentMethod } from '../types';
-import { audit, displayName, monthStart, notify, publicUser, settings, type PublicUser } from './common';
+import { audit, displayName, monthStart, notify, publicUser, savedMethodsOf, settings, type PublicUser } from './common';
 import { me } from './session';
 
 /**
@@ -23,12 +23,13 @@ export function transactions(filter: { type?: 'all' | 'in' | 'out'; limit?: numb
   const acc = accountIdFor(user.id);
   const db = getDb();
   const ids = new Set(db.entries.filter((e) => e.accountId === acc).map((e) => e.txId));
+  const funding = new Set(db.transactions.map((t) => t.fundingTxId).filter(Boolean));
   let rows = db.transactions
     .filter((t) => ids.has(t.id))
     .map((t) => viewTransaction(t, acc))
     .filter((v): v is TxView => !!v)
-    // Card pass-through funding is represented by the payment it funded.
-    .filter((v) => !(v.type === 'deposit' && v.method === 'card' && v.counterparty.startsWith('Card payment')))
+    // Card and bank pass-through funding is represented by the payment it funded.
+    .filter((v) => !funding.has(v.id) && !(v.type === 'deposit' && v.method === 'card' && v.counterparty.startsWith('Card payment')))
     .sort((a, b) => b.createdAt - a.createdAt);
   if (filter.type === 'in') rows = rows.filter((r) => r.direction === 'in');
   if (filter.type === 'out') rows = rows.filter((r) => r.direction === 'out');
@@ -51,12 +52,14 @@ function validAmount(cents: number) {
 export function addMoney(amountCents: number, source: 'card' | 'bank' = 'card') {
   const user = me();
   validAmount(amountCents);
+  const saved = savedMethodsOf(user.id);
+  assert(source === 'card' ? saved.card : saved.bank, 'invalid', source === 'card' ? 'Add a debit or credit card first' : 'Connect a bank first');
   const tx = createTransaction({
     type: 'deposit',
     fromAccountId: source === 'card' ? SYSTEM.card : SYSTEM.bank,
     credits: [{ accountId: accountIdFor(user.id), amountCents }],
     labelForFrom: 'Wallet top-up',
-    labelForTo: source === 'card' ? 'Top-up by card (simulated)' : 'Bank transfer (simulated)',
+    labelForTo: source === 'card' ? `Top-up · ${saved.card!.brand} •••• ${saved.card!.last4} (simulated)` : `Top-up · iDEAL | Wero · ${saved.bank!.bank ?? saved.bank!.label} (simulated)`,
     method: source,
   });
   notify(user.id, 'payment', 'Money added', `€${(amountCents / 100).toFixed(2)} added to your Hayve Pay balance (simulated).`, `/pay/tx/${tx.id}`);
@@ -194,33 +197,84 @@ export function paymentMethods(): PaymentMethod[] {
   return getDb().paymentMethods.filter((m) => m.userId === user.id);
 }
 
-export function addPaymentMethod(input: { kind: 'card' | 'bank'; number: string; label?: string }) {
+/**
+ * Saves a debit or credit card. The card number is entered in the payment partner's secure form
+ * (Stripe in production) and never reaches Hayve: only brand, last four, expiry and funding type.
+ */
+export function addCard(input: { brand: string; last4: string; expiry: string; funding: 'debit' | 'credit' }) {
   const user = me();
-  const digits = input.number.replace(/\s+/g, '');
-  if (input.kind === 'card') assert(/^\d{12,19}$/.test(digits), 'invalid', 'Enter a valid card number (simulation: any 16 digits)');
-  else assert(/^[A-Z]{2}\d{2}[A-Z0-9]{8,30}$/i.test(digits), 'invalid', 'Enter a valid IBAN');
+  assert(/^\d{4}$/.test(input.last4), 'invalid', 'Enter a valid card number');
+  assert(/^(0[1-9]|1[0-2])\/\d{2}$/.test(input.expiry), 'invalid', 'Enter the expiry date as MM/YY');
+  const [mm, yy] = input.expiry.split('/').map(Number);
+  const end = new Date(2000 + yy, mm, 1).getTime();
+  assert(end > now(), 'invalid', 'This card has expired');
+  assert(['Visa', 'Mastercard', 'Maestro', 'American Express', 'Card'].includes(input.brand), 'invalid', 'This card type is not supported');
   const db = getDb();
-  const last4 = digits.slice(-4);
-  const brand = input.kind === 'card' ? (digits.startsWith('4') ? 'Visa' : digits.startsWith('5') ? 'Mastercard' : 'Card') : undefined;
-  const pm: PaymentMethod = {
-    id: uid('pm'),
-    userId: user.id,
-    kind: input.kind,
-    label: input.kind === 'card' ? brand! : `${digits.slice(0, 4).toUpperCase()} •••• ${last4}`,
-    brand,
-    last4,
-    isDefault: !db.paymentMethods.some((m) => m.userId === user.id),
-  };
+  const mine = db.paymentMethods.filter((m) => m.userId === user.id && m.kind === 'card');
+  assert(!mine.some((m) => m.last4 === input.last4 && m.brand === input.brand), 'conflict', 'This card is already saved');
+  assert(mine.length < 5, 'invalid', 'You can save up to 5 cards');
+  const pm: PaymentMethod = { id: uid('pm'), userId: user.id, kind: 'card', label: input.brand, brand: input.brand, last4: input.last4, expiry: input.expiry, funding: input.funding, isDefault: mine.length === 0, createdAt: now() };
   db.paymentMethods.push(pm);
+  audit(user.id, 'card.add', input.last4);
   commit();
   return pm.id;
+}
+
+const BANK_CODES: Record<string, string> = { 'ABN AMRO': 'ABNA', ING: 'INGB', Rabobank: 'RABO', bunq: 'BUNQ', 'ASN Bank': 'ASNB', Knab: 'KNAB', Revolut: 'REVO', SNS: 'SNSB', 'Triodos Bank': 'TRIO', N26: 'NTSB' };
+
+/**
+ * Connects a bank account for payments, top-ups and withdrawals.
+ * iDEAL | Wero: the user approves in their bank app and the bank shares the account (simulated).
+ * SEPA Direct Debit: the user enters their IBAN and signs a mandate.
+ * The connected bank also funds Hayve Card automatic top-ups.
+ */
+export function connectBank(input: { bank?: string; connection: 'ideal_wero' | 'sepa_debit'; holder?: string; iban?: string }) {
+  const user = me();
+  const db = getDb();
+  let iban: string;
+  let bank: string;
+  if (input.connection === 'ideal_wero') {
+    assert(input.bank && BANK_CODES[input.bank], 'invalid', 'Choose your bank');
+    bank = input.bank;
+    // The bank returns the account after approval (simulated, stable per user).
+    const digits = String(Math.abs([...user.id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7))).padStart(10, '0').slice(0, 10);
+    iban = `NL${(10 + (digits.charCodeAt(3) % 89)).toString().padStart(2, '0')}${BANK_CODES[bank]}${digits}`;
+  } else {
+    iban = (input.iban ?? '').replace(/\s+/g, '').toUpperCase();
+    assert(/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(iban), 'invalid', 'Enter a valid IBAN');
+    bank = Object.entries(BANK_CODES).find(([, c]) => c === iban.slice(4, 8))?.[0] ?? 'Bank account';
+  }
+  const holder = (input.holder ?? '').trim() || displayName(user.id);
+  const last4 = iban.slice(-4);
+  db.paymentMethods = db.paymentMethods.filter((m) => !(m.userId === user.id && m.kind === 'bank'));
+  const pm: PaymentMethod = { id: uid('pm'), userId: user.id, kind: 'bank', label: `${bank} •••• ${last4}`, bank, last4, connection: input.connection, isDefault: false, createdAt: now() };
+  db.paymentMethods.push(pm);
+  // Same account funds Hayve Card top-ups.
+  db.linkedBanks = db.linkedBanks.filter((b) => b.userId !== user.id);
+  db.linkedBanks.push({ userId: user.id, holder, ibanLast4: last4, bank, method: input.connection, mandateRef: `HAYVE-${uid('m').slice(-8).toUpperCase()}`, linkedAt: now() });
+  audit(user.id, 'bank.connect', last4);
+  commit();
+  return pm.id;
+}
+
+export function setDefaultCard(id: ID) {
+  const user = me();
+  const db = getDb();
+  find(db.paymentMethods, (m) => m.id === id && m.userId === user.id && m.kind === 'card', 'Card');
+  for (const m of db.paymentMethods) if (m.userId === user.id && m.kind === 'card') m.isDefault = m.id === id;
+  commit();
 }
 
 export function deletePaymentMethod(id: ID) {
   const user = me();
   const db = getDb();
-  find(db.paymentMethods, (m) => m.id === id && m.userId === user.id, 'Payment method');
-  db.paymentMethods = db.paymentMethods.filter((m) => m.id !== id);
+  const m = find(db.paymentMethods, (x) => x.id === id && x.userId === user.id, 'Payment method');
+  db.paymentMethods = db.paymentMethods.filter((x) => x.id !== id);
+  if (m.kind === 'bank') db.linkedBanks = db.linkedBanks.filter((b) => b.userId !== user.id);
+  if (m.isDefault && m.kind === 'card') {
+    const next = db.paymentMethods.find((x) => x.userId === user.id && x.kind === 'card');
+    if (next) next.isDefault = true;
+  }
   commit();
 }
 

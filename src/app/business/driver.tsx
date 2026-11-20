@@ -137,7 +137,7 @@ function Dashboard() {
         ) : (
           <Group>
             {done.map((t) => (
-              <ListRow key={t.id} icon="car-outline" title={`${t.pickup.name} → ${t.dropoff.name}`} subtitle={`${t.rider.displayName} · ${shortDate(t.createdAt)}`} value={money(Math.round(t.priceCents * 0.8))} />
+              <ListRow key={t.id} icon="taxi-outline" title={`${t.pickup.name} → ${t.dropoff.name}`} subtitle={`${t.rider.displayName} · ${shortDate(t.createdAt)}`} value={money(Math.round(t.priceCents * 0.8))} />
             ))}
           </Group>
         )}

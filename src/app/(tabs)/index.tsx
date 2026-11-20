@@ -116,7 +116,7 @@ export default function Home() {
         {(activeRide || food.length > 0 || shipped.length > 0 || stays.length > 0) && (
           <View style={{ marginTop: 24, gap: 10 }}>
             {activeRide && (
-              <LiveCard icon="car-outline" title={activeRide.driver ? `${activeRide.driver.displayName.split(' ')[0]} is ${activeRide.status === 'in_progress' ? 'taking you to' : 'on the way to'} ${activeRide.status === 'in_progress' ? activeRide.dropoff.name : 'you'}` : 'Finding your driver'} sub={activeRide.driver ? `${activeRide.driver.vehicle.color} ${activeRide.driver.vehicle.make} · ${activeRide.driver.vehicle.plate}` : activeRide.categoryLabel} right={<StatusPill status={activeRide.status} />} onPress={() => router.push(`/ride/${activeRide.id}`)} />
+              <LiveCard icon="taxi-outline" title={activeRide.driver ? `${activeRide.driver.displayName.split(' ')[0]} is ${activeRide.status === 'in_progress' ? 'taking you to' : 'on the way to'} ${activeRide.status === 'in_progress' ? activeRide.dropoff.name : 'you'}` : 'Finding your driver'} sub={activeRide.driver ? `${activeRide.driver.vehicle.color} ${activeRide.driver.vehicle.make} · ${activeRide.driver.vehicle.plate}` : activeRide.categoryLabel} right={<StatusPill status={activeRide.status} />} onPress={() => router.push(`/ride/${activeRide.id}`)} />
             )}
             {food.map((o) => (
               <LiveCard key={o.id} icon="fast-food-outline" title={o.status === 'picked_up' ? 'Your food is on its way' : o.status === 'placed' ? `Waiting for ${o.restaurant.name}` : `${o.restaurant.name} is preparing your food`} sub={`Order ${o.reference}`} right={<StatusPill status={o.status} />} onPress={() => router.push(`/bites/order/${o.id}`)} />
@@ -193,7 +193,7 @@ export default function Home() {
                             {r.dropoff.address}
                           </T>
                         </View>
-                        <Icon name="car-outline" size={18} />
+                        <Icon name="taxi-outline" size={18} />
                       </Pressable>
                     ))}
                   </View>

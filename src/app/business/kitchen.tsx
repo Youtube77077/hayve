@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { bites } from '../../backend/api';
@@ -149,7 +150,7 @@ function Orders({ live, past }: { live: ReturnType<typeof bites.kitchenOrders>; 
           </View>
         )}
       </Section>
-      <Section title="Order history">
+      <Section title="Order history" action="Request payment" onAction={() => router.push('/pay/request')}>
         {past.length === 0 ? (
           <Empty text="No past orders" />
         ) : (

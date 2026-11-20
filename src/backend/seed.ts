@@ -16,7 +16,7 @@ import type {
   User,
 } from './types';
 
-export const DB_VERSION = 7;
+export const DB_VERSION = 8;
 export const DEMO_PASSWORD = 'hayve123';
 
 export const DEMO_ACCOUNTS = [
@@ -62,6 +62,7 @@ export function emptyDatabase(): Database {
     entries: [],
     transactions: [],
     moneyRequests: [],
+    payRequests: [],
     rides: [],
     drivers: [],
     couriers: [],
@@ -126,6 +127,10 @@ export function createSeedDatabase(): Database {
     ['u_mila', 'mila@hayve.app', 'mila.stays', 'Mila Jansen', ['customer', 'host'], media.avatars.mila, 'Superhost. Canal homes and cars for city escapes.'],
     ['u_daan', 'daan@hayve.app', 'daan', 'Daan de Boer', ['customer', 'driver'], media.avatars.daan, 'Hayve Driver since 2025.'],
     ['u_yara', 'yara@hayve.app', 'yara', 'Yara Bakker', ['customer', 'courier'], media.avatars.yara, 'E-bike courier, Amsterdam centre.'],
+    ['u_fatima', 'fatima@hayve.app', 'fatima.drives', 'Fatima El Amrani', ['customer', 'driver'], '', 'Hayve Driver, electric only.'],
+    ['u_ruben', 'ruben@hayve.app', 'ruben.v', 'Ruben Visser', ['customer', 'driver'], '', 'Hayve Driver, Comfort.'],
+    ['u_kemal', 'kemal@hayve.app', 'kemal', 'Kemal Yilmaz', ['customer', 'driver'], '', 'Hayve Driver, XL and airport runs.'],
+    ['u_sophie', 'sophie@hayve.app', 'sophiedw', 'Sophie de Wit', ['customer', 'driver'], '', 'Hayve Driver, evenings.'],
     ['u_eva', 'eva@hayve.app', 'evasmit', 'Eva Smit', ['customer', 'seller'], media.avatars.eva, 'Home & interiors lover.'],
     ['u_jonas', 'jonas@hayve.app', 'jonas', 'Jonas Kramer', ['customer'], media.avatars.jonas, 'Private account.', { isPublic: false, wishlistVisibility: 'private' }],
   ];
@@ -147,9 +152,9 @@ export function createSeedDatabase(): Database {
   db.addresses.push({ id: 'ad_sam_work', userId: 'u_sam', label: 'Studio', fullName: 'Sam Rivera', line1: 'Reijnier Vinkeleskade 62', city: 'Amsterdam', postcode: '1071 SZ', country: 'Netherlands', isDefault: false });
 
   db.paymentMethods.push(
-    { id: 'pm_sam_card', userId: 'u_sam', kind: 'card', label: 'Visa', brand: 'Visa', last4: '4242', isDefault: true },
-    { id: 'pm_sam_bank', userId: 'u_sam', kind: 'bank', label: 'NL91 ABNA •••• 4300', last4: '4300', isDefault: false },
-    { id: 'pm_noor_card', userId: 'u_noor', kind: 'card', label: 'Mastercard', brand: 'Mastercard', last4: '5100', isDefault: true },
+    { id: 'pm_sam_card', userId: 'u_sam', kind: 'card', label: 'Visa', brand: 'Visa', last4: '4242', funding: 'debit', expiry: '08/28', isDefault: true, createdAt: ago(200) },
+    { id: 'pm_sam_bank', userId: 'u_sam', kind: 'bank', label: 'ABN AMRO •••• 4300', last4: '4300', bank: 'ABN AMRO', connection: 'ideal_wero', isDefault: false, createdAt: ago(200) },
+    { id: 'pm_noor_card', userId: 'u_noor', kind: 'card', label: 'Mastercard', brand: 'Mastercard', last4: '5100', funding: 'credit', expiry: '11/27', isDefault: true, createdAt: ago(120) },
   );
 
   /* -------------------------------------------------------- products -- */
@@ -313,7 +318,15 @@ export function createSeedDatabase(): Database {
     online: true,
     rating: 4.92,
     trips: 1284,
+    location: { lng: 4.9045, lat: 52.3731, at: t0 },
   });
+  // More drivers around the centre so dispatch can rank them by distance and pickup time.
+  db.drivers.push(
+    { userId: 'u_fatima', vehicle: { make: 'Tesla', model: 'Model 3', color: 'White', plate: 'J-118-XR', category: 'green' }, licenseNumber: 'NL-6620194', online: true, rating: 4.95, trips: 2210, location: { lng: 4.8897, lat: 52.3702, at: t0 } },
+    { userId: 'u_ruben', vehicle: { make: 'Mercedes-Benz', model: 'E-Class', color: 'Black', plate: 'S-904-NK', category: 'comfort' }, licenseNumber: 'NL-7712055', online: true, rating: 4.9, trips: 980, location: { lng: 4.8834, lat: 52.3584, at: t0 } },
+    { userId: 'u_kemal', vehicle: { make: 'Volkswagen', model: 'Touran', color: 'Silver', plate: 'V-227-TB', category: 'xl' }, licenseNumber: 'NL-5530981', online: true, rating: 4.87, trips: 1730, location: { lng: 4.9234, lat: 52.3588, at: t0 } },
+    { userId: 'u_sophie', vehicle: { make: 'Kia', model: 'Niro EV', color: 'Blue', plate: 'K-561-PD', category: 'green' }, licenseNumber: 'NL-8841207', online: true, rating: 4.93, trips: 640, location: { lng: 4.9412, lat: 52.3664, at: t0 } },
+  );
   db.couriers.push({ userId: 'u_yara', vehicle: 'e-bike', online: true, rating: 4.97, jobs: 860 });
 
   const rideAt = (id: string, p: number, d: number, eur: number, days: number) => {

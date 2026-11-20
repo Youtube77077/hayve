@@ -54,7 +54,7 @@ function Dashboard() {
         <Segmented value={tab} onChange={setTab} options={[{ key: 'orders', label: `Orders · ${sales.length}` }, { key: 'listings', label: `Listings · ${listings.length}` }]} />
       </View>
       {tab === 'orders' ? (
-        <Section title={toShip.length ? `${toShip.length} to ship` : 'Incoming orders'} style={{ marginTop: 16 }}>
+        <Section title={toShip.length ? `${toShip.length} to ship` : 'Incoming orders'} action="Request payment" onAction={() => router.push('/pay/request')} style={{ marginTop: 16 }}>
           {sales.length === 0 ? (
             <Empty text="No orders yet" />
           ) : (

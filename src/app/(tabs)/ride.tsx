@@ -13,7 +13,7 @@ import { nearestEta, useNearbyCars, useUserLocation } from '../../features/ride/
 import { money, time } from '../../lib/format';
 import { NONE, useAction, useLive } from '../../lib/hooks';
 
-const CAR_ICON: Record<RideCategory, IconName> = { go: 'car-outline', green: 'leaf-outline', priority: 'flash-outline', comfort: 'car-sport-outline', xl: 'bus-outline' };
+const CAR_ICON: Record<RideCategory, IconName> = { go: 'taxi-outline', green: 'leaf-outline', priority: 'flash-outline', comfort: 'car-sport-outline', xl: 'bus-outline' };
 /** Simulated dispatch timings (ms) per status. */
 const STEP_MS = { requested: 4000, accepted: 9000, arriving: 6000, in_progress: 16000 } as const;
 const PANEL_W = 400;
@@ -494,7 +494,7 @@ function SheetContent(p: {
           <Pressable onPress={p.openPay} accessibilityRole="button" accessibilityLabel="Change payment method" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, opacity: pressed ? 0.7 : 1 })}>
             <Icon name={p.method === 'wallet' ? 'wallet-outline' : 'card-outline'} size={20} />
             <View style={{ flex: 1 }}>
-              <T variant="headline">{p.method === 'wallet' ? 'Hayve balance' : p.method === 'card' ? 'Visa •••• 4242' : 'Test card (declines)'}</T>
+              <T variant="headline">{p.method === 'wallet' ? 'Hayve balance' : p.method === 'card' ? 'Debit or credit card' : p.method === 'bank' ? 'Bank (iDEAL | Wero)' : 'Test card (declines)'}</T>
               {p.selected && p.selected.waveBackCents > 0 ? (
                 <T variant="caption" color={p.method === 'wallet' ? color.indigo : color.textSecondary}>
                   {p.method === 'wallet' ? `${money(p.selected.waveBackCents)} Wave Back on this ride` : `Pay with your Hayve balance and get ${money(p.selected.waveBackCents)} Wave Back`}

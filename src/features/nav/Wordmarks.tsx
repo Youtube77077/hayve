@@ -13,9 +13,9 @@ export const PRODUCT_WORD: Record<ProductKey, string> = { shop: 'Shop', pay: 'Pa
 export const PRODUCT_ICON: Record<ProductKey, IconName> = {
   shop: 'bag-handle-outline',
   pay: 'wallet-outline',
-  ride: 'car-outline',
+  ride: 'taxi-outline',
   bites: 'fast-food-outline',
-  drive: 'key-outline',
+  drive: 'car-outline',
   stay: 'bed-outline',
 };
 

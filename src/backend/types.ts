@@ -216,6 +216,7 @@ export type TxType =
   | 'tap_payment'
   | 'card_purchase'
   | 'auto_topup'
+  | 'request_payment'
   | 'fee';
 
 export type TxStatus = 'pending' | 'completed' | 'failed' | 'refunded' | 'reserved';
@@ -262,7 +263,66 @@ export interface PaymentMethod {
   label: string;
   last4: string;
   brand?: string;
+  /** Cards: debit or credit (the payment partner tells us; Hayve never sees the number). */
+  funding?: 'debit' | 'credit';
+  /** Cards: expiry shown as MM/YY. */
+  expiry?: string;
+  /** Banks: the bank's name and how it was connected (iDEAL | Wero consent or a SEPA mandate). */
+  bank?: string;
+  connection?: 'ideal_wero' | 'sepa_debit';
   isDefault: boolean;
+  createdAt?: number;
+}
+
+/* ---------------------------------------------------- Payment requests -- */
+
+export type PayRequestKind = 'personal' | 'split' | 'business' | 'deposit';
+export type PayRequestMethod = 'bank' | 'card' | 'hayve';
+
+export interface PayRequestPayment {
+  id: ID;
+  txId: ID;
+  /** Null when someone paid without a Hayve account. */
+  payerId: ID | null;
+  payerName: string;
+  method: PayRequestMethod;
+  /** Bank name (iDEAL | Wero) or card brand + last 4, for the receipt. */
+  methodLabel: string;
+  amountCents: Cents;
+  feeCents: Cents;
+  shareId?: string;
+  /** Deposits are authorised (held) first, then released or captured by the requester. */
+  status: 'paid' | 'held' | 'released' | 'captured' | 'refunded';
+  at: number;
+}
+
+/** What a request can be attached to, so it belongs to a real order or booking. */
+export interface PayRequestRef {
+  kind: 'order' | 'food' | 'stay' | 'rental' | 'delivery';
+  id: ID;
+  label: string;
+}
+
+/**
+ * A payment request link (like a Tikkie). The id is an unguessable token used in the link,
+ * so anyone with the link can pay, with or without a Hayve account.
+ */
+export interface PayRequest {
+  id: ID;
+  requesterId: ID;
+  kind: PayRequestKind;
+  title: string;
+  /** Amount per payment (per person for splits). */
+  amountCents: Cents;
+  /** Reusable links accept many payments; single-use links close after the first. */
+  reusable: boolean;
+  expiresAt: number;
+  cancelledAt?: number;
+  split?: { totalCents: Cents; shares: { id: string; name: string; you?: boolean; paidAt?: number; manual?: boolean }[] };
+  business?: { name: string; logo?: string; invoiceNumber: string; verified: boolean };
+  ref?: PayRequestRef;
+  payments: PayRequestPayment[];
+  createdAt: number;
 }
 
 /* ------------------------------------------------------------- Services -- */
@@ -290,6 +350,12 @@ export interface Ride {
   durationMin: number;
   status: RideStatus;
   declinedBy: ID[];
+  /** Dispatch: the driver currently being offered the trip, and until when. */
+  offer?: { driverId: ID; expiresAt: number; etaMin: number } | null;
+  /** Every driver the trip was offered to, in order, and how they answered. */
+  offers?: { driverId: ID; at: number; outcome: 'accepted' | 'declined' | 'timeout' | 'pending'; etaMin: number }[];
+  /** Fare split once the trip completes (driver gets the fare minus Hayve's commission). */
+  payout?: { driverCents: Cents; hayveCents: Cents };
   rating?: number;
   paymentTxId?: ID;
   createdAt: number;
@@ -299,6 +365,8 @@ export interface Ride {
 export interface DriverProfile {
   userId: ID;
   vehicle: { make: string; model: string; color: string; plate: string; category: RideCategory };
+  /** Last GPS position shared by the driver's phone (lng, lat) and when. */
+  location?: { lng: number; lat: number; heading?: number; at: number };
   licenseNumber: string;
   online: boolean;
   rating: number;
@@ -598,6 +666,8 @@ export interface Settings {
   feeTiers: import('./config').FeeTier[];
   waveBack: import('./config').WaveBackSettings;
   tapToPay?: import('./config').TapToPaySettings;
+  payRequests?: import('./config').PayRequestSettings;
+  ride?: import('./config').RideSettings;
 }
 
 export type TapPayerMethod = 'card' | 'apple_pay' | 'google_pay' | 'hayve_card' | 'hayve_balance';
@@ -705,6 +775,7 @@ export interface Database {
   entries: LedgerEntry[];
   transactions: Transaction[];
   moneyRequests: MoneyRequest[];
+  payRequests: PayRequest[];
   rides: Ride[];
   drivers: DriverProfile[];
   couriers: CourierProfile[];

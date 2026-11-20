@@ -26,8 +26,8 @@ jobs:
       - name: Build website
         run: npx expo export --platform web
         env:
-          EXPO_PUBLIC_MAPBOX_TOKEN: ${{ secrets.MAPBOX_PUBLIC_TOKEN }}
-          EXPO_PUBLIC_MAPBOX_STYLE_URL: ${{ secrets.MAPBOX_STYLE_URL }}
+          EXPO_PUBLIC_MAPBOX_TOKEN: ${{ secrets.MAPBOX_PUBLIC_TOKEN || vars.MAPBOX_PUBLIC_TOKEN }}
+          EXPO_PUBLIC_MAPBOX_STYLE_URL: ${{ secrets.MAPBOX_STYLE_URL || vars.MAPBOX_STYLE_URL }}
       - uses: actions/upload-artifact@v4
         with:
           name: hayve-web

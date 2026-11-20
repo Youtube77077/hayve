@@ -225,6 +225,10 @@ export function linkBank(input: { holder: string; iban: string; method: LinkedBa
   const banks: Record<string, string> = { INGB: 'ING', RABO: 'Rabobank', ABNA: 'ABN AMRO', BUNQ: 'bunq', SNSB: 'SNS', TRIO: 'Triodos', KNAB: 'Knab', ASNB: 'ASN Bank', REVO: 'Revolut' };
   db.linkedBanks = db.linkedBanks.filter((b) => b.userId !== user.id);
   db.linkedBanks.push({ userId: user.id, holder: input.holder.trim(), ibanLast4: iban.slice(-4), bank: banks[iban.slice(4, 8)] ?? 'Bank account', method: input.method, mandateRef: `HAYVE-${uid('m').slice(-8).toUpperCase()}`, linkedAt: now() });
+  // The same account becomes the user's connected bank for payments and withdrawals.
+  const bankName = banks[iban.slice(4, 8)] ?? 'Bank account';
+  db.paymentMethods = db.paymentMethods.filter((m) => !(m.userId === user.id && m.kind === 'bank'));
+  db.paymentMethods.push({ id: uid('pm'), userId: user.id, kind: 'bank', label: `${bankName} •••• ${iban.slice(-4)}`, bank: bankName, last4: iban.slice(-4), connection: input.method, isDefault: false, createdAt: now() });
   audit(user.id, 'bank.link', iban.slice(-4));
   commit();
 }

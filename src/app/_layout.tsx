@@ -17,12 +17,13 @@ import { initBackend } from '../backend/bootstrap';
 import { color, Loading, ToastProvider } from '../design';
 import { hydrateCart } from '../lib/cart';
 import { useSessionId } from '../lib/hooks';
+import { takeReturnTo } from '../lib/returnTo';
 import { deviceStorage } from '../lib/storage';
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 /** Routes anyone can open without an account (public web pages and shared links). */
-const PUBLIC_ROOTS = new Set(['(auth)', 'u', 'product', 'paylink', 'track', 'privacy', 'claim']);
+const PUBLIC_ROOTS = new Set(['(auth)', 'u', 'product', 'paylink', 'track', 'privacy', 'claim', 'r']);
 
 function AuthGate() {
   const sessionId = useSessionId();
@@ -33,7 +34,7 @@ function AuthGate() {
   useEffect(() => {
     const isPublic = root ? PUBLIC_ROOTS.has(root) : false;
     if (!sessionId && !isPublic) router.replace('/welcome');
-    else if (sessionId && root === '(auth)') router.replace('/');
+    else if (sessionId && root === '(auth)') router.replace((takeReturnTo() ?? '/') as never);
   }, [sessionId, root, router]);
 
   return null;

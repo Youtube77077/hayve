@@ -1,4 +1,9 @@
 import {
+  createLucideIcon,
+  Ghost,
+  MessageSquareText,
+  Split as SplitIcon,
+  ReceiptText,
   SmartphoneNfc,
   Landmark,
   Delete,
@@ -151,6 +156,15 @@ import type { StyleProp, ViewStyle } from 'react-native';
  * Hayve uses ONE outline icon set (Lucide) with ONE stroke width everywhere.
  * Names are semantic keys (several kept from earlier builds for compatibility).
  */
+/** Hayve Ride: the Lucide car with a taxi sign (triangle) on the roof. Same grid and stroke as Lucide. */
+const Taxi = createLucideIcon('hayve-taxi', [
+  ['path', { d: 'M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2', key: 'body' }],
+  ['circle', { cx: '7', cy: '17', r: '2', key: 'w1' }],
+  ['path', { d: 'M9 17h6', key: 'sill' }],
+  ['circle', { cx: '17', cy: '17', r: '2', key: 'w2' }],
+  ['path', { d: 'M6 7 8.5 3 11 7', key: 'sign' }],
+]);
+
 const ICONS = {
   add: Plus,
   'add-circle-outline': CirclePlus,
@@ -186,6 +200,11 @@ const ICONS = {
   camera: Camera,
   'camera-outline': Camera,
   'car-outline': Car,
+  'taxi-outline': Taxi,
+  'ghost-outline': Ghost,
+  'sms-outline': MessageSquareText,
+  'split-outline': SplitIcon,
+  'invoice-outline': ReceiptText,
   'car-front-outline': CarFront,
   'car-sport': Car,
   'car-sport-outline': Car,

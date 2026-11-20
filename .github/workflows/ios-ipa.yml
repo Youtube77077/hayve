@@ -23,8 +23,8 @@ jobs:
     timeout-minutes: 75
     # Public map keys (repository secrets). Without them the app uses its built-in map preview.
     env:
-      EXPO_PUBLIC_MAPBOX_TOKEN: ${{ secrets.MAPBOX_PUBLIC_TOKEN }}
-      EXPO_PUBLIC_MAPBOX_STYLE_URL: ${{ secrets.MAPBOX_STYLE_URL }}
+      EXPO_PUBLIC_MAPBOX_TOKEN: ${{ secrets.MAPBOX_PUBLIC_TOKEN || vars.MAPBOX_PUBLIC_TOKEN }}
+      EXPO_PUBLIC_MAPBOX_STYLE_URL: ${{ secrets.MAPBOX_STYLE_URL || vars.MAPBOX_STYLE_URL }}
     steps:
       - uses: actions/checkout@v4
 

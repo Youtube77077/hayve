@@ -17,3 +17,4 @@ export * as wishlist from './wishlist';
 export { PAY_METHOD_LABEL, type PayMethod, type PublicUser } from './common';
 export * as tap from './tap';
 export * as card from './card';
+export * as requests from './requests';

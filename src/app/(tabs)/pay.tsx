@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { card as cardApi, tap as tapApi, wallet } from '../../backend/api';
+import { card as cardApi, tap as tapApi, wallet, requests as requestsApi } from '../../backend/api';
 import { Appear, Avatar, WaveV, BarChart, Card, color, EmptyState, focusRing, Icon, IconButton, radius, Screen, Section, Segmented, SimBadge, Split, T, tap, useLayout, type IconName } from '../../design';
 import { TabHeader } from '../../features/common';
 import { HayveCardVisual } from '../../features/card';
@@ -26,6 +26,7 @@ export default function Pay() {
   const txs = useLive(() => wallet.transactions({ type: filter }), [filter]).data;
   const spend = useLive(() => wallet.weeklySpend()).data ?? [];
   const requests = useLive(() => wallet.moneyRequests().filter((r) => r.direction === 'incoming' && r.status === 'pending')).data ?? [];
+  const openLinks = useLive(() => requestsApi.mine('pending').items).data ?? [];
   const contacts = useLive(() => wallet.recentContacts()).data ?? [];
   const weekTotal = spend.reduce((s, d) => s + d.cents, 0);
 
@@ -88,6 +89,26 @@ export default function Pay() {
                 </T>
                 <Icon name="chevron-forward" size={18} color={color.grey500} />
               </Pressable>
+            )}
+            {openLinks.length > 0 && (
+              <Section title="Waiting for payment" action="All" onAction={() => router.push('/pay/requests')}>
+                <Card padded={false}>
+                  {openLinks.slice(0, 3).map((l, i) => (
+                    <Pressable key={l.id} onPress={() => router.push(`/pay/link/${l.id}`)} accessibilityRole="button" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderTopWidth: i ? 1 : 0, borderTopColor: color.line, backgroundColor: pressed ? color.grey100 : color.white })}>
+                      <Icon name={l.kind === 'split' ? 'people-outline' : 'link-outline'} size={20} />
+                      <View style={{ flex: 1 }}>
+                        <T variant="headline" numberOfLines={1}>
+                          {l.title}
+                        </T>
+                        <T variant="footnote" color={color.textSecondary}>
+                          {l.expectedCount !== null ? `${l.paidCount} of ${l.expectedCount} paid` : `${l.paidCount} paid`}
+                        </T>
+                      </View>
+                      <T variant="headline">{money(l.amountCents)}</T>
+                    </Pressable>
+                  ))}
+                </Card>
+              </Section>
             )}
             {contacts.length > 0 && (
               <Section title="Send again" action="Requests" onAction={() => router.push('/pay/requests')}>
@@ -174,8 +195,9 @@ export default function Pay() {
             <Section title="Wallet">
               <Card padded={false}>
                 {[
-                  { icon: 'card-outline' as IconName, label: 'Payment methods', to: '/pay/methods' },
-                  { icon: 'hand-left-outline' as IconName, label: 'Money requests', to: '/pay/requests' },
+                  { icon: 'card-outline' as IconName, label: 'Cards and banks', to: '/pay/methods' },
+                  { icon: 'link-outline' as IconName, label: 'Requests and links', to: '/pay/requests' },
+                  { icon: 'people-outline' as IconName, label: 'Split a bill', to: '/pay/request?mode=split' },
                   { icon: 'arrow-redo-outline' as IconName, label: 'Withdraw to bank', to: '/pay/withdraw' },
                   { icon: 'storefront-outline' as IconName, label: 'Accept Hayve Pay', sub: 'For business', to: '/business/merchant' },
                 ].map((r, i) => (
