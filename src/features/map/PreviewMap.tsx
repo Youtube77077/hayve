@@ -4,6 +4,7 @@ import Svg, { Path } from 'react-native-svg';
 import { color, font } from '../../design/tokens';
 import { AMSTERDAM, fitZoom, type LngLat, project, unproject } from './geo';
 import { CarGlyph, MarkerView, useGlide, UserDot } from './markers';
+import { ROUTE_STYLE, routeParts, useRouteReveal } from './route';
 import { MAP_COLORS } from './style';
 import { type HayveMapHandle, type HayveMapProps, type MapCar, NO_PADDING } from './types';
 
@@ -73,8 +74,10 @@ const LABELS: { name: string; at: LngLat; minZoom: number }[] = [
   { name: 'Schiphol', at: [4.7639, 52.3105], minZoom: 10 },
 ];
 
-export const PreviewMap = forwardRef<HayveMapHandle, HayveMapProps>(function PreviewMap({ center: initialCenter = AMSTERDAM, zoom: initialZoom = 13, markers = [], cars = [], route, fit, padding = NO_PADDING, userLocation, interactive = true, onMove, onIdle, style, accessibilityLabel }, ref) {
+export const PreviewMap = forwardRef<HayveMapHandle, HayveMapProps>(function PreviewMap({ center: initialCenter = AMSTERDAM, zoom: initialZoom = 13, markers = [], cars = [], route, routeProgress = 0, fit, padding = NO_PADDING, userLocation, interactive = true, onMove, onIdle, style, accessibilityLabel }, ref) {
   const [size, setSize] = useState({ w: 0, h: 0 });
+  const reveal = useRouteReveal(route);
+  const parts = routeParts(route, reveal, routeProgress);
   const [cam, setCam] = useState({ center: initialCenter, zoom: initialZoom });
   const camRef = useRef(cam);
   camRef.current = cam;
@@ -173,7 +176,9 @@ export const PreviewMap = forwardRef<HayveMapHandle, HayveMapProps>(function Pre
             {MAJOR.map((l, i) => (
               <Path key={`M${i}`} d={path(l)} stroke={C.roadMajor} strokeWidth={Math.max(3, 9 * k)} fill="none" strokeLinecap="round" strokeLinejoin="round" />
             ))}
-            {route && route.length > 1 && <Path d={path(route)} stroke={C.route} strokeWidth={5} fill="none" strokeLinecap="round" strokeLinejoin="round" />}
+            {parts.done.length > 1 && <Path d={path(parts.done)} stroke={ROUTE_STYLE.done} strokeWidth={ROUTE_STYLE.width} fill="none" strokeLinecap="round" strokeLinejoin="round" />}
+            {parts.todo.length > 1 && <Path d={path(parts.todo)} stroke={ROUTE_STYLE.casing} strokeWidth={ROUTE_STYLE.casingWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" />}
+            {parts.todo.length > 1 && <Path d={path(parts.todo)} stroke={ROUTE_STYLE.line} strokeWidth={ROUTE_STYLE.width} fill="none" strokeLinecap="round" strokeLinejoin="round" />}
           </Svg>
           {LABELS.filter((l) => cam.zoom >= l.minZoom).map((l) => {
             const s = toScreen(l.at);

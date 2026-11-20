@@ -31,8 +31,10 @@ export interface HayveMapProps {
   zoom?: number;
   markers?: MapMarker[];
   cars?: MapCar[];
-  /** Route line drawn in black along the roads. */
+  /** Route line drawn in black along the roads (draws itself in, white casing). */
   route?: LngLat[] | null;
+  /** 0..1 of the route already travelled (drawn grey). */
+  routeProgress?: number;
   /** When this changes the camera fits these points (with `padding`). */
   fit?: LngLat[] | null;
   padding?: MapPadding;

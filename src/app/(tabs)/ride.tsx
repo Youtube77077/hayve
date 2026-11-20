@@ -165,11 +165,13 @@ export default function Ride() {
 
   let markers: MapMarker[] = [];
   let mapRoute: LngLat[] | null = null;
+  // How much of the shown route has been driven (drawn grey).
+  const routeProgress = !active ? 0 : active.status === 'accepted' ? 0.8 * Math.min(1, elapsed / STEP_MS.accepted) : active.status === 'arriving' ? 0.8 + 0.2 * Math.min(1, elapsed / STEP_MS.arriving) : active.status === 'in_progress' ? Math.min(1, elapsed / STEP_MS.in_progress) : 0;
   let fit: LngLat[] | null = null;
   if (mode === 'choose' && pickup && dropoff) {
     markers = [
-      { id: 'pu', coord: route?.start ?? toLngLat(pickup), kind: 'pickup', label: pinEta ? `${pinEta} min` : undefined },
-      { id: 'do', coord: route?.end ?? toLngLat(dropoff), kind: 'dropoff', label: route ? time(Date.now() + ((pinEta ?? 4) + route.minutes) * 60_000) : undefined },
+      { id: 'pu', coord: route?.start ?? toLngLat(pickup), kind: 'pickup', label: pinEta ? `Pickup · ${pinEta} min` : 'Pickup' },
+      { id: 'do', coord: route?.end ?? toLngLat(dropoff), kind: 'dropoff', label: route ? `Arrive ${time(Date.now() + ((pinEta ?? 4) + route.minutes) * 60_000)}` : undefined },
     ];
     mapRoute = route?.line ?? null;
     fit = [toLngLat(pickup), toLngLat(dropoff)];
@@ -281,6 +283,7 @@ export default function Ride() {
         markers={markers}
         cars={cars}
         route={mapRoute}
+        routeProgress={routeProgress}
         fit={fit}
         padding={padding}
         userLocation={user.coord}

@@ -21,8 +21,8 @@ export function MarkerView({ m }: { m: MapMarker }) {
     return (
       <View style={{ alignItems: 'center' }}>
         {m.label ? <Label text={m.label} /> : null}
-        <View style={{ width: 18, height: 18, backgroundColor: color.black, alignItems: 'center', justifyContent: 'center' }}>
-          <View style={{ width: 6, height: 6, backgroundColor: color.white }} />
+        <View style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: color.black, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: color.white }}>
+          <View style={{ width: 6, height: 6, borderRadius: 1.5, backgroundColor: color.white }} />
         </View>
       </View>
     );
@@ -30,7 +30,7 @@ export function MarkerView({ m }: { m: MapMarker }) {
   return (
     <View style={{ alignItems: 'center' }}>
       {m.label ? <Label text={m.label} /> : null}
-      <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: m.selected ? color.indigo : color.black, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: m.selected ? color.indigo : color.black, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: color.white }}>
         <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: color.white }} />
       </View>
     </View>

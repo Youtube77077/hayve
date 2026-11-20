@@ -102,3 +102,31 @@ export function fitZoom(pts: LngLat[], w: number, h: number, pad: { top: number;
   }
   return 3;
 }
+
+/** Part of a polyline between fractions `a` and `b` (0..1) of its length. */
+export function sliceLine(line: LngLat[], a: number, b: number): LngLat[] {
+  if (line.length < 2 || b <= a) return [];
+  const total = lineLength(line);
+  const from = Math.max(0, a) * total;
+  const to = Math.min(1, b) * total;
+  const out: LngLat[] = [];
+  let acc = 0;
+  for (let i = 1; i < line.length; i++) {
+    const p = line[i - 1];
+    const q = line[i];
+    const seg = haversineM(p, q);
+    const s0 = acc;
+    const s1 = acc + seg;
+    const lerp = (d: number): LngLat => {
+      const f = seg ? (d - s0) / seg : 0;
+      return [p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f];
+    };
+    if (s1 >= from && s0 <= to) {
+      if (!out.length) out.push(from > s0 ? lerp(from) : p);
+      out.push(to < s1 ? lerp(to) : q);
+    }
+    acc = s1;
+    if (acc > to) break;
+  }
+  return out;
+}

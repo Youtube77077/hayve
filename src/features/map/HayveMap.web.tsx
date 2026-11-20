@@ -1,11 +1,12 @@
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Pressable, View } from 'react-native';
 import { MAPBOX_STYLE_URL, MAPBOX_TOKEN, MAPTILER_KEY, mapProvider } from './config';
 import { AMSTERDAM, bounds, type LngLat } from './geo';
 import { CarGlyph, MarkerView, useGlide, UserDot } from './markers';
 import { PreviewMap } from './PreviewMap';
+import { ROUTE_STYLE, routeParts, useRouteReveal } from './route';
 import { hayveMapboxStyle, hayveMaplibreStyle, MAP_COLORS } from './style';
 import { type HayveMapHandle, type HayveMapProps, type MapCar, type MapMarker, NO_PADDING } from './types';
 
@@ -15,11 +16,11 @@ type GLMap = any;
 /** Web map: Mapbox GL JS, MapLibre + MapTiler as fallback, built-in preview without keys. */
 export const HayveMap = forwardRef<HayveMapHandle, HayveMapProps>(function HayveMap(props, ref) {
   const provider = mapProvider('web');
-  if (provider === 'preview') return <PreviewMap ref={ref} {...props} />;
+  if (provider !== 'mapbox' && provider !== 'maplibre') return <PreviewMap ref={ref} {...props} />;
   return <GLHayveMap ref={ref} provider={provider} {...props} />;
 });
 
-const GLHayveMap = forwardRef<HayveMapHandle, HayveMapProps & { provider: 'mapbox' | 'maplibre' }>(function GLHayveMap({ provider, center = AMSTERDAM, zoom = 13, markers = [], cars = [], route, fit, padding = NO_PADDING, userLocation, interactive = true, onMove, onIdle, style, accessibilityLabel }, ref) {
+const GLHayveMap = forwardRef<HayveMapHandle, HayveMapProps & { provider: 'mapbox' | 'maplibre' }>(function GLHayveMap({ provider, center = AMSTERDAM, zoom = 13, markers = [], cars = [], route, routeProgress = 0, fit, padding = NO_PADDING, userLocation, interactive = true, onMove, onIdle, style, accessibilityLabel }, ref) {
   const host = useRef<any>(null);
   const [gl, setGl] = useState<GL>(null);
   const [map, setMap] = useState<GLMap>(null);
@@ -46,8 +47,13 @@ const GLHayveMap = forwardRef<HayveMapHandle, HayveMapProps & { provider: 'mapbo
     });
     m.touchZoomRotate?.disableRotation?.();
     m.on('load', () => {
-      m.addSource('route', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-      m.addLayer({ id: 'route', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': MAP_COLORS.route, 'line-width': 5 } });
+      const empty = { type: 'FeatureCollection', features: [] };
+      m.addSource('route-done', { type: 'geojson', data: empty });
+      m.addSource('route', { type: 'geojson', data: empty });
+      const round = { 'line-cap': 'round', 'line-join': 'round' };
+      m.addLayer({ id: 'route-done', type: 'line', source: 'route-done', layout: round, paint: { 'line-color': ROUTE_STYLE.done, 'line-width': ROUTE_STYLE.width } });
+      m.addLayer({ id: 'route-casing', type: 'line', source: 'route', layout: round, paint: { 'line-color': ROUTE_STYLE.casing, 'line-width': ROUTE_STYLE.casingWidth } });
+      m.addLayer({ id: 'route', type: 'line', source: 'route', layout: round, paint: { 'line-color': ROUTE_STYLE.line, 'line-width': ROUTE_STYLE.width } });
       setMap(m);
     });
     m.on('move', () => {
@@ -67,10 +73,13 @@ const GLHayveMap = forwardRef<HayveMapHandle, HayveMapProps & { provider: 'mapbo
     map?.setPadding(padding);
   }, [map, padding.top, padding.bottom, padding.left, padding.right]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const reveal = useRouteReveal(route);
+  const parts = useMemo(() => routeParts(route, reveal, routeProgress), [route, reveal, routeProgress]);
   useEffect(() => {
-    const src = map?.getSource('route');
-    src?.setData(route && route.length > 1 ? { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: route } } : { type: 'FeatureCollection', features: [] });
-  }, [map, route]);
+    const geo = (line: LngLat[]) => (line.length > 1 ? { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: line } } : { type: 'FeatureCollection', features: [] });
+    map?.getSource('route')?.setData(geo(parts.todo));
+    map?.getSource('route-done')?.setData(geo(parts.done));
+  }, [map, parts.todo, parts.done]);
 
   const fitTo = (pts: LngLat[]) => {
     if (!map || !pts.length) return;
