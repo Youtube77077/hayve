@@ -3,10 +3,10 @@ import { useReducedMotion } from 'react-native-reanimated';
 import { type LngLat, sliceLine } from './geo';
 
 /**
- * Hayve route style: the route draws itself from the start (700ms, ease out), sits on a white
- * casing so it stands out on any map, and the part already travelled turns grey.
+ * Hayve route style (indigo, like the logo wave-v): the route draws itself from the start
+ * (700ms, ease out), sits on a white casing so it stands out on any map, and the part already travelled turns grey.
  */
-export const ROUTE_STYLE = { line: '#0E0E10', casing: '#FFFFFF', done: 'rgba(107,110,120,0.5)', width: 5, casingWidth: 9 } as const;
+export const ROUTE_STYLE = { line: '#4F46E5', casing: '#FFFFFF', done: 'rgba(107,110,120,0.5)', width: 5, casingWidth: 9 } as const;
 
 export function useRouteReveal(route: LngLat[] | null | undefined) {
   const reduced = useReducedMotion();

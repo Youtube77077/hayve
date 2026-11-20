@@ -31,8 +31,8 @@ interface SimCar extends MapCar {
 }
 
 function spawn(center: LngLat, i: number): SimCar {
-  const d = 90 + ((i * 137) % 380);
-  const a = (i * 73) % 360;
+  const d = 160 + ((i * 137) % 420);
+  const a = (i * 97 + 20) % 360;
   return { id: `car${i}`, coord: offset(center, d, a), heading: (Math.round(a / 90) * 90 + 90) % 360, speed: 6 + (i % 4) * 1.5 };
 }
 

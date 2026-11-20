@@ -465,8 +465,8 @@ function SheetContent(p: {
                       <Icon name={CAR_ICON[o.category]} size={28} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <T variant="headline">{o.label}</T>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <T variant="headline" numberOfLines={1}>{o.label}</T>
                         {best && (
                           <View style={{ backgroundColor: color.indigo, borderRadius: 6, paddingHorizontal: 6, height: 20, justifyContent: 'center' }}>
                             <T variant="caption" weight="700" color={color.white}>Best value</T>

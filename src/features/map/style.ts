@@ -21,7 +21,7 @@ export const MAP_COLORS = {
   roadCasing: '#E5E6EA',
   label: '#6B6E78',
   labelHalo: '#FFFFFF',
-  route: '#0E0E10',
+  route: '#4F46E5',
   user: '#4F46E5',
 } as const;
 

@@ -31,7 +31,7 @@ export interface HayveMapProps {
   zoom?: number;
   markers?: MapMarker[];
   cars?: MapCar[];
-  /** Route line drawn in black along the roads (draws itself in, white casing). */
+  /** Route line drawn in Hayve indigo along the roads (draws itself in, white casing). */
   route?: LngLat[] | null;
   /** 0..1 of the route already travelled (drawn grey). */
   routeProgress?: number;
