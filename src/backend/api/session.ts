@@ -1,8 +1,8 @@
-import { DEFAULT_REGION, region, setDisplayCurrency } from '../regions';
+import { DEFAULT_REGION, getGuestCountry, region, setDisplayCurrency } from '../regions';
 import { OWNER_ADMIN_EMAILS, SIM_CODE } from '../config';
 import { ensureAccount } from '../ledger';
 import { defaultProfile } from '../seed';
-import { assert, commit, getDb, getStorage, HayveError, now, SESSION_KEY, simHash, uid } from '../store';
+import { assert, commit, getDb, getStorage, HayveError, now, SESSION_KEY, simHash, uid, refresh } from '../store';
 import type { ID, Role, User } from '../types';
 
 /**
@@ -27,7 +27,7 @@ export function onSessionChange(fn: () => void) {
 /** Money is shown in the signed-in person's currency (from their country). */
 function syncCurrency() {
   const p = currentUserId ? getDb().profiles.find((x) => x.userId === currentUserId) : null;
-  setDisplayCurrency(p ? region(p.country).currency : region(DEFAULT_REGION).currency);
+  setDisplayCurrency(region(p ? p.country : getGuestCountry()).currency);
 }
 
 function setSession(id: ID | null) {
@@ -50,6 +50,8 @@ export function restoreSession(id: ID | null) {
 /** Re-reads the currency after the person changes their country. */
 export function refreshCurrency() {
   syncCurrency();
+  refresh();
+  sessionListeners.forEach((l) => l());
 }
 
 /** The authenticated caller. Every protected API function starts here. */
@@ -99,8 +101,12 @@ export function signUp(input: {
   displayName: string;
   username: string;
   accountType?: 'individual' | 'business';
-  /** ISO country code; defaults to the United States. */
+  /** ISO country code; defaults to where the device is (IP address), else the United States. */
   country?: string;
+  /** App language (defaults to the device language). */
+  language?: 'en' | 'es' | 'fr' | 'de' | 'nl';
+  /** Home address (prefilled from the device location, checked by the person). */
+  address?: { line1: string; city: string; postcode: string; country: string };
 }) {
   const db = getDb();
   const email = input.email.trim().toLowerCase();
@@ -122,9 +128,15 @@ export function signUp(input: {
     createdAt: now(),
   };
   db.users.push(user);
-  const reg = region(input.country ?? DEFAULT_REGION);
-  db.profiles.push({ ...defaultProfile(user.id, username, input.displayName.trim()), accountType: input.accountType ?? 'individual', country: reg.code, currency: reg.currency, city: reg.city.name });
+  const reg = region(input.country ?? getGuestCountry() ?? DEFAULT_REGION);
+  db.profiles.push({ ...defaultProfile(user.id, username, input.displayName.trim()), accountType: input.accountType ?? 'individual', country: reg.code, currency: reg.currency, city: reg.city.name, language: input.language ?? 'en' });
   ensureAccount(user.id);
+  const a = input.address;
+  if (a && a.line1.trim().length >= 3 && a.city.trim().length >= 2) {
+    db.addresses.push({ id: uid('ad'), userId: user.id, label: 'Home', fullName: input.displayName.trim(), line1: a.line1.trim().slice(0, 120), city: a.city.trim().slice(0, 80), postcode: a.postcode.trim().slice(0, 16), country: a.country.trim() || reg.name, isDefault: true });
+    const p = db.profiles.find((x) => x.userId === user.id);
+    if (p) p.city = a.city.trim().slice(0, 80);
+  }
   db.notifications.push({
     id: uid('n'),
     userId: user.id,

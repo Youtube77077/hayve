@@ -12,6 +12,7 @@ import { BottomSheet } from '../../features/ride/BottomSheet';
 import { nearestEta, useNearbyCars, useUserLocation } from '../../features/ride/hooks';
 import { money, time } from '../../lib/format';
 import { NONE, useAction, useLive } from '../../lib/hooks';
+import { useT } from '../../lib/i18n';
 
 const CAR_ICON: Record<RideCategory, IconName> = { go: 'taxi-outline', green: 'leaf-outline', priority: 'flash-outline', comfort: 'car-sport-outline', xl: 'bus-outline' };
 /** Simulated dispatch timings (ms) per status. */
@@ -37,6 +38,11 @@ export default function Ride() {
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [pin, setPin] = useState<LngLat>(user.coord);
   const [moving, setMoving] = useState(false);
+  const lastMove = useRef<LngLat | null>(null);
+  const settle = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (settle.current) clearTimeout(settle.current);
+  }, []);
   const [pickup, setPickup] = useState<PlaceResult | null>(null);
   const [dropoff, setDropoff] = useState<PlaceResult | null>(null);
   const [route, setRoute] = useState<RouteResult | null>(null);
@@ -296,10 +302,19 @@ export default function Ride() {
         accessibilityLabel="Ride map. Move the map to set your pickup point."
         onMove={(c) => {
           if (mode !== 'pickup') return;
-          setMoving(true);
-          setPin(c);
+          // Don't re-render the screen every frame while the map moves; settle after a short pause
+          // (Apple Maps can keep reporting tiny moves without a final "region changed" event).
+          lastMove.current = c;
+          if (!moving) setMoving(true);
+          if (settle.current) clearTimeout(settle.current);
+          settle.current = setTimeout(() => {
+            setMoving(false);
+            setPin(c);
+            void resolvePickup(c, true);
+          }, 700);
         }}
         onIdle={(c, byUser) => {
+          if (settle.current) clearTimeout(settle.current);
           setMoving(false);
           if (mode !== 'pickup') return;
           if (byUser) touched.current = true;
@@ -407,6 +422,7 @@ function SheetContent(p: {
   message: () => void;
   call: () => void;
 }) {
+  const t = useT();
   const pad = { paddingHorizontal: 24, paddingBottom: 32 };
 
   if (p.mode === 'search') return <SearchPanel which={p.search!} near={p.near} places={p.places} onPick={p.search === 'pickup' ? p.choosePickup : p.chooseDropoff} onClose={() => p.setSearch(null)} onSetOnMap={p.search === 'pickup' ? p.setOnMap : undefined} />;
@@ -417,15 +433,15 @@ function SheetContent(p: {
     const saved = [...p.places.filter((x) => x.id === 'home' || x.id === 'work'), ...(airport ? [airport] : []), ...p.places.filter((x) => x.id !== 'home' && x.id !== 'work' && x !== airport).slice(0, 2)].filter((x) => x.id !== p.pickup?.id);
     return (
       <ScrollView contentContainerStyle={[pad, { paddingTop: 12, gap: 16 }]} keyboardShouldPersistTaps="handled">
-        <T variant="title2">Where to?</T>
+        <T variant="title2">{t('Where to?')}</T>
         <Pressable onPress={() => p.setSearch('dropoff')} accessibilityRole="search" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, height: 56, borderRadius: radius.md, backgroundColor: color.grey100, paddingHorizontal: 16, borderWidth: 1, borderColor: pressed ? color.black : color.grey100 })}>
           <Icon name="search" size={20} />
-          <T variant="headline" color={color.textSecondary}>Search destination</T>
+          <T variant="headline" color={color.textSecondary}>{t('Search destination')}</T>
         </Pressable>
         <Pressable onPress={() => p.setSearch('pickup')} accessibilityRole="button" accessibilityLabel="Change pickup" style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: color.black }} />
           <View style={{ flex: 1 }}>
-            <T variant="caption" color={color.textSecondary}>Pickup</T>
+            <T variant="caption" color={color.textSecondary}>{t('Pickup')}</T>
             <T variant="headline" numberOfLines={1}>{p.moving ? 'Moving pin…' : p.pickup?.name ?? 'Locating…'}</T>
           </View>
           <T variant="subhead" weight="700" color={color.indigo}>Edit</T>
@@ -522,7 +538,7 @@ function SheetContent(p: {
   if (p.mode === 'finding' && a) {
     return (
       <View style={[pad, { paddingTop: 12, gap: 16 }]}>
-        <T variant="title2">Finding your driver</T>
+        <T variant="title2">{t('Finding your driver')}</T>
         <SearchingBar />
         <Appear key={`${a.matching.contacted}-${a.matching.noneLeft}`} style={{ gap: 4 }}>
           <T variant="headline">
@@ -544,7 +560,7 @@ function SheetContent(p: {
     return (
       <ScrollView contentContainerStyle={[pad, { paddingTop: 12, gap: 16 }]}>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
-          <T variant="title2">{p.mode === 'trip' ? `Heading to ${a.dropoff.name}` : a.status === 'arriving' ? 'Your driver is almost there' : 'Driver on the way'}</T>
+          <T variant="title2">{p.mode === 'trip' ? `Heading to ${a.dropoff.name}` : a.status === 'arriving' ? 'Your driver is almost there' : t('Driver on the way')}</T>
         </View>
         <T color={color.textSecondary}>
           {p.mode === 'trip' ? (p.tripLeftMin ? `Arriving around ${time(Date.now() + p.tripLeftMin * 60_000)} · ${p.tripLeftMin} min left` : 'Calculating…') : p.driverEtaMin ? `Arrives in ${p.driverEtaMin} min · meet at ${a.pickup.name}` : 'Calculating…'}

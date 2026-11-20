@@ -5,7 +5,8 @@ import { tap as tapApi } from '../../backend/api';
 import type { TapView } from '../../backend/api/tap';
 import { Button, color, Header, Icon, Input, MOTION, ND, Notice, radius, Screen, Sheet, SimBadge, SimQR, SuccessMark, T, tap, useLayout, useReducedMotion, useShake } from '../../design';
 import { ContactlessMark } from '../../features/card';
-import { money } from '../../lib/format';
+import { money, moneyTyped } from '../../lib/format';
+import { fromDisplay } from '../../backend/regions';
 import { useAction, useLive } from '../../lib/hooks';
 
 type Stage = 'amount' | 'tap' | 'done';
@@ -23,7 +24,9 @@ export default function GetPaid() {
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [to, setTo] = useState('');
   const shake = useShake();
-  const cents = Number(digits || '0');
+  // Digits are typed in the person's currency; the charge is stored in base cents.
+  const typed = Number(digits || '0');
+  const cents = fromDisplay(typed);
 
   if (!st) return <Screen header={<Header back title="Get paid" fallback="/pay" />}>{null}</Screen>;
 
@@ -67,9 +70,9 @@ export default function GetPaid() {
   };
 
   const charge = () => {
-    if (cents < 50) {
+    if (typed < 50) {
       shake.shake();
-      setError(`Enter at least ${money(50)}`);
+      setError(`Enter at least ${moneyTyped(50)}`);
       return;
     }
     run(() => tapApi.createCharge(cents, note), {
@@ -111,7 +114,7 @@ export default function GetPaid() {
     return (
       <Screen header={<Header title="Get paid" right={<SimBadge />} />} maxWidth={560} scroll>
         <View style={{ alignItems: 'center', marginTop: 16 }}>
-          <T variant="title1" weight="800" style={{ fontSize: 44, lineHeight: 52 }}>{money(cents)}</T>
+          <T variant="title1" weight="800" style={{ fontSize: 44, lineHeight: 52 }}>{moneyTyped(typed)}</T>
           {note ? <T color={color.textSecondary}>{note}</T> : null}
           <TapRings />
           <T variant="title3" center>Hold card or phone here</T>
@@ -170,7 +173,7 @@ export default function GetPaid() {
   }
 
   return (
-    <Screen header={<Header back title="Get paid" fallback="/pay" right={<SimBadge />} />} maxWidth={480} footer={<Button title={cents ? `Charge ${money(cents)}` : 'Enter an amount'} size="lg" full disabled={!cents} loading={busy} onPress={charge} />}>
+    <Screen header={<Header back title="Get paid" fallback="/pay" right={<SimBadge />} />} maxWidth={480} footer={<Button title={cents ? `Charge ${moneyTyped(typed)}` : 'Enter an amount'} size="lg" full disabled={!cents} loading={busy} onPress={charge} />}>
       {st.monthlyLimitCents != null && (
         <T variant="caption" color={color.textSecondary} center>
           {money(st.monthReceivedCents)} of {money(st.monthlyLimitCents)} received this month
@@ -178,7 +181,7 @@ export default function GetPaid() {
       )}
       <Animated.View style={[{ alignItems: 'center', marginTop: 16 }, shake.style]}>
         <T weight="800" style={{ fontSize: 56, lineHeight: 64, letterSpacing: -1.5, color: cents ? color.black : color.grey500 }} accessibilityLiveRegion="polite">
-          {money(cents)}
+          {moneyTyped(typed)}
         </T>
         <T variant="footnote" color={color.textSecondary}>{cents ? `Fees ${money(fee)} · you get ${money(cents - fee)}` : 'The payer pays nothing extra'}</T>
       </Animated.View>

@@ -5,11 +5,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { media } from '../../backend/media';
 import { Button, color, HayveLogo, Icon, layout, Photo, PRODUCTS, radius, service, T, useLayout } from '../../design';
 import { ProductWordmark } from '../../features/nav/Wordmarks';
+import { useT } from '../../lib/i18n';
 
 /**
  * Onboarding on iPhone/iPad and the public landing page on the website.
  */
 export default function Welcome() {
+  const t = useT();
   const insets = useSafeAreaInsets();
   const { isWide, gutter, isDesktop } = useLayout();
   const headline = isDesktop ? 60 : isWide ? 48 : 38;
@@ -22,8 +24,8 @@ export default function Welcome() {
           <View style={{ flex: 1 }} />
           {isWide && (
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              <Button title="Sign in" variant="ghost" onPress={() => router.push('/sign-in')} />
-              <Button title="Create account" variant="dark" onPress={() => router.push('/sign-up')} />
+              <Button title={t('Sign in')} variant="ghost" onPress={() => router.push('/sign-in')} />
+              <Button title={t('Create account')} variant="dark" onPress={() => router.push('/sign-up')} />
             </View>
           )}
         </View>
@@ -31,17 +33,17 @@ export default function Welcome() {
         <View style={{ flexDirection: isWide ? 'row' : 'column', gap: isWide ? 48 : 24, alignItems: isWide ? 'center' : 'stretch', marginTop: isWide ? 48 : 24 }}>
           <View style={{ flex: 1, maxWidth: 560 }}>
             <T variant="subhead" weight="700" color={color.indigo} style={{ marginBottom: 16 }}>
-              In the US, Canada, the UK, Ireland and across Europe
+              {t('In the US, Canada, the UK, Ireland and across Europe')}
             </T>
             <T weight="800" style={{ fontSize: headline, lineHeight: headline * 1.08, letterSpacing: -1.4 }}>
-              One account for everything you need.
+              {t('One account for everything you need.')}
             </T>
             <T variant="body" color={color.textSecondary} style={{ marginTop: 16, maxWidth: 480, lineHeight: 24 }}>
-              Shop and sell, pay friends, get a ride, order dinner, rent a car and book a stay. One login, one wallet.
+              {t('Shop and sell, pay friends, get a ride, order dinner, rent a car and book a stay. One login, one wallet.')}
             </T>
             <View style={{ gap: 8, marginTop: 32, flexDirection: isWide ? 'row' : 'column' }}>
-              <Button title="Create your account" size="lg" full={!isWide} onPress={() => router.push('/sign-up')} />
-              <Button title="Sign in" variant="outline" size="lg" full={!isWide} onPress={() => router.push('/sign-in')} />
+              <Button title={t('Create your account')} size="lg" full={!isWide} onPress={() => router.push('/sign-up')} />
+              <Button title={t('Sign in')} variant="outline" size="lg" full={!isWide} onPress={() => router.push('/sign-in')} />
             </View>
           </View>
           <View style={{ flex: isWide ? 1 : undefined }}>
@@ -50,7 +52,7 @@ export default function Welcome() {
         </View>
 
         <T variant="title2" style={{ marginTop: isWide ? 80 : 48, marginBottom: 16 }}>
-          Everything in Hayve
+          {t('Everything in Hayve')}
         </T>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -8, rowGap: 16 }}>
           {PRODUCTS.map((key) => (

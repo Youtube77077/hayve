@@ -8,6 +8,7 @@ import { VehicleCard } from '../../features/cards';
 import { StatusPill, TabHeader } from '../../features/common';
 import { HayveMap, type LngLat, type MapMarker } from '../../features/map';
 import { money } from '../../lib/format';
+import { nearby, useMyArea } from '../../features/location';
 import { useLive } from '../../lib/hooks';
 
 type Sort = 'recommended' | 'price_asc' | 'price_desc' | 'rating';
@@ -42,7 +43,12 @@ export default function Drive() {
   const mine = useLive(() => bookings.myRentals().filter((r) => ['requested', 'confirmed', 'active'].includes(r.status))).data ?? [];
 
   const markers: MapMarker[] = useMemo(() => (vehicles ?? []).map((v) => ({ id: v.id, coord: [v.lng, v.lat] as LngLat, kind: 'price' as const, label: money(v.pricePerDayCents).replace(/[.,]00$/, ''), selected: hover === v.id, onPress: () => router.push(`/drive/${v.id}${start && end ? `?start=${start}&end=${end}` : ''}`) })), [vehicles, hover, start, end]);
-  const fit = useMemo(() => (vehicles && vehicles.length ? vehicles.map((v) => [v.lng, v.lat] as LngLat) : null), [vehicles]);
+  // Open around you: fit the cars near you (and you), not every car in the world.
+  const here = useMyArea();
+  const fit = useMemo(() => {
+    const close = nearby((vehicles ?? []).map((v) => [v.lng, v.lat] as LngLat), here.coord);
+    return close.length ? [...close, here.coord] : null;
+  }, [vehicles, here.coord]);
 
   const dateLabel = start && end ? `${prettyDate(start, { day: 'numeric', month: 'short' })} – ${prettyDate(end, { day: 'numeric', month: 'short' })}` : 'Add dates';
   const typeLabel = type === 'all' ? 'Vehicle type' : bookings.VEHICLE_TYPES.find((t) => t.id === type)?.label ?? type;
@@ -78,7 +84,7 @@ export default function Drive() {
       </Grid>
     );
 
-  const map = <HayveMap style={{ flex: 1, borderRadius: radius.lg, borderWidth: 1, borderColor: color.grey200 }} markers={markers} fit={fit} zoom={12} accessibilityLabel="Map of available cars" />;
+  const map = <HayveMap style={{ flex: 1, borderRadius: radius.lg, borderWidth: 1, borderColor: color.grey200 }} markers={markers} fit={fit} center={here.coord} userLocation={here.real ? here.coord : null} zoom={12} accessibilityLabel="Map of available cars" />;
 
   return (
     <Screen header={<TabHeader service="drive" subtitle="Rent a car from local hosts" />} maxWidth={isDesktop ? 1400 : undefined}>

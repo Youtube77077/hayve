@@ -14,7 +14,7 @@ import {
   previewWaveBack,
   publicUser,
   type PublicUser,
-  SHIPPING_CENTS,
+  shippingFor,
   verifiedBusinessOf,
 } from './common';
 import { getSessionUserId, me } from './session';
@@ -302,6 +302,8 @@ export function myListings() {
 export interface CheckoutQuote {
   priceCents: number;
   shippingCents: number;
+  /** domestic · region (EU / US–Canada) · international */
+  shippingZone: import('../config').ShippingZone;
   feeCents: number;
   totalCents: number;
   /** Wave Back if paid with the Hayve balance. */
@@ -310,11 +312,17 @@ export interface CheckoutQuote {
 
 export type DeliveryMethod = 'ship' | 'pickup';
 
-export function quote(productId: ID, delivery: DeliveryMethod = 'ship'): CheckoutQuote {
-  const p = find(getDb().products, (x) => x.id === productId, 'Listing');
+export function quote(productId: ID, delivery: DeliveryMethod = 'ship', addressId?: ID): CheckoutQuote {
+  const db = getDb();
+  const p = find(db.products, (x) => x.id === productId, 'Listing');
   const fee = marketplaceFee(p.priceCents);
-  const shipping = delivery === 'ship' ? SHIPPING_CENTS : 0;
-  return { priceCents: p.priceCents, shippingCents: shipping, feeCents: fee, totalCents: p.priceCents + shipping + fee, waveBackCents: previewWaveBack(getSessionUserId(), 'shop', p.priceCents) };
+  // Shipping depends on where it goes: the chosen address, else the buyer's country.
+  const uid = getSessionUserId();
+  const address = addressId ? db.addresses.find((a) => a.id === addressId && a.userId === uid) : uid ? db.addresses.find((a) => a.userId === uid && a.isDefault) : undefined;
+  const dest = address?.country ?? (uid ? db.profiles.find((x) => x.userId === uid)?.country : null);
+  const ship = shippingFor(p.sellerId, dest);
+  const shipping = delivery === 'ship' ? ship.cents : 0;
+  return { priceCents: p.priceCents, shippingCents: shipping, shippingZone: ship.zone, feeCents: fee, totalCents: p.priceCents + shipping + fee, waveBackCents: previewWaveBack(uid, 'shop', p.priceCents) };
 }
 
 /** Ordinary purchase: the buyer pays and receives the item themselves. */
@@ -333,7 +341,7 @@ export function checkout(productId: ID, opts: { addressId?: ID; method: PayMetho
       ? find(db.addresses, (a) => a.id === opts.addressId && a.userId === user.id, 'Delivery address')
       : db.addresses.find((a) => a.userId === user.id && a.isDefault);
 
-  const q = quote(productId, delivery);
+  const q = quote(productId, delivery, opts.addressId);
   const orderId = uid('o');
   const tx = beginPayment({
     payerId: user.id,

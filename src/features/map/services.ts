@@ -5,12 +5,29 @@ import { MAPBOX_TOKEN } from './config';
 import { bearing, haversineM, type LngLat, offset } from './geo';
 
 /**
- * Mapbox Search/Geocoding and Directions; on iPhone without a Mapbox token, Apple Maps
- * (MapKit) routes, geocoding and search; otherwise an offline estimate so Ride keeps working.
+ * Real map data, best available first:
+ *  1. Mapbox Search/Geocoding and Directions (with EXPO_PUBLIC_MAPBOX_TOKEN)
+ *  2. iPhone without a token: Apple Maps (MapKit) routes, addresses and search
+ *  3. Otherwise free OpenStreetMap services: Photon (komoot) search/addresses and OSRM road routes
+ *  4. Only if all of those fail (offline): an estimate so Ride keeps working
+ * For production traffic use Mapbox (the free OSM servers ask for light use).
  */
 
 const hasToken = () => MAPBOX_TOKEN.startsWith('pk.');
 const API = 'https://api.mapbox.com';
+const PHOTON = 'https://photon.komoot.io';
+const OSRM = 'https://router.project-osrm.org';
+
+type PhotonFeature = { geometry: { coordinates: LngLat }; properties: { name?: string; street?: string; housenumber?: string; city?: string; state?: string; postcode?: string; country?: string; osm_id?: number } };
+
+function photonPlace(f: PhotonFeature, i: number): PlaceResult {
+  const p = f.properties;
+  const street = [p.housenumber, p.street].filter(Boolean).join(' ');
+  const name = p.name || street || p.city || 'Pinned location';
+  const address = [p.name && street ? street : null, p.city, p.state, p.postcode, p.country].filter(Boolean).join(', ');
+  const [lng, lat] = f.geometry.coordinates;
+  return { id: `os_${p.osm_id ?? i}_${lat.toFixed(5)}_${lng.toFixed(5)}`, name, address, lng, lat, snapped: true };
+}
 
 async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
   const res = await fetch(url, { signal });
@@ -51,6 +68,17 @@ export async function reverseGeocode(p: LngLat, signal?: AbortSignal): Promise<P
       if ((e as Error).name === 'AbortError') throw e;
     }
   }
+  try {
+    const j = await getJson<{ features: PhotonFeature[] }>(`${PHOTON}/reverse?lon=${p[0]}&lat=${p[1]}&lang=en&limit=1`, signal);
+    const f = j.features[0];
+    if (f) {
+      const r = photonPlace(f, 0);
+      const near = haversineM([r.lng, r.lat], p) < 80;
+      return { ...r, id: `pt_${p[0].toFixed(5)}_${p[1].toFixed(5)}`, lng: near ? r.lng : p[0], lat: near ? r.lat : p[1], snapped: near };
+    }
+  } catch (e) {
+    if ((e as Error).name === 'AbortError') throw e;
+  }
   return estimateAddress(p);
 }
 
@@ -84,7 +112,16 @@ export async function searchPlaces(q: string, near: LngLat, signal?: AbortSignal
       return saved;
     }
   }
-  if (!term || !hasToken()) return saved;
+  if (!term) return saved;
+  if (!hasToken()) {
+    try {
+      const j = await getJson<{ features: PhotonFeature[] }>(`${PHOTON}/api/?q=${encodeURIComponent(q)}&lat=${near[1]}&lon=${near[0]}&limit=6&lang=en`, signal);
+      return [...saved.slice(0, 3), ...j.features.map(photonPlace)];
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') throw e;
+      return saved;
+    }
+  }
   try {
     type R = { features: { id: string; properties: { name: string; place_formatted?: string; full_address?: string; coordinates: { longitude: number; latitude: number } } }[] };
     const j = await getJson<R>(`${API}/search/geocode/v6/forward?q=${encodeURIComponent(q)}&proximity=${near[0]},${near[1]}&limit=6&language=en&access_token=${MAPBOX_TOKEN}`, signal);
@@ -126,6 +163,15 @@ export async function directions(a: LngLat, b: LngLat, signal?: AbortSignal): Pr
     } catch (e) {
       if ((e as Error).name === 'AbortError') throw e;
     }
+  }
+  try {
+    type R = { routes: { geometry: { coordinates: LngLat[] }; distance: number; duration: number }[]; waypoints: { location: LngLat }[] };
+    const j = await getJson<R>(`${OSRM}/route/v1/driving/${a[0]},${a[1]};${b[0]},${b[1]}?geometries=geojson&overview=full`, signal);
+    const r = j.routes?.[0];
+    // OSRM has no live traffic: add a city-traffic margin to its free-flow time.
+    if (r) return { line: r.geometry.coordinates, km: r.distance / 1000, minutes: (r.duration / 60) * 1.35, start: j.waypoints[0]?.location ?? a, end: j.waypoints[1]?.location ?? b, estimated: false };
+  } catch (e) {
+    if ((e as Error).name === 'AbortError') throw e;
   }
   return estimateRoute(a, b);
 }

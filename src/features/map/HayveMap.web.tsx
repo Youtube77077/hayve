@@ -1,8 +1,9 @@
 import 'mapbox-gl/dist/mapbox-gl.css';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Pressable, View } from 'react-native';
-import { MAPBOX_STYLE_URL, MAPBOX_TOKEN, MAPTILER_KEY, mapProvider } from './config';
+import { MAPBOX_STYLE_URL, MAPBOX_TOKEN, MAPTILER_KEY, mapProvider, OPENFREEMAP_STYLE } from './config';
 import { DEFAULT_CENTER, bounds, type LngLat } from './geo';
 import { CarGlyph, MarkerView, useGlide, UserDot } from './markers';
 import { PreviewMap } from './PreviewMap';
@@ -13,7 +14,7 @@ import { type HayveMapHandle, type HayveMapProps, type MapCar, type MapMarker, N
 type GL = any;
 type GLMap = any;
 
-/** Web map: Mapbox GL JS, MapLibre + MapTiler as fallback, built-in preview without keys. */
+/** Web map: Mapbox GL JS with a token, otherwise MapLibre with real OpenStreetMap tiles (OpenFreeMap). */
 export const HayveMap = forwardRef<HayveMapHandle, HayveMapProps>(function HayveMap(props, ref) {
   const provider = mapProvider('web');
   if (provider !== 'mapbox' && provider !== 'maplibre') return <PreviewMap ref={ref} {...props} />;
@@ -36,7 +37,7 @@ const GLHayveMap = forwardRef<HayveMapHandle, HayveMapProps & { provider: 'mapbo
     if (provider === 'mapbox') g.accessToken = MAPBOX_TOKEN;
     const m = new g.Map({
       container: host.current,
-      style: provider === 'mapbox' ? MAPBOX_STYLE_URL || hayveMapboxStyle() : hayveMaplibreStyle(MAPTILER_KEY),
+      style: provider === 'mapbox' ? MAPBOX_STYLE_URL || hayveMapboxStyle() : MAPTILER_KEY ? hayveMaplibreStyle(MAPTILER_KEY) : OPENFREEMAP_STYLE,
       center,
       zoom,
       attributionControl: true,

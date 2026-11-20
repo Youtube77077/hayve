@@ -13,9 +13,9 @@ export default function Checkout() {
   const { productId } = useLocalSearchParams<{ productId: string }>();
   const [delivery, setDelivery] = useState<DeliveryMethod>('ship');
   const { data: p, error } = useLive(() => shop.getProduct(productId), [productId]);
-  const quote = useLive(() => shop.quote(productId, delivery), [productId, delivery]).data;
-  const addresses = useLive(() => social.addresses()).data ?? NONE;
   const [addressId, setAddressId] = useState<string | null>(null);
+  const quote = useLive(() => shop.quote(productId, delivery, addressId ?? undefined), [productId, delivery, addressId]).data;
+  const addresses = useLive(() => social.addresses()).data ?? NONE;
   const [method, setMethod] = useState<PayMethod>('wallet');
   const [done, setDone] = useState<{ orderId: string; reference: string; waveBackCents: number } | null>(null);
   const { run, busy } = useAction();
@@ -130,7 +130,7 @@ export default function Checkout() {
               <Divider style={{ marginVertical: 16 }} />
               <KeyValue label="Item" value={money(quote.priceCents)} />
               <KeyValue label="Fees" value={money(quote.feeCents)} />
-              {delivery === 'ship' && <KeyValue label="Shipping · Hayve Send" value={money(quote.shippingCents)} />}
+              {delivery === 'ship' && <KeyValue label={quote.shippingZone === 'international' ? 'International shipping · Hayve Send' : quote.shippingZone === 'region' ? 'Cross-border shipping · Hayve Send' : 'Shipping · Hayve Send'} value={money(quote.shippingCents)} />}
               <Divider style={{ marginVertical: 8 }} />
               <KeyValue label="Total" value={money(quote.totalCents)} strong />
             </Card>

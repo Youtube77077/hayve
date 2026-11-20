@@ -7,6 +7,7 @@ import { business, social } from '../../backend/api';
 import { Avatar, color, font, HayveLogo, Icon, type IconName, layout, T, tap } from '../../design';
 import { useLive } from '../../lib/hooks';
 import { PRODUCT_ICON, type ProductKey, ProductWordmark } from './Wordmarks';
+import { useT } from '../../lib/i18n';
 
 /** Tab route name for each destination. */
 const ROUTE: Record<string, string> = { home: 'index', shop: 'shop', pay: 'pay', ride: 'ride', bites: 'bites', drive: 'drive', stay: 'stay', explore: 'explore', profile: 'profile' };
@@ -40,14 +41,15 @@ function BottomBar(props: BottomTabBarProps) {
   const active = activeKey(props);
   const inMore = !MOBILE.some((m) => m.key === active);
   const unread = useLive(() => social.unreadNotificationCount() + social.unreadMessageCount()).data ?? 0;
+  const t = useT();
 
   const Item = ({ k, label, icon, onPress, on, badge }: { k: string; label: string; icon: IconName; onPress: () => void; on: boolean; badge?: boolean }) => (
-    <Pressable key={k} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={label} onPress={onPress} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4, paddingTop: 8, paddingBottom: 4 }}>
+    <Pressable key={k} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={t(label)} onPress={onPress} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4, paddingTop: 8, paddingBottom: 4 }}>
       <View>
         <Icon name={icon} size={23} color={on ? color.indigo : color.black} />
         {badge && <View style={{ position: 'absolute', top: -1, right: -3, width: 8, height: 8, borderRadius: 4, backgroundColor: color.indigo }} />}
       </View>
-      <Text style={[{ fontSize: 11, color: on ? color.indigo : color.black }, font(on ? '700' : '500')]}>{label}</Text>
+      <Text style={[{ fontSize: 11, color: on ? color.indigo : color.black }, font(on ? '700' : '500')]}>{t(label)}</Text>
     </Pressable>
   );
 
@@ -67,6 +69,7 @@ function BottomBar(props: BottomTabBarProps) {
 /* ------------------------------------------------------------- Desktop -- */
 
 function Sidebar(props: BottomTabBarProps) {
+  const t = useT();
   const insets = useSafeAreaInsets();
   const active = activeKey(props);
   const me = useLive(() => social.myProfile()).data;
@@ -94,7 +97,7 @@ function Sidebar(props: BottomTabBarProps) {
         {(partnerApps.length > 0 || roles.includes('admin')) && (
           <>
             <T variant="overline" color={color.grey500} style={{ paddingHorizontal: 12, marginTop: 20, marginBottom: 6 }}>
-              For business
+              {t('For business')}
             </T>
             {partnerApps.map((a) => (
               <SideLink key={a.role} icon="briefcase-outline" label={a.name} onPress={() => router.push(a.route as never)} />
@@ -134,11 +137,12 @@ function ProductLink({ product, on, onPress }: { product: ProductKey; on: boolea
 }
 
 function SideLink({ icon, label, onPress, on, badge }: { icon: IconName; label: string; onPress: () => void; on?: boolean; badge?: number }) {
+  const t = useT();
   return (
     <Pressable onPress={onPress} accessibilityRole="link" style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, height: 42, paddingHorizontal: 12, borderRadius: 12, backgroundColor: pressed || hovered ? color.grey100 : 'transparent' })}>
       <Icon name={icon} size={19} color={on ? color.indigo : color.black} />
       <T variant="subhead" weight={on ? '700' : '500'} color={on ? color.indigo : color.black} style={{ flex: 1 }}>
-        {label}
+        {t(label)}
       </T>
       {!!badge && (
         <View style={{ minWidth: 20, height: 20, borderRadius: 10, backgroundColor: color.indigo, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 }}>

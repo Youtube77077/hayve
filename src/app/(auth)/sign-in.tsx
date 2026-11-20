@@ -6,8 +6,10 @@ import { session } from '../../backend/api';
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from '../../backend/seed';
 import { Button, color, Header, HayveLogo, Input, radius, Screen, T } from '../../design';
 import { useAction } from '../../lib/hooks';
+import { useT } from '../../lib/i18n';
 
 export default function SignIn() {
+  const t = useT();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -26,19 +28,19 @@ export default function SignIn() {
       <View style={{ gap: 6, marginTop: 8, marginBottom: 28 }}>
         <HayveLogo height={30} />
         <T variant="title1" style={{ marginTop: 18 }}>
-          Welcome back
+          {t('Welcome back')}
         </T>
         <T color={color.textSecondary}>Sign in to your Hayve account.</T>
       </View>
       <View style={{ gap: 14 }}>
-        <Input label="Email" icon="mail-outline" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" textContentType="emailAddress" placeholder="you@example.com" />
-        <Input label="Password" icon="lock-closed-outline" value={password} onChangeText={setPassword} secureTextEntry autoComplete="password" textContentType="password" placeholder="••••••••" error={error} onSubmitEditing={() => submit()} returnKeyType="go" />
+        <Input label={t('Email')} icon="mail-outline" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" textContentType="emailAddress" placeholder="you@example.com" />
+        <Input label={t('Password')} icon="lock-closed-outline" value={password} onChangeText={setPassword} secureTextEntry autoComplete="password" textContentType="password" placeholder="••••••••" error={error} onSubmitEditing={() => submit()} returnKeyType="go" />
         <Pressable onPress={() => router.push('/forgot')} style={{ alignSelf: 'flex-end' }} hitSlop={8}>
           <T variant="subhead" color={color.primary} weight="700">
             Forgot password?
           </T>
         </Pressable>
-        <Button title="Sign in" size="lg" full loading={busy} onPress={() => submit()} disabled={!email || !password} />
+        <Button title={t('Sign in')} size="lg" full loading={busy} onPress={() => submit()} disabled={!email || !password} />
         <Button title="Create an account" variant="ghost" full onPress={() => router.replace('/sign-up')} />
       </View>
 

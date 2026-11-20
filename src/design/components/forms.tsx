@@ -1,3 +1,4 @@
+import { fromDisplay } from '../../backend/regions';
 import { Icon } from '../icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Pressable, Switch, View } from 'react-native';
@@ -306,10 +307,13 @@ export function RangeCalendar({ start, end, onChange, disabled = [], months = 2 
 
 /* --------------------------------------------------------- Money input -- */
 
+/** Parses an amount typed in the person's currency and returns base cents (see regions.ts FX). */
 export function parseEuro(text: string): number | null {
   const cleaned = text.replace(/[^\d.,]/g, '').replace(',', '.');
   if (!cleaned) return null;
   const n = Number(cleaned);
   if (!Number.isFinite(n)) return null;
-  return Math.round(n * 100);
+  return fromDisplay(Math.round(n * 100));
 }
+
+export const parseMoney = parseEuro;

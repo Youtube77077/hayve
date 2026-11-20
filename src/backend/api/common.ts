@@ -1,4 +1,5 @@
-import { DEFAULT_FEE_TIERS, DEFAULT_PAY_REQUESTS, DEFAULT_RIDE, DEFAULT_TAP_TO_PAY, DEFAULT_WAVE_BACK, marketplaceFeeCents, type PayRequestSettings, type RideSettings, SEND_SHIPPING_CENTS, type TapToPaySettings, type WaveBackCategory, type WaveBackSettings } from '../config';
+import { REGIONS } from '../regions';
+import { DEFAULT_FEE_TIERS, DEFAULT_PAY_REQUESTS, DEFAULT_RIDE, DEFAULT_TAP_TO_PAY, DEFAULT_WAVE_BACK, marketplaceFeeCents, type PayRequestSettings, type RideSettings, SEND_SHIPPING_CENTS, SEND_ZONES, type ShippingZone, type TapToPaySettings, type WaveBackCategory, type WaveBackSettings } from '../config';
 import { accountIdFor, captureHold, createTransaction, type Credit, refundTransaction, SYSTEM, voidHold } from '../ledger';
 import { getDb, HayveError, now, uid } from '../store';
 import type { ID, NotificationKind, Profile, Settings, Transaction, TxType } from '../types';
@@ -77,6 +78,29 @@ export function audit(actorId: ID | null, action: string, target: string) {
 }
 
 export const SHIPPING_CENTS = SEND_SHIPPING_CENTS;
+
+const EU = new Set(['IE', 'NL', 'DE', 'FR', 'BE', 'ES', 'IT', 'PT']);
+const NORTH_AMERICA = new Set(['US', 'CA']);
+
+/** ISO code for a country written as a code or a name ("United States" → "US"). */
+export function countryCodeOf(country?: string | null) {
+  if (!country) return null;
+  const c = country.trim();
+  return REGIONS.find((r) => r.code === c.toUpperCase() || r.name.toLowerCase() === c.toLowerCase())?.code ?? (/^[A-Z]{2}$/i.test(c) ? c.toUpperCase() : null);
+}
+
+export function shippingZone(from: string | null, to: string | null): ShippingZone {
+  if (!from || !to || from === to) return 'domestic';
+  if ((EU.has(from) && EU.has(to)) || (NORTH_AMERICA.has(from) && NORTH_AMERICA.has(to))) return 'region';
+  return 'international';
+}
+
+/** Hayve Send price from a seller to a destination country (international costs more). */
+export function shippingFor(sellerId: ID, destCountry?: string | null) {
+  const from = getDb().profiles.find((p) => p.userId === sellerId)?.country ?? null;
+  const zone = shippingZone(from, countryCodeOf(destCountry));
+  return { cents: SEND_ZONES[zone], zone };
+}
 
 /** Runtime settings (admin-editable), falling back to config.ts defaults. */
 type FullSettings = Settings & { waveBack: WaveBackSettings; tapToPay: TapToPaySettings; payRequests: PayRequestSettings; ride: RideSettings };

@@ -263,8 +263,50 @@ export function formatMoney(cents: number, currency: CurrencyCode = 'USD', opts:
   return `${sign}${CURRENCY_SYMBOL[currency]}${body}`;
 }
 
-/* The display currency follows the signed-in person's country (set by the session). */
+/* ------------------------------------------------------------- FX ---- */
+
+/**
+ * All amounts are stored as integer cents in one base currency (US dollars) so prices and
+ * balances mean the same thing for everyone. Each person sees them converted to their own
+ * currency, and amounts they type are converted back. Rates are refreshed from a public FX feed
+ * at start-up (see src/lib/geo.ts) with these as the offline fallback.
+ */
+export const BASE_CURRENCY: CurrencyCode = 'USD';
+export const DEFAULT_RATES: Record<CurrencyCode, number> = { USD: 1, EUR: 0.92, GBP: 0.79, CAD: 1.38, AUD: 1.53 };
+let rates: Record<CurrencyCode, number> = { ...DEFAULT_RATES };
+
+export function setRates(next: Partial<Record<CurrencyCode, number>>) {
+  for (const [k, v] of Object.entries(next)) if (k in rates && typeof v === 'number' && v > 0 && Number.isFinite(v)) rates[k as CurrencyCode] = v;
+}
+
+export function getRates() {
+  return { ...rates };
+}
+
+/** Converts integer cents between currencies at the current rate. */
+export function convert(cents: number, from: CurrencyCode, to: CurrencyCode) {
+  if (from === to) return cents;
+  return Math.round((cents / rates[from]) * rates[to]);
+}
+
+/* The display currency follows the signed-in person's country (or, signed out, where they are). */
 let displayCurrency: CurrencyCode = 'USD';
+
+/** Base cents → cents in the person's currency. */
+export const toDisplay = (baseCents: number) => convert(baseCents, BASE_CURRENCY, displayCurrency);
+/** Cents typed in the person's currency → base cents. */
+export const fromDisplay = (displayCents: number) => convert(displayCents, displayCurrency, BASE_CURRENCY);
+
+/** Country detected for this device (from the IP address or location) before anyone signs in. */
+let guestCountry = DEFAULT_REGION;
+
+export function setGuestCountry(code: string) {
+  if (REGIONS.some((r) => r.code === code)) guestCountry = code;
+}
+
+export function getGuestCountry() {
+  return guestCountry;
+}
 
 export function setDisplayCurrency(c: CurrencyCode) {
   displayCurrency = c;
@@ -274,7 +316,7 @@ export function getDisplayCurrency() {
   return displayCurrency;
 }
 
-/** Formats cents in the signed-in person's currency (used in messages and errors). */
+/** Formats base cents in the signed-in person's currency (used in messages and errors). */
 export function fmtMoney(cents: number, opts: { sign?: boolean; compact?: boolean } = {}) {
-  return formatMoney(cents, displayCurrency, opts);
+  return formatMoney(toDisplay(cents), displayCurrency, opts);
 }

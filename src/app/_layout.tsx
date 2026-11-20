@@ -17,6 +17,7 @@ import { initBackend } from '../backend/bootstrap';
 import { color, Loading, ToastProvider } from '../design';
 import { hydrateCart } from '../lib/cart';
 import { useSessionId } from '../lib/hooks';
+import { detectCountryAndRates } from '../lib/geo';
 import { takeReturnTo } from '../lib/returnTo';
 import { deviceStorage } from '../lib/storage';
 
@@ -53,7 +54,11 @@ export default function RootLayout() {
 
   useEffect(() => {
     Promise.all([initBackend(deviceStorage).catch(() => initBackend(null)), hydrateCart()])
-      .finally(() => setReady(true));
+      .finally(() => {
+        setReady(true);
+        // Country (IP address) and exchange rates, in the background.
+        void detectCountryAndRates();
+      });
   }, []);
 
   useEffect(() => {

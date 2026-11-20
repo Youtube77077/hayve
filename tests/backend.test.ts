@@ -5,6 +5,7 @@ import { DEFAULT_FEE_TIERS, marketplaceFeeCents, OWNER_ADMIN_EMAILS, SIM_CODE } 
 import { createSeedDatabase, DEMO_PASSWORD } from '../src/backend/seed';
 import { attachStorage, getDb } from '../src/backend/store';
 import { money } from '../src/lib/format';
+import { fromDisplay } from '../src/backend/regions';
 
 const as = (email: string) => api.session.signIn(email, DEMO_PASSWORD);
 const SAM = 'sam@hayve.app';
@@ -410,7 +411,7 @@ describe('marketplace fees', () => {
     as(SAM);
     const ship = api.shop.quote('p_jacket', 'ship');
     expect(ship.feeCents).toBe(480); // €120 × 4%
-    expect(ship.shippingCents).toBe(395);
+    expect(ship.shippingCents).toBe(1895); // Brooklyn ← Paris: international Hayve Send
     const pickup = api.shop.quote('p_jacket', 'pickup');
     expect(pickup.shippingCents).toBe(0);
     expect(pickup.totalCents).toBe(12000 + 480);
@@ -466,7 +467,7 @@ describe('Wave Back', () => {
     const r = api.shop.checkout('p_jacket', { addressId: 'ad_sam', method: 'wallet' });
     const before = api.wallet.wallet().available;
     api.shop.updateOrder(r.orderId, 'cancel');
-    expect(api.wallet.wallet().available).toBe(before + 12000 + 480 + 395 - 120);
+    expect(api.wallet.wallet().available).toBe(before + 12000 + 480 + 1895 - 120);
     expect(ledgerIsBalanced()).toBe(true);
   });
 });
@@ -576,7 +577,7 @@ describe('Hayve Store and admin', () => {
     const inv = api.shop.invoice(orderId);
     expect(inv.seller.vat).toMatch(/^NL/);
     expect(inv.netCents + inv.vatCents).toBe(inv.grossCents);
-    expect(inv.grossCents).toBe(18900 + 395);
+    expect(inv.grossCents).toBe(18900 + 1895); // international shipping (US ← NL)
   });
 
   it('only gives admin to the owner email, and requires email verification + 2FA', () => {
@@ -930,13 +931,15 @@ describe('international', () => {
     expect(api.wallet.wallet().currency).toBe('USD');
     expect(money(1234)).toBe('$12.34');
     as(NOOR);
-    expect(money(1234)).toBe('£12.34');
+    // Stored in base dollars, shown converted at the current rate (offline default 0.79).
+    expect(money(1234)).toBe('£9.75');
+    expect(fromDisplay(975)).toBe(1234);
     expect(api.regions.region('GB').banks).toContain('Barclays');
     expect(api.regions.region('US').bankRailName).toBe('Bank account (ACH)');
     // iDEAL | Wero only for the Netherlands.
     expect(api.regions.REGIONS.filter((r) => r.bankRail === 'ideal_wero').map((r) => r.code)).toEqual(['NL']);
     api.social.updateProfile({ country: 'IE' });
-    expect(money(500)).toBe('€5.00');
+    expect(money(500)).toBe('€4.60');
     expect(() => api.social.updateProfile({ country: 'XX' })).toThrow(/supported country/);
   });
 
@@ -947,7 +950,7 @@ describe('international', () => {
     expect(p.city).toBe('New York');
     api.session.signUp({ email: 'uk@hayve.app', password: 'password1', displayName: 'Amelia Hart', username: 'amelia', country: 'GB' });
     expect(api.social.myProfile().profile.country).toBe('GB');
-    expect(money(100)).toBe('£1.00');
+    expect(money(100)).toBe('£0.79');
     expect(api.regions.regionFromLocale('en-CA')).toBe('CA');
     expect(api.regions.regionFromLocale('zz')).toBe('US');
   });
@@ -971,5 +974,21 @@ describe('international', () => {
     const id = api.ride.requestRide('kings_cross', 'tower_bridge', 'go', 'wallet');
     const r = getDb().rides.find((x) => x.id === id)!;
     expect(r.offer?.etaMin).toBeLessThan(15);
+  });
+});
+
+describe('Hayve Send shipping zones', () => {
+  it('charges more for international parcels than domestic or cross-border ones', () => {
+    as(SAM); // Brooklyn, US → seller in the Netherlands
+    expect(api.shop.quote('p_vinyl_bowl').shippingZone).toBe('international');
+    expect(api.shop.quote('p_vinyl_bowl').shippingCents).toBe(1895);
+    as('jonas@hayve.app'); // Berlin → Amsterdam: same EU market
+    expect(api.shop.quote('p_vinyl_bowl').shippingZone).toBe('region');
+    as(LUCAS);
+    const own = getDb().products.find((p) => p.sellerId === 'u_eva')!; // Dublin → Amsterdam
+    expect(api.shop.quote(own.id).shippingCents).toBe(895);
+    as(NOOR); // London → Amsterdam is international (UK is outside the EU)
+    expect(api.shop.quote('p_vinyl_bowl').shippingZone).toBe('international');
+    expect(api.shop.quote('p_vinyl_bowl', 'pickup').shippingCents).toBe(0);
   });
 });

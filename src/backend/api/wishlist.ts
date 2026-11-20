@@ -14,7 +14,7 @@ import {
   previewWaveBack,
   publicUser,
   type PublicUser,
-  SHIPPING_CENTS,
+  shippingFor,
 } from './common';
 import { getSessionUserId, me } from './session';
 import { type ProductCard, toCard } from './shop';
@@ -270,15 +270,17 @@ export function reserveGift(wishlistItemId: ID, token?: string | null): GiftQuot
   commit();
 
   const fee = marketplaceFee(product.priceCents);
+  // Shipping to the wishlist owner's country (the buyer never sees their address).
+  const ship = shippingFor(product.sellerId, getDb().profiles.find((x) => x.userId === owner.userId)?.country);
   return {
     reservationId: reservation.id,
     expiresAt: reservation.expiresAt,
     recipient: { displayName: owner.displayName, city: owner.city },
     product: { id: product.id, title: product.title, image: product.images[0], seller: displayName(product.sellerId) },
     priceCents: product.priceCents,
-    shippingCents: SHIPPING_CENTS,
+    shippingCents: ship.cents,
     feeCents: fee,
-    totalCents: product.priceCents + SHIPPING_CENTS + fee,
+    totalCents: product.priceCents + ship.cents + fee,
     waveBackCents: previewWaveBack(user.id, 'shop', product.priceCents),
   };
 }
@@ -336,7 +338,8 @@ export function confirmGift(reservationId: ID, method: PayMethod): GiftReceipt {
     assert(product.status === 'active' && product.quantity > 0, 'conflict', 'This item is no longer available');
     assert(address, 'conflict', 'Gifting is not available for this person yet');
     const fee = marketplaceFee(product.priceCents);
-    const total = product.priceCents + SHIPPING_CENTS + fee;
+    const shipCents = shippingFor(product.sellerId, address.country).cents;
+    const total = product.priceCents + shipCents + fee;
     const orderId = uid('o');
 
     // 1) Purchaser → Hayve Gift escrow (held, then captured).
@@ -358,7 +361,7 @@ export function confirmGift(reservationId: ID, method: PayMethod): GiftReceipt {
       fromAccountId: SYSTEM.giftEscrow,
       credits: [
         { accountId: accountIdFor(product.sellerId), amountCents: product.priceCents, status: 'pending' },
-        { accountId: SYSTEM.fees, amountCents: SHIPPING_CENTS + fee },
+        { accountId: SYSTEM.fees, amountCents: shipCents + fee },
       ],
       labelForFrom: 'Hayve Gift',
       labelForTo: 'Hayve Gift',
@@ -378,7 +381,7 @@ export function confirmGift(reservationId: ID, method: PayMethod): GiftReceipt {
       shipTo: { fullName: address.fullName, line1: address.line1, city: address.city, postcode: address.postcode, country: address.country },
       delivery: 'ship',
       priceCents: product.priceCents,
-      shippingCents: SHIPPING_CENTS,
+      shippingCents: shipCents,
       feeCents: fee,
       totalCents: total,
       paymentTxId: tx.id,

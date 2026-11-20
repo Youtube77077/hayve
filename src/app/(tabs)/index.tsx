@@ -7,10 +7,12 @@ import { Appear, color, Emoji, font, useHotkey, HScroll, Icon, type IconName, Ph
 import { ServiceShortcuts, StatusPill } from '../../features/common';
 import { ago, money, currencySymbol } from '../../lib/format';
 import { useLive } from '../../lib/hooks';
+import { useT } from '../../lib/i18n';
 
 const HIDE_KEY = 'hayve.hideBalance';
 
 export default function Home() {
+  const t = useT();
   const { isWide, gutter } = useLayout();
   const me = useLive(() => social.myProfile()).data;
   const w = useLive(() => wallet.wallet()).data;
@@ -60,7 +62,7 @@ export default function Home() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <T variant={isWide ? 'title1' : 'title2'} weight="500">
-              Hey <T variant={isWide ? 'title1' : 'title2'} weight="800">{firstName || 'there'}</T>
+              {t('Hey {name}', { name: '' }).trim()} <T variant={isWide ? 'title1' : 'title2'} weight="800">{firstName || 'there'}</T>
             </T>
             <Emoji char="👋" size={isWide ? 28 : 22} />
           </View>
@@ -86,7 +88,7 @@ export default function Home() {
             onChangeText={setQ}
             onSubmitEditing={submitSearch}
             returnKeyType="search"
-            placeholder="Where to, or what do you need?"
+            placeholder={t('Where to, or what do you need?')}
             placeholderTextColor={color.grey500}
             accessibilityLabel="Search Hayve"
             style={[{ flex: 1, fontSize: isWide ? 18 : 16, color: color.black, height: '100%' }, font('500'), { outlineStyle: 'none' } as object]}
@@ -136,7 +138,7 @@ export default function Home() {
           gap={32}
           left={
             <View>
-              <Section title="Recent activity" action="See all" onAction={() => router.push('/pay')}>
+              <Section title={t('Recent activity')} action={t('See all')} onAction={() => router.push('/pay')}>
                 {activity.length === 0 ? (
                   <T color={color.grey500}>Nothing yet. Your payments and orders show up here.</T>
                 ) : (
@@ -164,7 +166,7 @@ export default function Home() {
                 )}
               </Section>
               {(lastFood || recentPlaces.length > 0) && (
-                <Section title="Pick up where you left off">
+                <Section title={t('Pick up where you left off')}>
                   <View style={{ gap: 10 }}>
                     {lastFood && (
                       <Pressable onPress={() => router.push(`/bites/restaurant/${lastFood.restaurant.id}`)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.lg, borderWidth: 1, borderColor: pressed ? color.black : color.grey200 })}>
@@ -203,7 +205,7 @@ export default function Home() {
           }
           right={
             <View>
-              <Section title="Offers near you" action="Hayve Bites" onAction={() => router.push('/bites')}>
+              <Section title={t('Offers near you')} action="Hayve Bites" onAction={() => router.push('/bites')}>
                 <View style={{ gap: 10 }}>
                   {deals.slice(0, 3).map((r) => (
                     <Pressable key={r.id} onPress={() => router.push(`/bites/restaurant/${r.id}`)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.lg, borderWidth: 1, borderColor: pressed ? color.black : color.grey200 })}>

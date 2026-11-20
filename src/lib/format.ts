@@ -1,13 +1,18 @@
-import { CURRENCY_SYMBOL, type CurrencyCode, formatMoney, getDisplayCurrency } from '../backend/regions';
+import { BASE_CURRENCY, convert, CURRENCY_SYMBOL, type CurrencyCode, formatMoney, getDisplayCurrency, toDisplay } from '../backend/regions';
 /** Formatting helpers (EUR, dates, relative time). */
-/** Money in the signed-in person's currency ($, £, €…), from integer cents. */
+/** Money in the person's currency ($, £, €…), converted from base cents at today's rate. */
 export function money(cents: number, opts: { sign?: boolean; compact?: boolean } = {}) {
-  return formatMoney(cents, getDisplayCurrency(), opts);
+  return formatMoney(toDisplay(cents), getDisplayCurrency(), opts);
 }
 
 /** Money in a specific currency (for example a payment link in the requester's currency). */
 export function moneyIn(cents: number, currency: CurrencyCode) {
-  return formatMoney(cents, currency);
+  return formatMoney(convert(cents, BASE_CURRENCY, currency), currency);
+}
+
+/** Cents already in the person's currency (for example digits typed on a keypad). */
+export function moneyTyped(displayCents: number) {
+  return formatMoney(displayCents, getDisplayCurrency());
 }
 
 export function shortDate(ts: number) {

@@ -76,6 +76,12 @@ export function commit() {
   }, 120);
 }
 
+/** Re-renders screens without saving (for example after exchange rates or the currency change). */
+export function refresh() {
+  version++;
+  listeners.forEach((l) => l());
+}
+
 export async function flush() {
   if (persistTimer) {
     clearTimeout(persistTimer);

@@ -14,12 +14,16 @@ export type MapProvider = 'mapbox' | 'maplibre' | 'apple' | 'preview';
 
 /**
  * Which renderer to use. Mapbox when a token is set; on iPhone/iPad without a token, Apple Maps
- * (free, no key, with Apple's routes and search); on the web MapLibre + MapTiler as fallback;
- * otherwise the built-in vector preview.
+ * (free, no key, with Apple's routes and search); on the web MapLibre with OpenStreetMap tiles
+ * (OpenFreeMap, free, no key; MapTiler with a key); the vector preview only on Android without a key.
  */
 export function mapProvider(platform: 'web' | 'ios' | 'android'): MapProvider {
   if (MAPBOX_TOKEN.startsWith('pk.')) return 'mapbox';
   if (platform === 'ios') return 'apple';
-  if (platform === 'web' && MAPTILER_KEY) return 'maplibre';
+  // The web always shows a real map: MapLibre with OpenFreeMap tiles (free, no key) or MapTiler.
+  if (platform === 'web') return 'maplibre';
   return 'preview';
 }
+
+/** Free OpenStreetMap vector style (OpenFreeMap "Positron": light grey, fits the Hayve look). */
+export const OPENFREEMAP_STYLE = 'https://tiles.openfreemap.org/styles/positron';

@@ -157,8 +157,15 @@ export const HAYVE_CARD = {
 
 /* -------------------------------------------------------------- Other -- */
 
-/** Hayve Send flat shipping price for marketplace parcels. */
+/** Hayve Send flat shipping price for marketplace parcels sent within one country (base USD cents). */
 export const SEND_SHIPPING_CENTS = 395;
+
+/**
+ * Hayve Send prices by distance (base USD cents): same country, within one customs area
+ * (EU single market, or US–Canada), and international. Shown converted to the buyer's currency.
+ */
+export const SEND_ZONES = { domestic: 395, region: 895, international: 1895 } as const;
+export type ShippingZone = keyof typeof SEND_ZONES;
 
 /** Owner accounts that receive the admin role when they register. */
 export const OWNER_ADMIN_EMAILS = ['rojyarzakholi@gmail.com'];

@@ -6,6 +6,7 @@ import type { NotificationKind } from '../../backend/types';
 import { Button, color, Group, Header, Input, ListRow, Notice, Screen, Section, Select, Sheet, Split, SwitchRow, T } from '../../design';
 import { useAction, useLive } from '../../lib/hooks';
 import { CountrySelect } from '../../features/payments';
+import { LANGUAGES, useT } from '../../lib/i18n';
 
 const NOTIF: { kind: NotificationKind; label: string }[] = [
   { kind: 'order', label: 'Orders & purchases' },
@@ -21,6 +22,7 @@ const NOTIF: { kind: NotificationKind; label: string }[] = [
 ];
 
 export default function Settings() {
+  const t = useT();
   const me = useLive(() => social.myProfile()).data;
   const { run, busy } = useAction();
   const [verify, setVerify] = useState(false);
@@ -80,18 +82,12 @@ export default function Settings() {
             <Section title="Preferences">
               <View style={{ gap: 12 }}>
                 <Select
-                  label="Language"
+                  label={t('Language')}
                   value={p.language}
-                  onChange={(language) => run(() => social.updateProfile({ language }), { success: 'Language saved. Translations arrive in a future update.' })}
-                  options={[
-                    { key: 'en', label: 'English' },
-                    { key: 'nl', label: 'Nederlands' },
-                    { key: 'fr', label: 'Français' },
-                    { key: 'de', label: 'Deutsch' },
-                    { key: 'es', label: 'Español' },
-                  ]}
+                  onChange={(language) => run(() => social.updateProfile({ language }), { success: 'Language saved' })}
+                  options={LANGUAGES}
                 />
-                <CountrySelect label="Country and currency" value={p.country} onChange={(country) => run(() => social.updateProfile({ country }), { success: 'Country updated. Prices, banks and IDs now follow it.' })} />
+                <CountrySelect label={t('Country and currency')} value={p.country} onChange={(country) => run(() => social.updateProfile({ country }), { success: 'Country updated. Prices, banks and IDs now follow it.' })} />
               </View>
             </Section>
           </View>

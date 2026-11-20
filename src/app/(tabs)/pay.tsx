@@ -8,6 +8,7 @@ import { HayveCardVisual } from '../../features/card';
 import { TxRow } from '../../features/pay';
 import { money, shortDate } from '../../lib/format';
 import { useLive } from '../../lib/hooks';
+import { useT } from '../../lib/i18n';
 
 const ACTIONS: { icon: IconName; label: string; to: string }[] = [
   { icon: 'add', label: 'Add money', to: '/pay/add' },
@@ -17,6 +18,7 @@ const ACTIONS: { icon: IconName; label: string; to: string }[] = [
 ];
 
 export default function Pay() {
+  const t = useT();
   const { isWide } = useLayout();
   const w = useLive(() => wallet.wallet()).data;
   const wb = useLive(() => wallet.waveBackSummary()).data;
@@ -34,7 +36,7 @@ export default function Pay() {
     <View style={{ borderWidth: 1, borderColor: color.line, borderRadius: radius.lg, padding: 24 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <T variant="subhead" color={color.textSecondary} weight="600">
-          Hayve balance
+          {t('Hayve balance')}
         </T>
         <SimBadge />
       </View>
@@ -125,15 +127,15 @@ export default function Pay() {
               </Section>
             )}
             {!isWide && <View style={{ marginTop: 24 }}>{waveBack}</View>}
-            <Section title="History">
+            <Section title={t('History')}>
               <View style={{ marginBottom: 12 }}>
                 <Segmented
                   value={filter}
                   onChange={setFilter}
                   options={[
-                    { key: 'all', label: 'All' },
-                    { key: 'in', label: 'Money in' },
-                    { key: 'out', label: 'Money out' },
+                    { key: 'all', label: t('All') },
+                    { key: 'in', label: t('Money in') },
+                    { key: 'out', label: t('Money out') },
                   ]}
                 />
               </View>
@@ -231,6 +233,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 function ActionButton({ icon, label, to, primary }: { icon: IconName; label: string; to: string; primary?: boolean }) {
+  const t = useT();
   const [focused, setFocused] = useState(false);
   return (
     <Pressable
@@ -241,7 +244,7 @@ function ActionButton({ icon, label, to, primary }: { icon: IconName; label: str
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={t(label)}
       style={{ flex: 1, alignItems: 'center', gap: 8 }}
     >
       {({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => (
@@ -250,7 +253,7 @@ function ActionButton({ icon, label, to, primary }: { icon: IconName; label: str
             <Icon name={icon} size={22} color={primary ? color.white : color.black} />
           </View>
           <T variant="caption" weight="700" numberOfLines={1}>
-            {label}
+            {t(label)}
           </T>
         </>
       )}
