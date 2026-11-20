@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { admin, session } from '../../backend/api';
-import type { FeeTier, PayRequestSettings, RideSettings, TapToPaySettings, WaveBackSettings } from '../../backend/config';
+import type { FeeTier, PayRequestSettings, RideSettings, WaveBackSettings } from '../../backend/config';
 import { Avatar, Badge, Button, Card, Chip, color, EmptyState, Group, Header, HScroll, Icon, Input, ListRow, Photo, radius, Screen, Section, Sheet, T, useLayout, VerifiedMark } from '../../design';
 import { StatusPill } from '../../features/common';
 import { ago, money, shortDate } from '../../lib/format';
@@ -308,10 +308,6 @@ function Settings() {
       newUserDays: String(s.waveBack.newUserDays),
       newUserMaxTotalCents: eur(s.waveBack.newUserMaxTotalCents),
       monthlyMaxCents: eur(s.waveBack.monthlyMaxCents),
-      tapHayveRate: pct(s.waveBack.tapHayveRate),
-      tapCardRate: pct(s.waveBack.tapCardRate),
-      cardPartnerRate: pct(s.waveBack.cardPartnerRate),
-      cardOtherRate: pct(s.waveBack.cardOtherRate),
     } as Record<keyof WaveBackSettings, string>);
   const parsedTiers: FeeTier[] = t.map((x) => ({ upToCents: x.upTo.trim() ? Math.round(Number(x.upTo.replace(',', '.')) * 100) : null, rate: Number(x.rate.replace(',', '.')) / 100 }));
   const preview = admin.feePreview(parsedTiers);
@@ -358,10 +354,6 @@ function Settings() {
             ['newUserDays', 'New member period (days)'],
             ['newUserMaxTotalCents', `New member max total (USD)`],
             ['monthlyMaxCents', `Max per user per month, all sources (USD)`],
-            ['tapHayveRate', 'Tap to Pay, payer uses Hayve balance or Card (%)'],
-            ['tapCardRate', 'Tap to Pay, payer uses another card (%)'],
-            ['cardPartnerRate', 'Hayve Card at partners and Hayve services (%)'],
-            ['cardOtherRate', 'Hayve Card at other shops (%)'],
           ] as [keyof WaveBackSettings, string][]
         ).map(([k, label]) => (
           <Input key={k} label={label} keyboardType="decimal-pad" value={w[k]} onChangeText={(v) => setWb({ ...w, [k]: v })} />
@@ -380,10 +372,6 @@ function Settings() {
                     newUserDays: Math.round(Number(w.newUserDays)),
                     newUserMaxTotalCents: Math.round(Number(w.newUserMaxTotalCents) * 100),
                     monthlyMaxCents: Math.round(Number(w.monthlyMaxCents) * 100),
-                    tapHayveRate: Number(w.tapHayveRate) / 100,
-                    tapCardRate: Number(w.tapCardRate) / 100,
-                    cardPartnerRate: Number(w.cardPartnerRate) / 100,
-                    cardOtherRate: Number(w.cardOtherRate) / 100,
                   }),
                 { success: 'Wave Back settings saved', onDone: () => setWb(null) },
               )
@@ -393,55 +381,12 @@ function Settings() {
       </Card>
     </View>
     <View style={{ flexDirection: isWide ? 'row' : 'column', gap: 24, alignItems: 'flex-start' }}>
-      <TapSettings s={s.tapToPay} />
-      <Boosts />
-    </View>
-    <View style={{ flexDirection: isWide ? 'row' : 'column', gap: 24, alignItems: 'flex-start' }}>
       <RideAndRequestSettings ride={s.ride} req={s.payRequests} />
     </View>
     </View>
   );
 }
 
-function TapSettings({ s }: { s: TapToPaySettings }) {
-  const { run } = useAction();
-  const init = { receiverFeeRate: pct(s.receiverFeeRate), privateMonthlyLimitCents: eur(s.privateMonthlyLimitCents), maxPaymentCents: eur(s.maxPaymentCents), refundWindowDays: String(s.refundWindowDays), claimWindowHours: String(s.claimWindowHours) };
-  const [f, setF] = useState<typeof init | null>(null);
-  const v = f ?? init;
-  return (
-    <Card style={{ flex: 1, gap: 12, alignSelf: 'stretch' }}>
-      <T variant="title3">Tap to Pay</T>
-      <T variant="footnote" color={color.grey500}>Receivers only ever see "Fees" with an amount. The payer pays nothing extra.</T>
-      {(
-        [
-          ['receiverFeeRate', 'Receiver fee (%)'],
-          ['privateMonthlyLimitCents', `Monthly limit for personal accounts (USD)`],
-          ['maxPaymentCents', `Largest single payment (USD)`],
-          ['refundWindowDays', 'Refund window (days)'],
-          ['claimWindowHours', 'Wave Back QR claim window (hours)'],
-        ] as [keyof typeof init, string][]
-      ).map(([k, label]) => (
-        <Input key={k} label={label} keyboardType="decimal-pad" value={v[k]} onChangeText={(x) => setF({ ...v, [k]: x })} />
-      ))}
-      <Button
-        title="Save Tap to Pay settings"
-        onPress={() =>
-          run(
-            () =>
-              admin.updateTapToPay({
-                receiverFeeRate: Number(v.receiverFeeRate) / 100,
-                privateMonthlyLimitCents: Math.round(Number(v.privateMonthlyLimitCents) * 100),
-                maxPaymentCents: Math.round(Number(v.maxPaymentCents) * 100),
-                refundWindowDays: Math.round(Number(v.refundWindowDays)),
-                claimWindowHours: Math.round(Number(v.claimWindowHours)),
-              }),
-            { success: 'Tap to Pay settings saved', onDone: () => setF(null) },
-          )
-        }
-      />
-    </Card>
-  );
-}
 
 function RideAndRequestSettings({ ride, req }: { ride: RideSettings; req: PayRequestSettings }) {
   const { run } = useAction();
@@ -474,38 +419,6 @@ function RideAndRequestSettings({ ride, req }: { ride: RideSettings; req: PayReq
   );
 }
 
-function Boosts() {
-  const list = useLive(() => admin.boosts()).data ?? [];
-  const { run } = useAction();
-  const [merchant, setMerchant] = useState('');
-  const [rate, setRate] = useState('5');
-  const [days, setDays] = useState('7');
-  return (
-    <Card style={{ flex: 1, gap: 12, alignSelf: 'stretch' }}>
-      <T variant="title3">Wave Back boosts</T>
-      <T variant="footnote" color={color.grey500}>A higher Wave Back rate for Hayve Card payments at one shop or partner for a set time. The monthly maximum still applies.</T>
-      <Input label="Shop or partner" placeholder="e.g. Napoli Forno" value={merchant} onChangeText={setMerchant} />
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <Input containerStyle={{ flex: 1 }} label="Rate (%)" keyboardType="decimal-pad" value={rate} onChangeText={setRate} />
-        <Input containerStyle={{ flex: 1 }} label="Days" keyboardType="number-pad" value={days} onChangeText={setDays} />
-      </View>
-      <Button title="Start boost" onPress={() => run(() => admin.createBoost({ merchant, rate: Number(rate) / 100, days: Number(days) }), { success: 'Boost started', onDone: () => setMerchant('') })} />
-      {list.length > 0 && (
-        <View style={{ borderTopWidth: 1, borderTopColor: color.grey200, marginTop: 4 }}>
-          {list.map((b) => (
-            <View key={b.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: color.grey200 }}>
-              <View style={{ flex: 1 }}>
-                <T variant="headline">{b.merchant} · {pct(b.rate)}%</T>
-                <T variant="footnote" color={color.grey500}>{b.active ? `Active until ${shortDate(b.endsAt)}` : b.ended ? 'Ended' : `Starts ${shortDate(b.startsAt)}`}</T>
-              </View>
-              {!b.ended && <Button title="End" size="sm" variant="outline" onPress={() => run(() => admin.endBoost(b.id), { success: 'Boost ended' })} />}
-            </View>
-          ))}
-        </View>
-      )}
-    </Card>
-  );
-}
 
 function Audit() {
   const list = useLive(() => admin.auditLog()).data ?? [];

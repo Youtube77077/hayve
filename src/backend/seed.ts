@@ -16,7 +16,7 @@ import type {
   User,
 } from './types';
 
-export const DB_VERSION = 9;
+export const DB_VERSION = 10;
 export const DEMO_PASSWORD = 'hayve123';
 
 export const DEMO_ACCOUNTS = [
@@ -80,10 +80,6 @@ export function emptyDatabase(): Database {
     reviews: [],
     businesses: [],
     paymentLinks: [],
-    tapPayments: [],
-    cards: [],
-    linkedBanks: [],
-    waveBackBoosts: [],
     reports: [],
     settings: { feeTiers: DEFAULT_FEE_TIERS, waveBack: DEFAULT_WAVE_BACK },
     audit: [],
@@ -153,9 +149,8 @@ export function createSeedDatabase(): Database {
   db.addresses.push({ id: 'ad_sam_work', userId: 'u_sam', label: 'Studio', fullName: 'Sam Rivera', line1: '55 Washington St, Suite 400', city: 'Brooklyn, NY', postcode: '11201', country: 'United States', isDefault: false });
 
   db.paymentMethods.push(
-    { id: 'pm_sam_card', userId: 'u_sam', kind: 'card', label: 'Visa', brand: 'Visa', last4: '4242', funding: 'debit', expiry: '08/28', isDefault: true, createdAt: ago(200) },
-    { id: 'pm_sam_bank', userId: 'u_sam', kind: 'bank', label: 'Chase •••• 4300', last4: '4300', bank: 'Chase', connection: 'instant', rail: 'ach', isDefault: false, createdAt: ago(200) },
-    { id: 'pm_noor_card', userId: 'u_noor', kind: 'card', label: 'Mastercard', brand: 'Mastercard', last4: '5100', funding: 'credit', expiry: '11/27', isDefault: true, createdAt: ago(120) },
+    // Payout account for withdrawals (verified by the payment provider in production).
+    { id: 'pm_sam_bank', userId: 'u_sam', kind: 'bank', label: 'Bank account •••• 4300', last4: '4300', isDefault: true, createdAt: ago(200) },
   );
 
   /* -------------------------------------------------------- products -- */

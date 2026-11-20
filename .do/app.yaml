@@ -94,8 +94,6 @@ services:
       - key: STRIPE_WEBHOOK_SECRET
         type: SECRET
         value: change-me
-      - key: STRIPE_TERMINAL_LOCATION
-        value: ""
 
 static_sites:
   - name: web

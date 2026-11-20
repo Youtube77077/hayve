@@ -7,7 +7,8 @@ import { getSessionUserId, me } from './session';
 
 /**
  * Payment requests and links ("Request money"). A request gets an unguessable link that can be
- * shared anywhere (WhatsApp, Snapchat, SMS…). Whoever opens it can pay by bank (iDEAL | Wero),
+ * shared anywhere (WhatsApp, Snapchat, SMS…). Whoever opens it can pay by card (through the
+ * payment provider's checkout) or with their Hayve Pay balance,
  * debit or credit card, or with Hayve Pay. They don't need a Hayve account.
  *
  * Personal requests, splits and deposits are free. Business requests pay a small fee per
@@ -19,7 +20,9 @@ const MAX_CENTS = 1_000_000;
 
 export type PayRequestStatus = 'pending' | 'paid' | 'expired' | 'cancelled';
 
-export const EXPIRY_CHOICES = [1, 7, 14, 30] as const;
+/** Personal requests and splits stay open for 72 hours. Business invoices can choose longer. */
+export const LINK_HOURS = 72;
+export const EXPIRY_CHOICES = [3, 7, 14, 30] as const;
 
 
 function statusOf(r: PayRequest): PayRequestStatus {
@@ -30,8 +33,13 @@ function statusOf(r: PayRequest): PayRequestStatus {
 }
 
 function fullyPaid(r: PayRequest) {
-  if (r.split) return r.split.shares.every((s) => s.you || s.paidAt);
+  if (r.split) return r.split.people != null && splitPaid(r) >= r.split.people - 1;
   return r.payments.some((p) => p.status !== 'refunded' && p.status !== 'released');
+}
+
+/** Payments counted towards a split (card or Hayve payments plus ones marked as paid in cash). */
+function splitPaid(r: PayRequest) {
+  return r.payments.filter((p) => p.status === 'paid' || p.status === 'captured').length + (r.split?.cashPaid ?? 0);
 }
 
 function businessFee(amountCents: number) {
@@ -81,14 +89,17 @@ export function linkables(): Linkable[] {
 export interface CreateRequestInput {
   kind: PayRequestKind;
   title: string;
-  /** Amount per payment. For splits, leave out and give `splitTotalCents` + `people`. */
+  /**
+   * Amount each person pays. For a split with a known number of people, give `splitTotalCents`
+   * and `people` instead (everyone pays total ÷ people). For "I'm not sure", give `amountCents`
+   * and leave `people` out: however many people pay, pay.
+   */
   amountCents?: number;
   splitTotalCents?: number;
-  /** Number of people sharing the bill, including you. */
+  /** Number of people sharing the bill, including you. Leave out for "I'm not sure". */
   people?: number;
-  /** Optional names for the other people in a split (in order). */
-  names?: string[];
   reusable?: boolean;
+  /** Business invoices only; other links stay open for 72 hours. */
   expiresInDays?: number;
   invoiceNumber?: string;
   ref?: { kind: PayRequestRef['kind']; id: ID };
@@ -100,8 +111,8 @@ export function create(input: CreateRequestInput) {
   const s = settings().payRequests;
   const title = input.title.trim();
   assert(title.length >= 2 && title.length <= 80, 'invalid', 'Add a short description, like "Dinner"');
-  const days = input.expiresInDays ?? s.defaultExpiryDays;
-  assert(Number.isInteger(days) && days >= 1 && days <= s.maxExpiryDays, 'invalid', `Links can stay open for up to ${s.maxExpiryDays} days`);
+  const days = input.kind === 'business' ? (input.expiresInDays ?? s.defaultExpiryDays) : LINK_HOURS / 24;
+  assert(days > 0 && days <= s.maxExpiryDays, 'invalid', `Links can stay open for up to ${s.maxExpiryDays} days`);
 
   let ref: PayRequestRef | undefined;
   if (input.ref) {
@@ -115,16 +126,17 @@ export function create(input: CreateRequestInput) {
   let amountCents = input.amountCents ?? 0;
   let split: PayRequest['split'];
   if (input.kind === 'split') {
-    const people = input.people ?? 0;
-    const total = input.splitTotalCents ?? 0;
-    assert(Number.isInteger(people) && people >= 2 && people <= s.maxSplitPeople, 'invalid', `Split between 2 and ${s.maxSplitPeople} people`);
-    assert(Number.isInteger(total) && total >= people * 100 && total <= MAX_CENTS, 'invalid', `Each person must pay at least ${fmtMoney(100)}`);
-    amountCents = Math.round(total / people);
-    const names = (input.names ?? []).map((n) => n.trim().slice(0, 40));
-    split = {
-      totalCents: total,
-      shares: [{ id: 's0', name: displayName(user.id), you: true }, ...Array.from({ length: people - 1 }, (_, i) => ({ id: `s${i + 1}`, name: names[i] || `Person ${i + 2}` }))],
-    };
+    if (input.people == null) {
+      // "I'm not sure": everyone who opens the link pays the same amount, as many as want to.
+      split = { people: null, cashPaid: 0 };
+    } else {
+      const people = input.people;
+      const total = input.splitTotalCents ?? 0;
+      assert(Number.isInteger(people) && people >= 2 && people <= s.maxSplitPeople, 'invalid', `Split between 2 and ${s.maxSplitPeople} people`);
+      assert(Number.isInteger(total) && total >= people * 100 && total <= MAX_CENTS, 'invalid', `Each person must pay at least ${fmtMoney(100)}`);
+      amountCents = Math.round(total / people);
+      split = { people, totalCents: total, cashPaid: 0 };
+    }
   }
   assert(Number.isInteger(amountCents) && amountCents >= 100, 'invalid', `Minimum amount is ${fmtMoney(100)}`);
   assert(amountCents <= MAX_CENTS, 'invalid', `Maximum amount is ${fmtMoney(1000000)}`);
@@ -146,8 +158,9 @@ export function create(input: CreateRequestInput) {
     kind: input.kind,
     title,
     amountCents,
-    // Splits close when everyone paid; deposits are one per booking.
-    reusable: input.kind === 'split' || input.kind === 'deposit' ? false : !!input.reusable,
+    // Splits with a known number of people close when everyone paid; "not sure" splits stay open
+    // (many payments) until they expire; deposits are one per booking.
+    reusable: input.kind === 'split' ? split?.people == null : input.kind === 'deposit' ? false : !!input.reusable,
     expiresAt: now() + days * DAY,
     split,
     business,
@@ -199,8 +212,9 @@ function view(r: PayRequest): PayRequestView {
     collectedCents: live.reduce((s, p) => s + p.amountCents - p.feeCents, 0),
     feesCents: live.reduce((s, p) => s + p.feeCents, 0),
     heldCents: r.payments.filter((p) => p.status === 'held').reduce((s, p) => s + p.amountCents, 0),
-    paidCount: r.split ? r.split.shares.filter((s) => !s.you && s.paidAt).length : live.length + r.payments.filter((p) => p.status === 'held').length,
-    expectedCount: r.split ? r.split.shares.length - 1 : r.reusable ? null : 1,
+    paidCount: r.split ? splitPaid(r) : live.length + r.payments.filter((p) => p.status === 'held').length,
+    // Splits: everyone except you. "Not sure" splits and reusable links have no fixed number.
+    expectedCount: r.split ? (r.split.people == null ? null : r.split.people - 1) : r.reusable ? null : 1,
     split: r.split,
     business: r.business,
     ref: r.ref,
@@ -247,8 +261,8 @@ export function publicView(id: ID) {
     requester: { displayName: p.displayName, firstName: p.displayName.split(' ')[0], avatar: p.avatarThumb ?? p.avatar },
     business: r.business,
     ref: r.ref ? { kind: r.ref.kind, label: r.ref.label } : undefined,
-    shares: r.split?.shares.filter((s) => !s.you).map((s) => ({ id: s.id, name: s.name, paid: !!s.paidAt })),
-    splitTotalCents: r.split?.totalCents,
+    // Payers only see what they pay. Progress (who and how many paid) is for the requester.
+    isSplit: !!r.split,
     isOwner: getSessionUserId() === r.requesterId,
   };
 }
@@ -257,14 +271,9 @@ export function publicView(id: ID) {
 
 export interface PayInput {
   method: PayRequestMethod;
-  /** Shown to the requester. Guests type it; Hayve users default to their name. */
+  /** Optional, shown to the requester. Hayve users default to their name; guests to "Guest". */
   payerName?: string;
-  /** For splits: which person is paying. */
-  shareId?: string;
-  /** Pay by bank: the payer's bank and country (their local rail: ACH, pay by bank, iDEAL | Wero…). */
-  bank?: string;
-  country?: string;
-  /** Card payments: brand and last four only, returned by the payment partner's secure form. */
+  /** Card payments: brand and last four only, returned by the payment provider's checkout. */
   card?: { brand: string; last4: string };
 }
 
@@ -279,30 +288,18 @@ export function pay(id: ID, input: PayInput) {
   assert(payerId !== r.requesterId, 'invalid', "You can't pay your own request");
   if (input.method === 'hayve') assert(payerId, 'unauthenticated', 'Sign in to pay with Hayve Pay');
 
-  let share: NonNullable<PayRequest['split']>['shares'][number] | undefined;
-  if (r.split) {
-    share = r.split.shares.find((s) => s.id === input.shareId && !s.you);
-    assert(share, 'invalid', 'Choose who you are');
-    assert(!share.paidAt, 'conflict', `${share.name} has already paid`);
-  }
-
   let methodLabel: string;
-  if (input.method === 'bank') {
-    const reg = region(input.country ?? profileOf(r.requesterId).country);
-    assert(input.bank && reg.banks.includes(input.bank), 'invalid', 'Choose your bank');
-    methodLabel = `${reg.bankRailName} · ${input.bank}`;
-  } else if (input.method === 'card') {
+  if (input.method === 'card') {
     assert(input.card && /^\d{4}$/.test(input.card.last4), 'invalid', 'Enter your card details');
     methodLabel = `${input.card.brand} •••• ${input.card.last4}`;
   } else methodLabel = 'Hayve Pay';
 
   const typed = (input.payerName ?? '').trim().slice(0, 60);
-  const payerName = share?.name && !typed ? share.name : typed || (payerId ? displayName(payerId) : '');
-  assert(payerName.length >= 2, 'invalid', 'Add your name so they know who paid');
+  const payerName = typed || (payerId ? displayName(payerId) : 'Guest');
 
   const amountCents = r.amountCents;
   const feeCents = r.kind === 'business' ? businessFee(amountCents) : 0;
-  const from = input.method === 'hayve' ? accountIdFor(payerId!) : input.method === 'bank' ? SYSTEM.bank : SYSTEM.card;
+  const from = input.method === 'hayve' ? accountIdFor(payerId!) : SYSTEM.card;
   const credits = [{ accountId: accountIdFor(r.requesterId), amountCents: amountCents - feeCents }, ...(feeCents ? [{ accountId: SYSTEM.fees, amountCents: feeCents }] : [])];
   const tx = createTransaction({
     type: 'request_payment',
@@ -312,7 +309,7 @@ export function pay(id: ID, input: PayInput) {
     labelForTo: payerName,
     note: r.business ? `${r.title} · Invoice ${r.business.invoiceNumber}` : r.title,
     ref: { kind: 'pay_request', id: r.id },
-    method: input.method === 'hayve' ? 'wallet' : input.method,
+    method: input.method === 'hayve' ? 'wallet' : 'card',
     // Deposits are authorised (held) until the host releases or claims them.
     mode: r.kind === 'deposit' ? 'hold' : 'capture',
   });
@@ -325,12 +322,10 @@ export function pay(id: ID, input: PayInput) {
     methodLabel,
     amountCents,
     feeCents,
-    shareId: share?.id,
     status: r.kind === 'deposit' ? 'held' : 'paid',
     at: now(),
   };
   r.payments.push(payment);
-  if (share) share.paidAt = now();
   const money = `${fmtMoney(amountCents)}`;
   notify(r.requesterId, 'payment', r.kind === 'deposit' ? 'Deposit authorised' : `${payerName} paid ${money}`, r.kind === 'deposit' ? `${payerName} · ${money} held for ${r.title}` : r.title, `/pay/link/${r.id}`);
   commit();
@@ -347,14 +342,12 @@ export function cancel(id: ID) {
   commit();
 }
 
-/** Mark a person in a split as paid (for example, they paid you in cash). */
-export function markSharePaid(id: ID, shareId: string) {
+/** Someone in a split paid you another way (for example in cash): counts towards the bar. */
+export function markCashPaid(id: ID) {
   const r = own(id);
-  const share = r.split?.shares.find((s) => s.id === shareId && !s.you);
-  assert(share, 'not_found', 'Person not found');
-  assert(!share.paidAt, 'conflict', 'Already paid');
-  share.paidAt = now();
-  share.manual = true;
+  assert(r.split, 'invalid', 'Only splits can be marked as paid in cash');
+  assert(statusOf(r) === 'pending', 'conflict', 'This split is already complete');
+  r.split.cashPaid = (r.split.cashPaid ?? 0) + 1;
   commit();
 }
 
@@ -385,8 +378,6 @@ export function refund(id: ID, paymentId: ID) {
   assert(balancesFor(accountIdFor(r.requesterId)).available >= p.amountCents - p.feeCents, 'insufficient_funds', 'Not enough balance to refund this payment');
   refundTransaction(p.txId, 'Payment request refunded');
   p.status = 'refunded';
-  const share = r.split?.shares.find((s) => s.id === p.shareId);
-  if (share) share.paidAt = undefined;
   if (p.payerId) notify(p.payerId, 'refund', 'Refund received', `${displayName(r.requesterId)} refunded ${fmtMoney(p.amountCents)} for ${r.title}.`);
   commit();
 }

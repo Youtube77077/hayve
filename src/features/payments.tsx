@@ -3,7 +3,7 @@ import { type ReactNode, useEffect, useState } from 'react';
 import { Animated, Linking, Platform, Pressable, Share, View } from 'react-native';
 import { regions, social } from '../backend/api';
 import type { Region } from '../backend/regions';
-import { Appear, color, Input, radius, Segmented, Select, T, tap, usePressScale, useToast } from '../design';
+import { Appear, color, Input, Select, T, tap, usePressScale, useToast } from '../design';
 import { useLive } from '../lib/hooks';
 import { Icon, type IconName } from '../design/icons';
 
@@ -38,9 +38,9 @@ export interface CardResult {
 }
 
 /**
- * Card entry. In production this is the payment partner's secure field (Stripe Elements /
- * PaymentSheet): the number goes straight to the partner and Hayve only receives brand, last four,
- * expiry and debit/credit. Here it is simulated and nothing but those four values leaves this form.
+ * Simulated card checkout. In production this step is the payment provider's own hosted checkout
+ * (for example Stripe Checkout); the card number never reaches Hayve. Here it is simulated and
+ * nothing but brand and last four leaves this form.
  */
 export function CardForm({ onChange }: { onChange: (card: CardResult | null) => void }) {
   const [number, setNumber] = useState('');
@@ -87,7 +87,7 @@ export function CardForm({ onChange }: { onChange: (card: CardResult | null) => 
         />
         <Input containerStyle={{ flex: 1 }} label="CVC" placeholder="123" keyboardType="number-pad" autoComplete="cc-csc" secureTextEntry value={cvc} maxLength={4} onChangeText={(v) => setCvc(v.replace(/\D/g, ''))} />
       </View>
-      <SecureNote text="Your card number goes straight to our payment partner. Hayve never sees or stores it." />
+      <SecureNote text="Simulated checkout. In the live app this is our payment provider's secure checkout; Hayve never sees your card number." />
     </View>
   );
 }
@@ -116,64 +116,9 @@ export function useRegion(): Region {
   }).data ?? regions.region(regions.DEFAULT_REGION);
 }
 
-/** Pick your bank (people approve in their own bank app). Shows the banks of one country. */
-export function BankPicker({ banks, value, onChange }: { banks: string[]; value: string | null; onChange: (bank: string) => void }) {
-  return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-      {banks.map((b, i) => {
-        const on = value === b;
-        return (
-          <Appear key={b} index={i} style={{ width: '48%', flexGrow: 1 }}>
-            <PressScale
-              accessibilityRole="radio"
-              accessibilityState={{ selected: on }}
-              onPress={() => {
-                tap();
-                onChange(b);
-              }}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, paddingHorizontal: 12, borderRadius: radius.md, borderWidth: on ? 1.5 : 1, borderColor: on ? color.indigo : color.grey200, backgroundColor: color.white }}
-            >
-              <Icon name="bank-outline" size={18} color={on ? color.indigo : color.black} />
-              <T variant="subhead" weight="600" numberOfLines={1} style={{ flex: 1 }}>
-                {b}
-              </T>
-            </PressScale>
-          </Appear>
-        );
-      })}
-    </View>
-  );
-}
-
-/** Country selector for bank payments (anyone, anywhere can pay). */
+/** Country selector (sets currency, payout account format, IDs and tax). */
 export function CountrySelect({ value, onChange, label = 'Country' }: { value: string; onChange: (code: string) => void; label?: string }) {
-  return <Select label={label} icon="globe-outline" value={value} onChange={onChange} options={regions.REGIONS.map((r) => ({ key: r.code, label: r.name, sub: `${r.currency} · ${r.bankRailName}` }))} />;
-}
-
-/** "Approve in your bank app" step shown while the (simulated) bank confirms. */
-export function useBankApproval() {
-  const [state, setState] = useState<'idle' | 'approving'>('idle');
-  const approve = (then: () => void) => {
-    setState('approving');
-    setTimeout(() => {
-      setState('idle');
-      then();
-    }, 1400);
-  };
-  return { approving: state === 'approving', approve };
-}
-
-export function ConnectionChoice({ region: r, value, onChange }: { region: Region; value: 'instant' | 'manual'; onChange: (v: 'instant' | 'manual') => void }) {
-  return (
-    <Segmented
-      value={value}
-      onChange={onChange}
-      options={[
-        { key: 'instant', label: r.bankRail === 'ideal_wero' ? 'iDEAL | Wero' : 'Log in to your bank' },
-        { key: 'manual', label: r.account.routingLabel ? 'Account number' : 'IBAN' },
-      ]}
-    />
-  );
+  return <Select label={label} icon="globe-outline" value={value} onChange={onChange} options={regions.REGIONS.map((r) => ({ key: r.code, label: r.name, sub: r.currency }))} />;
 }
 
 /** A pressable that winds up (scales down) when pressed, so it feels like a real button. */

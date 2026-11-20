@@ -153,20 +153,10 @@ export function ProductTile({ p, width, index = 0 }: { p: ProductCard; width?: n
 export function PayMethodPicker({ value, onChange, totalCents, waveBackCents = 0 }: { value: PayMethod; onChange: (m: PayMethod) => void; totalCents: number; waveBackCents?: number }) {
   const w = useLive(() => wallet.wallet()).data;
   const [showDev, setShowDev] = useState(false);
-  const enough = (w?.available ?? 0) >= totalCents;
-  const saved = useLive(() => {
-    const all = wallet.paymentMethods();
-    return { card: all.filter((m) => m.kind === 'card').sort((a, b) => Number(b.isDefault) - Number(a.isDefault))[0] ?? null, bank: all.find((m) => m.kind === 'bank') ?? null };
-  }).data ?? { card: null, bank: null };
-  const addRow = (icon: IconName, title: string) => (
-    <Pressable key={title} accessibilityRole="button" onPress={() => router.push('/pay/methods')} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: radius.md, borderWidth: 1, borderStyle: 'dashed', borderColor: color.grey200 }}>
-      <Icon name={icon} size={22} />
-      <T variant="headline" style={{ flex: 1 }}>
-        {title}
-      </T>
-      <Icon name="add" size={20} />
-    </Pressable>
-  );
+  const available = w?.available ?? 0;
+  const enough = available >= totalCents;
+  // Not enough balance (but some): use what's there and pay the rest by card.
+  const partial = !enough && available > 0;
   const option = (m: PayMethod, icon: IconName, title: string, sub: string, disabled = false) => {
     const on = value === m;
     return (
@@ -194,10 +184,18 @@ export function PayMethodPicker({ value, onChange, totalCents, waveBackCents = 0
   };
   return (
     <View style={{ gap: 10 }}>
-      {option('wallet', 'wallet-outline', 'Hayve balance', enough ? `${money(w?.available ?? 0)} available${waveBackCents ? ` · ${money(waveBackCents)} Wave Back` : ''}` : `${money(w?.available ?? 0)} available · not enough`, !enough)}
-      {saved.card ? option('card', 'card-outline', `${saved.card.brand ?? 'Card'} •••• ${saved.card.last4}`, saved.card.funding === 'credit' ? 'Credit card' : 'Debit card') : addRow('card-outline', 'Add a debit or credit card')}
-      {saved.bank ? option('bank', 'bank-outline', saved.bank.label, 'Pay from your bank account') : addRow('bank-outline', 'Connect your bank')}
-      {value !== 'wallet' && waveBackCents > 0 && (
+      {option('wallet', 'wallet-outline', 'Hayve balance', enough ? `${money(available)} available${waveBackCents ? ` · ${money(waveBackCents)} Wave Back` : ''}` : `${money(available)} available · not enough`, !enough)}
+      {partial && option('wallet_card', 'wallet-outline', 'Balance + card for the rest', `${money(available)} from your balance, ${money(totalCents - available)} by card`)}
+      {option('card', 'card-outline', 'Debit or credit card', 'Secure checkout by our payment provider')}
+      {!enough && (
+        <Pressable accessibilityRole="button" onPress={() => router.push('/pay/add')} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: radius.md, borderWidth: 1, borderStyle: 'dashed', borderColor: color.grey200 }}>
+          <Icon name="add" size={22} />
+          <T variant="headline" style={{ flex: 1 }}>
+            Add money to your balance
+          </T>
+        </Pressable>
+      )}
+      {value === 'card' && waveBackCents > 0 && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4 }}>
           <Icon name="sparkles-outline" size={16} color={color.indigo} />
           <T variant="footnote" color={color.black} style={{ flex: 1 }}>

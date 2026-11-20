@@ -2,7 +2,7 @@ import { fmtMoney, getDisplayCurrency, region } from '../regions';
 import { accountIdFor, balancesFor, createTransaction, SYSTEM, type TxView, viewTransaction } from '../ledger';
 import { assert, commit, find, getDb, HayveError, now, uid } from '../store';
 import type { ID, MoneyRequest, PaymentMethod } from '../types';
-import { audit, displayName, monthStart, notify, publicUser, savedMethodsOf, settings, type PublicUser } from './common';
+import { audit, displayName, monthStart, notify, publicUser, payoutAccountOf, settings, type PublicUser } from './common';
 import { me } from './session';
 
 /**
@@ -50,39 +50,57 @@ function validAmount(cents: number) {
   assert(cents <= MAX_TRANSFER_CENTS, 'invalid', `Maximum amount is ${fmtMoney(1000000)}`);
 }
 
-export function addMoney(amountCents: number, source: 'card' | 'bank' = 'card') {
+/**
+ * Adds money to the Hayve Pay balance. The money is collected by the payment provider's checkout
+ * (card, and whatever wallets the provider offers); Hayve only records the result in the ledger.
+ * Simulated in this build: no card is charged.
+ */
+export function addMoney(amountCents: number, _source: 'card' = 'card') {
   const user = me();
   validAmount(amountCents);
-  const saved = savedMethodsOf(user.id);
-  assert(source === 'card' ? saved.card : saved.bank, 'invalid', source === 'card' ? 'Add a debit or credit card first' : 'Connect a bank first');
   const tx = createTransaction({
     type: 'deposit',
-    fromAccountId: source === 'card' ? SYSTEM.card : SYSTEM.bank,
+    fromAccountId: SYSTEM.card,
     credits: [{ accountId: accountIdFor(user.id), amountCents }],
     labelForFrom: 'Wallet top-up',
-    labelForTo: source === 'card' ? `Top-up · ${saved.card!.brand} •••• ${saved.card!.last4} (simulated)` : `Top-up · ${saved.bank!.label} (simulated)`,
-    method: source,
+    labelForTo: 'Top-up by card (simulated checkout)',
+    method: 'card',
   });
   notify(user.id, 'payment', 'Money added', `${fmtMoney(amountCents)} added to your Hayve Pay balance (simulated).`, `/pay/tx/${tx.id}`);
   commit();
   return tx.id;
 }
 
+/** Top-ups stay in Hayve for this long before they can be withdrawn (protects against card fraud and chargebacks). */
+export const TOPUP_HOLD_DAYS = 7;
+
+/** What can be withdrawn now: the available balance minus recent card top-ups. */
+export function withdrawable() {
+  const user = me();
+  const db = getDb();
+  const acc = accountIdFor(user.id);
+  const { available } = balancesFor(acc);
+  const since = now() - TOPUP_HOLD_DAYS * 86_400_000;
+  const recentTopUps = db.transactions.filter((t) => t.type === 'deposit' && t.toAccountId === acc && t.status === 'completed' && t.createdAt >= since && !db.transactions.some((x) => x.fundingTxId === t.id)).reduce((a, t) => a + t.amountCents, 0);
+  return { availableCents: available, withdrawableCents: Math.max(0, available - recentTopUps), heldTopUpsCents: Math.min(available, recentTopUps), holdDays: TOPUP_HOLD_DAYS, payoutAccount: payoutAccountOf(user.id) };
+}
+
+/** Sends eligible balance to the person's payout account (paid out by the payment provider). */
 export function withdraw(amountCents: number) {
   const user = me();
   validAmount(amountCents);
-  const db = getDb();
-  const bank = db.paymentMethods.find((m) => m.userId === user.id && m.kind === 'bank');
-  assert(bank, 'invalid', 'Add a bank account in Payment methods first');
+  const w = withdrawable();
+  assert(w.payoutAccount, 'invalid', 'Add a payout account first');
+  assert(amountCents <= w.withdrawableCents, 'insufficient_funds', w.heldTopUpsCents > 0 ? `You can withdraw up to ${fmtMoney(w.withdrawableCents)} now. Money you added in the last ${TOPUP_HOLD_DAYS} days can be spent in Hayve but not withdrawn yet.` : 'Not enough balance');
   const tx = createTransaction({
     type: 'withdrawal',
     fromAccountId: accountIdFor(user.id),
     credits: [{ accountId: SYSTEM.payouts, amountCents }],
-    labelForFrom: `Withdrawal to ${bank.label}`,
+    labelForFrom: `Withdrawal to ${w.payoutAccount!.label}`,
     labelForTo: 'Payout',
     method: 'bank',
   });
-  notify(user.id, 'payment', 'Withdrawal started', `${fmtMoney(amountCents)} to ${bank.label} (simulated).`, `/pay/tx/${tx.id}`);
+  notify(user.id, 'payment', 'Withdrawal started', `${fmtMoney(amountCents)} to ${w.payoutAccount!.label} (simulated).`, `/pay/tx/${tx.id}`);
   commit();
   return tx.id;
 }
@@ -193,96 +211,38 @@ export function respondToRequest(id: ID, accept: boolean) {
   commit();
 }
 
-export function paymentMethods(): PaymentMethod[] {
-  const user = me();
-  return getDb().paymentMethods.filter((m) => m.userId === user.id);
+/** The payout account used for withdrawals (one per person). */
+export function payoutAccount() {
+  return payoutAccountOf(me().id);
 }
 
 /**
- * Saves a debit or credit card. The card number is entered in the payment partner's secure form
- * (Stripe in production) and never reaches Hayve: only brand, last four, expiry and funding type.
+ * Saves the payout account for withdrawals. In production the payment provider collects and
+ * verifies these details (its hosted onboarding); Hayve stores only a label and the last 4 digits.
  */
-export function addCard(input: { brand: string; last4: string; expiry: string; funding: 'debit' | 'credit' }) {
-  const user = me();
-  assert(/^\d{4}$/.test(input.last4), 'invalid', 'Enter a valid card number');
-  assert(/^(0[1-9]|1[0-2])\/\d{2}$/.test(input.expiry), 'invalid', 'Enter the expiry date as MM/YY');
-  const [mm, yy] = input.expiry.split('/').map(Number);
-  const end = new Date(2000 + yy, mm, 1).getTime();
-  assert(end > now(), 'invalid', 'This card has expired');
-  assert(['Visa', 'Mastercard', 'Maestro', 'American Express', 'Card'].includes(input.brand), 'invalid', 'This card type is not supported');
-  const db = getDb();
-  const mine = db.paymentMethods.filter((m) => m.userId === user.id && m.kind === 'card');
-  assert(!mine.some((m) => m.last4 === input.last4 && m.brand === input.brand), 'conflict', 'This card is already saved');
-  assert(mine.length < 5, 'invalid', 'You can save up to 5 cards');
-  const pm: PaymentMethod = { id: uid('pm'), userId: user.id, kind: 'card', label: input.brand, brand: input.brand, last4: input.last4, expiry: input.expiry, funding: input.funding, isDefault: mine.length === 0, createdAt: now() };
-  db.paymentMethods.push(pm);
-  audit(user.id, 'card.add', input.last4);
-  commit();
-  return pm.id;
-}
-
-/**
- * Connects a bank account for payments, top-ups and withdrawals, using the person's local rail:
- * US: ACH (log in to the bank, or routing + account number) · UK: pay by bank / Direct Debit ·
- * Euro area: pay by bank or SEPA mandate (iDEAL | Wero in the Netherlands, Wero in DE/FR/BE) ·
- * Canada: pre-authorized debit · Australia: PayTo.
- * "instant": the person approves in their bank app and the bank shares the account (simulated).
- * "manual": they type their account details and sign a mandate.
- * The connected bank also funds Hayve Card automatic top-ups.
- */
-export function connectBank(input: { connection: 'instant' | 'manual'; bank?: string; holder?: string; account?: string; routing?: string; country?: string }) {
+export function setPayoutAccount(input: { holder: string; account: string; routing?: string }) {
   const user = me();
   const db = getDb();
-  const profile = db.profiles.find((p) => p.userId === user.id);
-  const reg = region(input.country ?? profile?.country);
-  let last4: string;
-  let bank: string;
-  if (input.connection === 'instant') {
-    assert(input.bank && reg.banks.includes(input.bank), 'invalid', 'Choose your bank');
-    bank = input.bank;
-    // The bank returns the account after approval (simulated, stable per user).
-    last4 = String(Math.abs([...user.id + bank].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7)) % 10000).padStart(4, '0');
-  } else {
-    const acct = (input.account ?? '').replace(/[\s-]+/g, '').toUpperCase();
-    if (reg.account.label === 'IBAN') assert(/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(acct), 'invalid', 'Enter a valid IBAN');
-    else {
-      assert(/^\d{4,17}$/.test(acct), 'invalid', `Enter a valid ${reg.account.label.toLowerCase()}`);
-      const routing = (input.routing ?? '').replace(/[\s-]+/g, '');
-      assert(/^\d{5,9}$/.test(routing), 'invalid', `Enter a valid ${(reg.account.routingLabel ?? 'routing number').toLowerCase()}`);
-    }
-    last4 = acct.slice(-4);
-    bank = input.bank && reg.banks.includes(input.bank) ? input.bank : 'Bank account';
+  const reg = region(db.profiles.find((p) => p.userId === user.id)?.country);
+  const acct = input.account.replace(/[\s-]+/g, '').toUpperCase();
+  if (reg.account.label === 'IBAN') assert(/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(acct), 'invalid', 'Enter a valid IBAN');
+  else {
+    assert(/^\d{4,17}$/.test(acct), 'invalid', `Enter a valid ${reg.account.label.toLowerCase()}`);
+    assert(/^\d{5,9}$/.test((input.routing ?? '').replace(/[\s-]+/g, '')), 'invalid', `Enter a valid ${(reg.account.routingLabel ?? 'routing number').toLowerCase()}`);
   }
-  const holder = (input.holder ?? '').trim() || displayName(user.id);
+  assert(input.holder.trim().length >= 2, 'invalid', 'Enter the account holder name');
   db.paymentMethods = db.paymentMethods.filter((m) => !(m.userId === user.id && m.kind === 'bank'));
-  const pm: PaymentMethod = { id: uid('pm'), userId: user.id, kind: 'bank', label: `${bank} •••• ${last4}`, bank, last4, connection: input.connection, rail: reg.bankRail, isDefault: false, createdAt: now() };
+  const pm: PaymentMethod = { id: uid('pm'), userId: user.id, kind: 'bank', label: `Bank account •••• ${acct.slice(-4)}`, last4: acct.slice(-4), isDefault: true, createdAt: now() };
   db.paymentMethods.push(pm);
-  // Same account funds Hayve Card top-ups.
-  db.linkedBanks = db.linkedBanks.filter((b) => b.userId !== user.id);
-  db.linkedBanks.push({ userId: user.id, holder, ibanLast4: last4, bank, method: input.connection, rail: reg.bankRail, mandateRef: `HAYVE-${uid('m').slice(-8).toUpperCase()}`, linkedAt: now() });
-  audit(user.id, 'bank.connect', last4);
+  audit(user.id, 'payout.set', acct.slice(-4));
   commit();
   return pm.id;
 }
 
-export function setDefaultCard(id: ID) {
+export function removePayoutAccount() {
   const user = me();
   const db = getDb();
-  find(db.paymentMethods, (m) => m.id === id && m.userId === user.id && m.kind === 'card', 'Card');
-  for (const m of db.paymentMethods) if (m.userId === user.id && m.kind === 'card') m.isDefault = m.id === id;
-  commit();
-}
-
-export function deletePaymentMethod(id: ID) {
-  const user = me();
-  const db = getDb();
-  const m = find(db.paymentMethods, (x) => x.id === id && x.userId === user.id, 'Payment method');
-  db.paymentMethods = db.paymentMethods.filter((x) => x.id !== id);
-  if (m.kind === 'bank') db.linkedBanks = db.linkedBanks.filter((b) => b.userId !== user.id);
-  if (m.isDefault && m.kind === 'card') {
-    const next = db.paymentMethods.find((x) => x.userId === user.id && x.kind === 'card');
-    if (next) next.isDefault = true;
-  }
+  db.paymentMethods = db.paymentMethods.filter((m) => !(m.userId === user.id && m.kind === 'bank'));
   commit();
 }
 

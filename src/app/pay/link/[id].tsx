@@ -5,7 +5,7 @@ import { requests } from '../../../backend/api';
 import { Appear, Bump, Button, Card, color, ConfirmSheet, ErrorState, Group, Header, Icon, KeyValue, ListRow, ProgressBar, Screen, Section, SimBadge, SimQR, SuccessMark, T } from '../../../design';
 import { StatusPill } from '../../../features/common';
 import { ShareRow } from '../../../features/payments';
-import { ago, money, shortDate } from '../../../lib/format';
+import { money, shortDate } from '../../../lib/format';
 import { useAction, useLive } from '../../../lib/hooks';
 import { requestLink } from '../../../lib/links';
 
@@ -44,7 +44,7 @@ export default function RequestDetail() {
           {r.title}
         </T>
         <T variant="footnote" color={color.textSecondary} center>
-          {r.kind === 'split' && r.split ? `${money(r.split.totalCents)} split between ${r.split.shares.length} people` : r.reusable ? 'Reusable link' : 'Single-use link'}
+          {r.kind === 'split' && r.split ? (r.split.people ? `Each person pays · ${money(r.split.totalCents ?? 0)} split between ${r.split.people} people` : 'Each person pays · open to anyone with the link') : r.reusable ? 'Reusable link' : 'Single-use link'}
           {r.business ? ` · Invoice ${r.business.invoiceNumber}` : ''}
         </T>
         {r.ref && (
@@ -65,6 +65,16 @@ export default function RequestDetail() {
             </Bump>
           </View>
         )}
+        {r.expectedCount === null && r.split && (
+          <Bump value={r.paidCount} style={{ alignSelf: 'center', marginTop: 12 }}>
+            <T variant="headline" center>
+              {r.paidCount} {r.paidCount === 1 ? 'person has' : 'people have'} paid · {money(r.collectedCents)}
+            </T>
+          </Bump>
+        )}
+        <T variant="caption" color={color.grey500} center style={{ marginTop: 8 }}>
+          Only you can see who paid.
+        </T>
       </Card>
 
       {open && (
@@ -90,22 +100,8 @@ export default function RequestDetail() {
         </Section>
       )}
 
-      {r.split && (
-        <Section title="Who has paid">
-          <Group>
-            {r.split.shares.map((s) => (
-              <ListRow
-                key={s.id}
-                icon={s.you || s.paidAt ? 'checkmark-circle' : 'time-outline'}
-                title={s.you ? `${s.name} (you)` : s.name}
-                subtitle={s.you ? 'Your share' : s.paidAt ? `${s.manual ? 'Marked as paid' : 'Paid'} · ${ago(s.paidAt)}` : 'Not paid yet'}
-                value={money(r.amountCents)}
-                chevron={false}
-                right={!s.you && !s.paidAt && open ? <Button title="Paid in cash" size="sm" variant="ghost" onPress={() => run(() => requests.markSharePaid(r.id, s.id), { success: `${s.name} marked as paid` })} /> : undefined}
-              />
-            ))}
-          </Group>
-        </Section>
+      {r.split && open && (
+        <Button title="Someone paid me in cash" icon="cash-outline" variant="ghost" style={{ alignSelf: 'center', marginTop: 8 }} onPress={() => run(() => requests.markCashPaid(r.id), { success: 'Counted as paid' })} />
       )}
 
       <Section title={r.kind === 'deposit' ? 'Deposit' : 'Payments'}>
@@ -118,7 +114,7 @@ export default function RequestDetail() {
             {r.payments.map((p, i) => (
               <Appear key={p.id} index={i}>
               <ListRow
-                icon={p.method === 'bank' ? 'bank-outline' : p.method === 'card' ? 'card-outline' : 'wallet-outline'}
+                icon={p.method === 'card' ? 'card-outline' : 'wallet-outline'}
                 title={p.payerName}
                 subtitle={`${p.methodLabel} · ${shortDate(p.at)}${p.feeCents ? ` · Fees ${money(p.feeCents)}` : ''}${p.payerId ? '' : ' · no Hayve account'}`}
                 chevron={false}

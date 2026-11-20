@@ -1,76 +1,55 @@
-# Hayve Pay: what is simulated and how to make it real
+# Hayve Pay: a wallet inside Hayve
 
-## Simulated in this build
+Hayve Pay is an internal wallet and balance. It is **not** a bank, card issuer, payment processor or payment network. Real money is collected and paid out by an external payment provider; Hayve keeps a ledger of what each person holds and spends.
 
-- Wallet balances, top-ups, withdrawals and P2P transfers
-- Card payments (any card number is accepted; only the last four digits are kept)
-- **Tap to Pay** (Hayve Pay › Get paid): identity check, keypad, tap screen, result, receipts, refunds, payer Wave Back and the QR claim. The tap itself is simulated with a demo panel (card, Apple Pay, saved card, Hayve balance, no connection, declined).
-- **Hayve Card** (Hayve Pay › Card): virtual card after the identity check, Show details (Face ID or password), Add to Apple Wallet / Google Pay, freeze, limits, online/contactless/gambling blocks, linked bank (iDEAL | Wero or SEPA mandate), auto top-up in batches, physical card, replace, PIN, and demo purchases at partner and other shops.
-- Merchant settlements and payout schedules
-- Cryptocurrency (not implemented; listed as future scope)
+## What Hayve Pay does
 
-Every money screen shows a **Demo** badge. Nothing connects to a bank, card network or crypto custodian.
+| Feature | How it works | Where |
+|---|---|---|
+| Balance | Derived from an append-only double-entry ledger, never stored as a number | `src/backend/ledger.ts`, migration 0002 |
+| Add money | Pay by card in the provider's hosted checkout; the balance changes when the provider confirms | `wallet.addMoney`, `server/src/payments.ts` `/wallet/topup` |
+| Spend anywhere in Hayve | Shop, Ride, Bites, Drive, Stay, request links | `beginPayment` in `src/backend/api/common.ts` |
+| Not enough balance | "Balance + card for the rest": the balance pays what it can, the card pays the rest | `PayMethod = 'wallet_card'` |
+| Pay fully by card | The provider's checkout; Hayve never sees card details | `PayMethod = 'card'` |
+| History, payments, refunds | Every movement is a ledger transaction; refunds reverse the original entries | `wallet.transactions`, `refundTransaction` |
+| Withdraw | Eligible balance to the person's payout account. Money added by card in the last 7 days can be spent but not withdrawn (fraud and chargeback protection) | `wallet.withdrawable/withdraw` |
+| Send money to Hayve users | Balance to balance, recorded in the ledger | `wallet.sendMoney` |
+| Request money | Links anyone can pay by card or with their balance; splits (N people or "I'm not sure"); 72-hour links; progress visible to the requester only | `src/backend/api/requests.ts` |
+| Wave Back | Money back on Hayve purchases paid from the balance | `computeWaveBack` |
 
-## Not offered by design
+Gift cards do not exist in the product yet, so none were added.
 
-Gift cards, gift-card resale, gambling, investment products, lending and savings accounts. Hayve Pay is for everyday spending and payments.
+## Wave Back (current rates, admin-editable)
 
-## Path to production
+- Hayve Shop purchases paid from the balance: **1%**, at most **$5 per purchase**
+- Ride, Bites, Drive and Stay paid from the balance: **2%**
+- New members, first **30 days**: **5%**, up to **$10** in total
+- Never more than **$20 per person per month**
+- Only the part paid from the balance earns Wave Back; card payments, top-ups and transfers don't.
 
-Hayve Pay holds customer funds and moves money between users, so in the EU it needs to operate under, or through a partner holding:
+## Removed in the simplification
 
-- an **EMI (electronic money institution)** or **PI (payment institution)** licence under PSD2. This covers wallets, P2P and merchant acquiring.
-- KYC/AML onboarding for users and merchants (identity verification, sanctions screening, transaction monitoring)
-- a **card issuing** partner for the Hayve Card, and an **acquirer** for card acceptance and Tap to Pay on iPhone (which also needs an Apple entitlement)
+Tap to Pay (phone as a card terminal), the Hayve Card (virtual/physical card, Face ID card details, wallet provisioning, card controls, auto top-up), bank connections (iDEAL | Wero / ACH / open-banking pickers, country bank lists, rails), saved cards, Wave Back boosts for card merchants, the receipt QR "claim" page, Stripe Terminal and Stripe Issuing server routes, the Face ID library (`expo-local-authentication`). Database: migration `0008_simplify_wallet.sql` drops `tap_payments`, `cards`, `linked_banks`, `wave_back_boosts` (never used in production) and keeps the ledger untouched.
 
-Suggested provider adapters (all have EU coverage and marketplace features):
+## What needs an external provider
 
-| Need | Options |
-|---|---|
-| Marketplace split payments & payouts | Stripe Connect, Adyen for Platforms, Mollie Connect |
-| Wallet / e-money | Partner EMI (e.g. via Adyen Issuing, Swan, Treezor) |
-| Card issuing | Stripe Issuing, Adyen Issuing, Marqeta |
-| KYC | Onfido, Veriff, provider-native KYC |
+| Feature | Provider piece | Notes |
+|---|---|---|
+| Add money (top-up) | Hosted checkout (e.g. Stripe Checkout) | Card, plus any wallets the provider shows on its own page |
+| Card payments at checkout and on request links | PaymentIntent / Checkout | Provider collects the card |
+| Withdrawals | Payouts to a verified account (e.g. Stripe Connect payouts, or a licensed wallet partner) | Provider verifies the account holder |
+| Holding balances | A licensed partner that can hold customer funds, or Hayve's own licence | See below |
 
-### Integration approach
-The ledger (`ledger_entries` / `transactions`) stays Hayve's internal source of truth. Provider adapters plug in at the system accounts:
+Keys: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` (server env only). The webhook is the only path that records real money (`checkout.session.completed` for top-ups, `payment_intent.*` for request links), once per provider reference.
 
-- `card` → provider PaymentIntent. Capture on success; the webhook confirms the `deposit` transaction.
-- `bank` → local bank rails for top-ups and payouts: ACH (US), pre-authorized debit (CA), pay by bank / Faster Payments (UK), SEPA (euro area), iDEAL | Wero (NL), Wero / Bancontact (DE, FR, BE), PayTo / BECS (AU).
-- `payouts` → provider transfers to connected accounts.
+## Regulatory and cost dependencies (calling it a "balance" does not remove these)
 
-The checkout flows already use **hold → capture / void**, which maps directly onto card authorisation and capture.
+- **Stored value.** Keeping customer money that can be spent across different sellers and withdrawn is usually regulated: e-money in the EU/UK (EMI licence or acting as an agent of an EMI), money transmission in the US (state money transmitter licences, FinCEN MSB registration) unless a licensed partner holds the funds (for example a provider's "stored balances"/connected-account product). Choose the partner before launch; its contract decides who holds the funds and who is liable.
+- **Safeguarding.** Customer balances must be kept separate from Hayve's own money (safeguarding accounts or the partner's FBO/trust accounts).
+- **KYC/AML.** Identity checks above thresholds set by the partner and the law (withdrawals and larger balances in particular), sanctions screening, transaction monitoring.
+- **Refunds and chargebacks.** Card top-ups can be disputed; the 7-day withdrawal hold reduces abuse. Budget for chargeback fees.
+- **Dormant balances.** Unclaimed-property (escheatment) rules in US states and dormant-account rules elsewhere apply to long-unused balances; balances cannot simply be kept.
+- **Consumer law.** Clear terms, fees shown before payment, refunds and withdrawals as promised.
+- **Costs.** Provider card fees on top-ups and card payments (roughly 1.5–3% + a fixed fee depending on region), payout fees, chargeback fees, and the partner's platform fees.
 
-
-## Payment requests and links (production wiring)
-
-Request money works like a Tikkie, inside Hayve: create a link (one person, a split bill, a business request with logo and invoice number, or an authorised deposit for a Stay or Drive booking), share it on WhatsApp, Snapchat, SMS or anywhere, and the other person pays **without a Hayve account**, from any country: Apple Pay / Google Pay, debit or credit card, pay by bank with their own country's banks, or Hayve Pay. The link is in the requester's currency. Requests can be linked to real orders and bookings (Shop orders, Bites orders, Stay and Drive bookings, deliveries).
-
-- Personal requests, splits, deposits and personal QR codes are free. Business requests pay a small fee per payment (1.2% + €0.20 by default, admin setting), shown to the business as "Fees". The payer never pays a fee.
-- Production: the app calls `POST /requests/:id/checkout` (server/src/payments.ts), which creates a Stripe PaymentIntent in the request's currency for `card` (incl. Apple Pay / Google Pay) or the payer's local bank method (`us_bank_account`, `pay_by_bank`, `sepa_debit`, `ideal`, `bancontact`, `acss_debit`, `au_becs_debit`) (manual capture for deposits). Stripe's own secure form collects card details. The signed `payment_intent.succeeded` / `amount_capturable_updated` webhook records the payment in `pay_request_payments`; nobody can write that table from the app (migration 0007).
-- The link id is a random 32-character token; `pay_request_public(token)` shows only what a payer needs, never who else paid.
-
-## Cards and banks
-
-People connect their own bank with their country's rail (approve in the bank app, or account details + mandate: routing + account number in the US, sort code + account number in the UK, IBAN in the euro area; iDEAL | Wero in the Netherlands) and debit or credit cards. Hayve stores only brand, last 4, expiry, debit/credit and the bank name; card numbers go straight to the payment partner. Connected methods appear in every checkout, in Add money and for withdrawals, and the bank also funds Hayve Card automatic top-ups.
-
-## Tap to Pay (production wiring)
-
-1. Apply for Apple's **Tap to Pay on iPhone** entitlement (iPhone XS or newer) and enable Tap to Pay on Android in the Stripe dashboard.
-2. Add `@stripe/stripe-terminal-react-native` to the app and configure its Expo plugin. The app calls `POST /api/tap/connection-token`, then `POST /api/tap/charges` (creates a `card_present` PaymentIntent) and hands the client secret to the Terminal SDK, which shows the system "Hold card or phone here" screen.
-3. Only the signed webhook `payment_intent.succeeded` (`POST /api/webhooks/stripe`, signature checked) marks the payment as paid. Offline or declined taps never create a payment.
-4. Receiver fee: `tap_to_pay.receiverFeeRate` (default 2.5%), shown only as "Fees €X.XX". Monthly limit for personal accounts and refund window are admin settings. Refunds go through `POST /api/tap/charges/:id/refund` and are final when `charge.refunded` arrives.
-5. Payer Wave Back: 1% when paying with the Hayve balance or Hayve Card; 0.5% when the card's fingerprint matches a card saved in the payer's Hayve account; otherwise the receipt QR lets the payer claim within 24 hours.
-
-## Hayve Card (production wiring)
-
-1. Card issuing partner: **Stripe Issuing** (alternatives Adyen Issuing, Marqeta) on top of the EMI that holds balances.
-2. Cardholder + virtual card are created after the partner's KYC; the physical card is ordered through the same API.
-3. "Show details" uses an ephemeral key (`POST /api/card/ephemeral-key`) with the issuer's secure elements behind Face ID / PIN. Hayve never stores the full card number, expiry or CVC (the database has no columns for them).
-4. Apple Wallet / Google Pay: in-app push provisioning through the issuer (requires Apple and Google approval).
-5. Authorisations (`issuing_authorization.request` webhook) are decided by `decideAuthorization` in `server/src/payments.ts`: frozen, blocked channels, gambling MCCs, daily/monthly limits, balance first, then auto top-up from the linked bank in batches (default €50).
-6. Wave Back on the card: 1% at Hayve Business partners and Hayve services, 0.1% elsewhere, plus admin **boosts**; the €20 monthly maximum (all sources) and the exclusions (top-ups, transfers, fees) always apply.
-
-### Later: paying from the app without Apple Wallet
-
-In the EEA, Apple's HCE contactless API (iOS 17.4+, iPhone XS+) allows paying directly from the Hayve app. It needs Apple's HCE entitlement and EEA payment licensing. The card screen and confirmation flow are built so this can be added as another payment surface without a redesign.
+Until a provider and partner are connected, every money movement in the app is simulated and labelled **Demo**.

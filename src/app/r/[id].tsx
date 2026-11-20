@@ -1,19 +1,20 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Platform, Pressable, View } from 'react-native';
-import { regions, requests, wallet } from '../../backend/api';
+import { View } from 'react-native';
+import { requests, wallet } from '../../backend/api';
 import { Appear, Avatar, Button, Card, color, ErrorState, HayveLogo, Header, Icon, Input, Notice, Photo, radius, Screen, Sheet, SimBadge, SuccessMark, T, tap, VerifiedMark } from '../../design';
 import type { IconName } from '../../design/icons';
-import { BankPicker, CardForm, type CardResult, CountrySelect, PressScale, SecureNote, useBankApproval } from '../../features/payments';
+import { CardForm, type CardResult, PressScale } from '../../features/payments';
 import { money, moneyIn } from '../../lib/format';
 import { useAction, useLive, useSessionId } from '../../lib/hooks';
 import { setReturnTo } from '../../lib/returnTo';
 
-type Step = null | 'bank' | 'card' | 'hayve';
+type Step = null | 'card' | 'hayve';
 
 /**
- * The page someone opens from a shared payment link. Works without a Hayve account:
- * Apple Pay / Google Pay, pay by bank (the payer's local rail), debit or credit card, or with Hayve Pay.
+ * The page someone opens from a shared payment link. Works without a Hayve account: pay by card
+ * (the payment provider's checkout) or, signed in, with the Hayve Pay balance.
+ * Payers only see what they pay; progress on a split is visible to the requester only.
  */
 export default function PayRequestPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -21,50 +22,38 @@ export default function PayRequestPage() {
   const { data: r, error } = useLive(() => requests.publicView(id), [id]);
   const balance = useLive(() => (sessionId ? wallet.wallet().available : null), [sessionId]).data ?? null;
   const [step, setStep] = useState<Step>(null);
-  const [shareId, setShareId] = useState<string | null>(null);
   const [name, setName] = useState('');
-  const [bank, setBank] = useState<string | null>(null);
-  const [country, setCountry] = useState<string | null>(null);
   const [card, setCard] = useState<CardResult | null>(null);
   const onCard = useCallback((c: CardResult | null) => setCard(c), []);
   const [done, setDone] = useState<{ signedIn: boolean } | null>(null);
-  const { approving, approve } = useBankApproval();
   const { run, busy } = useAction();
 
   if (error || !r) return <Screen header={<Header back title="Payment request" fallback="/" />}>{error && <ErrorState message="This payment link doesn't exist or was removed." />}</Screen>;
 
   const who = r.business?.name ?? r.requester.firstName;
   const amt = (c: number) => moneyIn(c, r.currency);
-  const payCountry = country ?? r.country;
-  const payRegion = regions.region(payCountry);
-  const walletName = Platform.OS === 'android' ? 'Google Pay' : Platform.OS === 'ios' ? 'Apple Pay' : 'Apple Pay or Google Pay';
-  const needsName = !sessionId && !r.shares;
-  const nameOk = !needsName || name.trim().length >= 2;
-  const canPay = r.status === 'pending' && !r.isOwner && (!r.shares || !!shareId);
-  const pay = (method: 'bank' | 'card' | 'hayve', wallet?: boolean) =>
-    run(() => requests.pay(r.id, { method, payerName: name || undefined, shareId: shareId ?? undefined, bank: bank ?? undefined, country: payCountry, card: wallet ? { brand: walletName.split(' or ')[0], last4: String(1000 + Math.floor(Math.random() * 9000)) } : card ? { brand: card.brand, last4: card.last4 } : undefined }), {
+  const canPay = r.status === 'pending' && !r.isOwner;
+  const pay = (method: 'card' | 'hayve') =>
+    run(() => requests.pay(r.id, { method, payerName: name || undefined, card: card ? { brand: card.brand, last4: card.last4 } : undefined }), {
       onDone: (res) => {
         setStep(null);
         setDone({ signedIn: res.signedIn });
       },
     });
-
-  const header = (
-    <View style={{ alignItems: 'center', gap: 6, marginBottom: 16 }}>
-      <HayveLogo height={24} />
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        <Icon name="lock-closed-outline" size={12} color={color.grey500} />
-        <T variant="caption" color={color.grey500}>
-          Secure payment page
-        </T>
-        <SimBadge />
-      </View>
-    </View>
-  );
+  const hoursLeft = Math.max(0, Math.ceil((r.expiresAt - Date.now()) / 3_600_000));
 
   return (
     <Screen header={<Header back fallback="/" />} maxWidth={480}>
-      {header}
+      <View style={{ alignItems: 'center', gap: 6, marginBottom: 16 }}>
+        <HayveLogo height={24} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Icon name="lock-closed-outline" size={12} color={color.grey500} />
+          <T variant="caption" color={color.grey500}>
+            Secure payment page
+          </T>
+          <SimBadge />
+        </View>
+      </View>
       <Card style={{ gap: 0, paddingVertical: 20 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           {r.business?.logo ? <Photo uri={r.business.logo} style={{ width: 44, height: 44 }} rounded={12} /> : <Avatar uri={r.requester.avatar} name={r.business?.name ?? r.requester.displayName} size={44} />}
@@ -76,7 +65,7 @@ export default function PayRequestPage() {
               {r.business?.verified && <VerifiedMark size={15} />}
             </View>
             <T variant="footnote" color={color.textSecondary}>
-              {r.kind === 'deposit' ? 'Deposit request' : r.kind === 'split' ? 'Split bill' : r.business ? 'Business request' : 'Payment request'}
+              {r.kind === 'deposit' ? 'Deposit request' : r.isSplit ? 'Split bill' : r.business ? 'Business request' : 'Payment request'}
             </T>
           </View>
           <View style={{ borderWidth: 1, borderColor: color.indigo, borderRadius: 999, paddingHorizontal: 10, height: 26, justifyContent: 'center' }}>
@@ -88,7 +77,7 @@ export default function PayRequestPage() {
         <View style={{ alignItems: 'center', gap: 4, marginTop: 20 }}>
           <T style={{ fontSize: 48, lineHeight: 56, fontWeight: '800', letterSpacing: -1.2, color: color.ink }}>{amt(r.amountCents)}</T>
           <T variant="subhead" color={color.textSecondary}>
-            {r.kind === 'split' ? 'Your share' : `Requested by ${who}`}
+            {r.isSplit ? 'Your share' : `Requested by ${who}`}
           </T>
           <T variant="title3" center style={{ marginTop: 4 }}>
             {r.title}
@@ -122,7 +111,7 @@ export default function PayRequestPage() {
             <Card style={{ alignSelf: 'stretch', gap: 10, marginTop: 16 }}>
               <T variant="headline">Like how easy that was?</T>
               <T variant="footnote" color={color.textSecondary}>
-                With a free Hayve account you can request money, split bills and pay friends in seconds.
+                With a free Hayve account you can request money, split bills and pay with your balance in seconds.
               </T>
               <Button title="Create a Hayve account" full onPress={() => router.push('/sign-up')} />
             </Card>
@@ -139,52 +128,15 @@ export default function PayRequestPage() {
         </View>
       ) : (
         <View style={{ gap: 16, marginTop: 16 }}>
-          {r.shares && (
-            <Card style={{ gap: 10 }}>
-              <T variant="headline">Who are you?</T>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                {r.shares.map((s) => {
-                  const on = shareId === s.id;
-                  return (
-                    <Pressable
-                      key={s.id}
-                      disabled={s.paid}
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected: on, disabled: s.paid }}
-                      onPress={() => {
-                        tap();
-                        setShareId(s.id);
-                      }}
-                      style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 36, borderRadius: 999, borderWidth: on ? 1.5 : 1, borderColor: on ? color.indigo : color.grey200, opacity: s.paid ? 0.5 : 1 }}
-                    >
-                      {s.paid && <Icon name="checkmark" size={14} />}
-                      <T variant="subhead" weight="600" color={on ? color.indigo : color.black} style={s.paid ? { textDecorationLine: 'line-through' } : undefined}>
-                        {s.name}
-                      </T>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              {r.splitTotalCents ? (
-                <T variant="footnote" color={color.textSecondary}>
-                  {amt(r.splitTotalCents)} total, split between {r.shares.length + 1} people
-                </T>
-              ) : null}
-            </Card>
-          )}
-
-          {needsName && <Input label="Your name" icon="person-outline" placeholder={`So ${who} knows who paid`} value={name} onChangeText={setName} maxLength={60} autoComplete="name" />}
-
+          {!sessionId && <Input label="Your name (optional)" icon="person-outline" placeholder={`So ${who} knows who paid`} value={name} onChangeText={setName} maxLength={60} autoComplete="name" />}
           <View style={{ borderRadius: radius.lg, backgroundColor: color.grey100, padding: 6 }}>
             <T variant="headline" style={{ paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6 }}>
               How would you like to pay?
             </T>
-            <Method icon="phone-portrait-outline" title={walletName} sub="Fast and private: no card details to type" disabled={!canPay || !nameOk} onPress={() => pay('card', true)} />
-            <Method icon="bank-outline" title="Pay by bank" sub={payRegion.bankRailName} disabled={!canPay || !nameOk} onPress={() => setStep('bank')} />
-            <Method icon="card-outline" title="Debit or credit card" sub="Visa, Mastercard, Maestro, Amex" disabled={!canPay || !nameOk} onPress={() => setStep('card')} />
+            <Method icon="card-outline" title="Debit or credit card" sub="Secure checkout by our payment provider" disabled={!canPay} onPress={() => setStep('card')} />
             <Method
               icon="wallet-outline"
-              title="Hayve Pay"
+              title="Hayve Pay balance"
               sub={sessionId ? `Balance ${money(balance ?? 0)}` : 'Sign in to pay with your balance'}
               disabled={!canPay}
               last
@@ -197,39 +149,11 @@ export default function PayRequestPage() {
               }}
             />
           </View>
-          {r.shares && !shareId && (
-            <T variant="footnote" color={color.grey500} center>
-              Pick your name first
-            </T>
-          )}
           <T variant="caption" color={color.grey500} center>
-            No fees for you. You don't need a Hayve account, and you can pay from any country. Preview build: no real money moves.
+            No fees for you. No Hayve account needed. This link works for {hoursLeft} more hours. Preview build: no real money moves.
           </T>
         </View>
       )}
-
-      <Sheet
-        visible={step === 'bank'}
-        onClose={() => setStep(null)}
-        title="Pay with your bank"
-        footer={<Button title={approving ? 'Approve in your bank app…' : bank ? `Pay ${amt(r.amountCents)} with ${bank}` : 'Choose your bank'} size="lg" full loading={approving || busy} disabled={!bank} onPress={() => approve(() => pay('bank'))} />}
-      >
-        <View style={{ gap: 14 }}>
-          <CountrySelect
-            label="Your bank's country"
-            value={payCountry}
-            onChange={(c) => {
-              setCountry(c);
-              setBank(null);
-            }}
-          />
-          <T variant="footnote" color={color.textSecondary}>
-            {payRegion.bankRailName}: choose your bank, then approve the payment in your bank app.
-          </T>
-          <BankPicker banks={payRegion.banks} value={bank} onChange={setBank} />
-          <SecureNote text="You approve in your own bank app. Hayve never sees your bank login." />
-        </View>
-      </Sheet>
 
       <Sheet visible={step === 'card'} onClose={() => setStep(null)} title="Pay by card" footer={<Button title={`Pay ${amt(r.amountCents)}`} size="lg" full loading={busy} disabled={!card} onPress={() => pay('card')} />}>
         <CardForm onChange={onCard} />
@@ -240,7 +164,7 @@ export default function PayRequestPage() {
           <T>
             From your Hayve balance ({money(balance ?? 0)} available) to {who}.
           </T>
-          {(balance ?? 0) < r.amountCents && <Notice title="Not enough balance" body="Pay by bank or card instead, or add money first." />}
+          {(balance ?? 0) < r.amountCents && <Notice title="Not enough balance" body="Pay by card instead, or add money first." />}
         </View>
       </Sheet>
     </Screen>

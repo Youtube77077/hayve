@@ -18,10 +18,9 @@ const Env = z.object({
   SPACES_CDN_URL: z.string().url().optional(),
   EMAIL_FROM: z.string().default('Hayve <no-reply@hayve.app>'),
   POSTMARK_TOKEN: z.string().optional(),
-  /** Payment partner (Stripe Terminal for Tap to Pay, Stripe Issuing for the Hayve Card). */
+  /** Payment provider (Stripe): wallet top-up checkout, request-link card payments, webhooks. */
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
-  STRIPE_TERMINAL_LOCATION: z.string().optional(),
 });
 
 export type Config = z.infer<typeof Env>;

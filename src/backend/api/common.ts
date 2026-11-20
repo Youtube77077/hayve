@@ -1,24 +1,28 @@
 import { REGIONS } from '../regions';
-import { DEFAULT_FEE_TIERS, DEFAULT_PAY_REQUESTS, DEFAULT_RIDE, DEFAULT_TAP_TO_PAY, DEFAULT_WAVE_BACK, marketplaceFeeCents, type PayRequestSettings, type RideSettings, SEND_SHIPPING_CENTS, SEND_ZONES, type ShippingZone, type TapToPaySettings, type WaveBackCategory, type WaveBackSettings } from '../config';
-import { accountIdFor, captureHold, createTransaction, type Credit, refundTransaction, SYSTEM, voidHold } from '../ledger';
+import { DEFAULT_FEE_TIERS, DEFAULT_PAY_REQUESTS, DEFAULT_RIDE, DEFAULT_WAVE_BACK, marketplaceFeeCents, type PayRequestSettings, type RideSettings, SEND_SHIPPING_CENTS, SEND_ZONES, type ShippingZone, type WaveBackCategory, type WaveBackSettings } from '../config';
+import { accountIdFor, balancesFor, captureHold, createTransaction, type Credit, refundTransaction, SYSTEM, voidHold } from '../ledger';
 import { getDb, HayveError, now, uid } from '../store';
 import type { ID, NotificationKind, Profile, Settings, Transaction, TxType } from '../types';
 
-export type PayMethod = 'wallet' | 'card' | 'bank' | 'card_declined';
+/**
+ * How a purchase is paid:
+ *  - wallet: the Hayve Pay balance
+ *  - wallet_card: the balance first, the rest by card through the payment provider's checkout
+ *  - card: fully by card through the payment provider's checkout (Hayve never sees card details)
+ *  - card_declined: test option that simulates a declined card
+ */
+export type PayMethod = 'wallet' | 'wallet_card' | 'card' | 'card_declined';
 
 export const PAY_METHOD_LABEL: Record<PayMethod, string> = {
   wallet: 'Hayve Pay balance',
+  wallet_card: 'Balance + card for the rest',
   card: 'Debit or credit card',
-  bank: 'Bank account',
   card_declined: 'Card (simulated decline)',
 };
 
-/** The user's saved card (default first) and connected bank, used to label card and bank payments. */
-export function savedMethodsOf(userId: ID) {
-  const all = getDb().paymentMethods.filter((m) => m.userId === userId);
-  const card = all.filter((m) => m.kind === 'card').sort((a, b) => Number(b.isDefault) - Number(a.isDefault))[0] ?? null;
-  const bank = all.filter((m) => m.kind === 'bank').sort((a, b) => Number(b.isDefault) - Number(a.isDefault))[0] ?? null;
-  return { card, bank };
+/** The person's payout account (for withdrawals), if they added one. */
+export function payoutAccountOf(userId: ID) {
+  return getDb().paymentMethods.find((m) => m.userId === userId && m.kind === 'bank') ?? null;
 }
 
 export interface PublicUser {
@@ -103,14 +107,13 @@ export function shippingFor(sellerId: ID, destCountry?: string | null) {
 }
 
 /** Runtime settings (admin-editable), falling back to config.ts defaults. */
-type FullSettings = Settings & { waveBack: WaveBackSettings; tapToPay: TapToPaySettings; payRequests: PayRequestSettings; ride: RideSettings };
+type FullSettings = Settings & { waveBack: WaveBackSettings; payRequests: PayRequestSettings; ride: RideSettings };
 
 export function settings(): FullSettings {
   const db = getDb();
-  if (!db.settings) db.settings = { feeTiers: DEFAULT_FEE_TIERS, waveBack: DEFAULT_WAVE_BACK, tapToPay: DEFAULT_TAP_TO_PAY };
+  if (!db.settings) db.settings = { feeTiers: DEFAULT_FEE_TIERS, waveBack: DEFAULT_WAVE_BACK };
   // Fill values added in later versions so older saved settings keep working.
   db.settings.waveBack = { ...DEFAULT_WAVE_BACK, ...db.settings.waveBack };
-  db.settings.tapToPay = { ...DEFAULT_TAP_TO_PAY, ...db.settings.tapToPay };
   db.settings.payRequests = { ...DEFAULT_PAY_REQUESTS, ...db.settings.payRequests };
   db.settings.ride = { ...DEFAULT_RIDE, ...db.settings.ride };
   return db.settings as FullSettings;
@@ -132,32 +135,11 @@ export function monthStart(t = now()) {
  * How much Wave Back a balance payment earns. Pure calculation, no side effects.
  * Never applies to top-ups, transfers or fees (callers pass the item/service base only).
  */
-/** Active admin boost for a merchant (e.g. 5% at a partner for one week). */
-export function activeBoost(merchant: string | undefined) {
-  if (!merchant) return null;
-  const t = now();
-  const boosts = (getDb().waveBackBoosts ?? []).filter((b) => b.merchant.toLowerCase() === merchant.toLowerCase() && b.startsAt <= t && t < b.endsAt);
-  return boosts.sort((a, b) => b.rate - a.rate)[0] ?? null;
-}
-
 export function waveBackRate(category: WaveBackCategory, s: WaveBackSettings) {
-  switch (category) {
-    case 'shop':
-      return s.shopRate;
-    case 'services':
-      return s.servicesRate;
-    case 'tap_hayve':
-      return s.tapHayveRate;
-    case 'tap_card':
-      return s.tapCardRate;
-    case 'card_partner':
-      return s.cardPartnerRate;
-    case 'card_other':
-      return s.cardOtherRate;
-  }
+  return category === 'shop' ? s.shopRate : s.servicesRate;
 }
 
-export function computeWaveBack(userId: ID, category: WaveBackCategory, baseCents: number, merchant?: string) {
+export function computeWaveBack(userId: ID, category: WaveBackCategory, baseCents: number) {
   const db = getDb();
   const s = settings().waveBack;
   const user = db.users.find((u) => u.id === userId);
@@ -168,13 +150,12 @@ export function computeWaveBack(userId: ID, category: WaveBackCategory, baseCent
   const paidWelcome = mine.filter((t) => t.meta?.newUser).reduce((a, t) => a + t.amountCents, 0);
 
   const capShop = (c: number) => (category === 'shop' ? Math.min(c, s.shopMaxPerPurchaseCents) : c);
-  const boost = category === 'card_partner' || category === 'card_other' ? activeBoost(merchant) : null;
-  const rate = Math.max(waveBackRate(category, s), boost?.rate ?? 0);
+  const rate = waveBackRate(category, s);
   let cents = capShop(Math.round(baseCents * rate));
   let newUser = false;
   const isNew = now() - user.createdAt < s.newUserDays * 86_400_000;
   // The welcome rate applies to purchases on Hayve's own services.
-  if ((category === 'shop' || category === 'services') && isNew && paidWelcome < s.newUserMaxTotalCents) {
+  if (isNew && paidWelcome < s.newUserMaxTotalCents) {
     const welcome = Math.min(capShop(Math.round(baseCents * s.newUserRate)), s.newUserMaxTotalCents - paidWelcome);
     if (welcome > cents) {
       cents = welcome;
@@ -196,7 +177,7 @@ function grantWaveBack(tx: Transaction) {
   const db = getDb();
   const payerId = db.accounts.find((a) => a.id === tx.fromAccountId)?.ownerId;
   if (!payerId) return;
-  const { cents, newUser } = computeWaveBack(payerId, tx.waveBack.category, tx.waveBack.baseCents, tx.waveBack.merchant);
+  const { cents, newUser } = computeWaveBack(payerId, tx.waveBack.category, tx.waveBack.baseCents);
   if (cents <= 0) return;
   const wb = createTransaction({
     type: 'wave_back',
@@ -210,27 +191,6 @@ function grantWaveBack(tx: Transaction) {
   });
   wb.meta = { newUser };
   tx.waveBackCents = cents;
-}
-
-/**
- * Credits Wave Back to `userId` for a payment (Tap to Pay payers, Hayve Card purchases).
- * Linked to the payment so a refund reverses it. Returns the amount credited.
- */
-export function creditWaveBack(userId: ID, category: WaveBackCategory, baseCents: number, opts: { paymentTxId: ID; note?: string; merchant?: string }) {
-  const { cents, newUser } = computeWaveBack(userId, category, baseCents, opts.merchant);
-  if (cents <= 0) return 0;
-  const wb = createTransaction({
-    type: 'wave_back',
-    fromAccountId: SYSTEM.waveBack,
-    credits: [{ accountId: accountIdFor(userId), amountCents: cents }],
-    labelForFrom: 'Wave Back',
-    labelForTo: 'Wave Back',
-    note: opts.note,
-    ref: { kind: 'payment', id: opts.paymentTxId },
-    method: 'system',
-  });
-  wb.meta = { newUser };
-  return cents;
 }
 
 /**
@@ -253,22 +213,27 @@ export function beginPayment(input: {
     throw new HayveError('payment_failed', 'Your card was declined (simulated). No money was taken.');
   }
   const wallet = accountIdFor(input.payerId);
+  const total = input.credits.reduce((s, c) => s + c.amountCents, 0);
   let fundingTxId: ID | undefined;
-  if (input.method === 'card' || input.method === 'bank') {
-    // Card and bank payments pass through the wallet so every receipt lives in one history.
-    const saved = savedMethodsOf(input.payerId);
-    if (input.method === 'bank' && !saved.bank) throw new HayveError('invalid', 'Connect a bank first (Pay → Cards and banks).');
-    const total = input.credits.reduce((s, c) => s + c.amountCents, 0);
-    const funding = createTransaction({
-      type: 'deposit',
-      fromAccountId: input.method === 'card' ? SYSTEM.card : SYSTEM.bank,
-      credits: [{ accountId: wallet, amountCents: total }],
-      labelForFrom: input.method === 'card' ? 'Card' : 'Bank',
-      labelForTo: input.method === 'card' ? `${saved.card ? `${saved.card.brand ?? 'Card'} •••• ${saved.card.last4}` : 'Card'} (simulated)` : `${saved.bank!.label} (simulated)`,
-      note: input.note,
-      method: input.method,
-    });
-    fundingTxId = funding.id;
+  let balancePart = input.method === 'card' ? 0 : total;
+  if (input.method === 'card' || input.method === 'wallet_card') {
+    // Card money passes through the wallet so every receipt lives in one history.
+    // With wallet_card, the card only covers what the balance can't.
+    const available = balancesFor(wallet).available;
+    const cardPart = input.method === 'card' ? total : Math.max(0, total - available);
+    balancePart = total - cardPart;
+    if (cardPart > 0) {
+      const funding = createTransaction({
+        type: 'deposit',
+        fromAccountId: SYSTEM.card,
+        credits: [{ accountId: wallet, amountCents: cardPart }],
+        labelForFrom: 'Card',
+        labelForTo: input.method === 'card' ? 'Card payment (simulated checkout)' : 'Card for the rest (simulated checkout)',
+        note: input.note,
+        method: 'card',
+      });
+      fundingTxId = funding.id;
+    }
   }
   const tx = createTransaction({
     type: input.type,
@@ -278,11 +243,12 @@ export function beginPayment(input: {
     labelForTo: input.labelForPayee,
     note: input.note,
     ref: input.ref,
-    method: input.method === 'wallet' ? 'wallet' : input.method === 'bank' ? 'bank' : 'card',
+    method: input.method === 'card' ? 'card' : 'wallet',
     mode: 'hold',
   });
   tx.fundingTxId = fundingTxId;
-  if (input.waveBack && input.method === 'wallet') tx.waveBack = input.waveBack;
+  // Wave Back is earned on the part paid from the balance.
+  if (input.waveBack && balancePart > 0) tx.waveBack = { category: input.waveBack.category, baseCents: Math.round((input.waveBack.baseCents * balancePart) / total) };
   return tx;
 }
 

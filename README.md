@@ -7,7 +7,7 @@ Hayve is a consumer super app and business ecosystem: marketplace shopping, paym
 | Product | What it does | Partner app |
 |---|---|---|
 | **Hayve Shop** | Buy and sell anything, wishlists, anonymous gifting, verified **Hayve Store** businesses | Hayve Seller · Hayve Store |
-| **Hayve Pay** | Wallet, transfers, **Tap to Pay** (your phone as a card terminal), the **Hayve Card**, **Wave Back** | Hayve Business |
+| **Hayve Pay** | Your Hayve balance: add money, spend across Hayve, send, request and split, withdraw, **Wave Back** | Hayve Business |
 | **Hayve Ride** | Rides on a live map with route, driver tracking and ETA | Hayve Driver |
 | **Hayve Bites** | Restaurants and groceries with order tracking | Hayve Kitchen · Hayve Courier |
 | **Hayve Drive** | Car rentals from local hosts | Hayve Host |

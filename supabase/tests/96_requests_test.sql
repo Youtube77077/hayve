@@ -79,6 +79,13 @@ exception when others then insert into pg_temp.r values ('guard blocks payout ed
 reset role;
 drop policy rides_test_update on public.rides;
 
+-- Splits: 3 people (2 others); one pays by card, one in cash → paid. Payers never see progress.
+insert into public.pay_requests (id, requester_id, kind, title, amount_cents, expires_at, split) values ('splittoken0000000000000000000001', '00000000-0000-0000-0000-0000000000d1', 'split', 'Dinner', 2500, now() + interval '72 hours', '{"people":3,"totalCents":7500,"cashPaid":0}');
+insert into public.pay_request_payments (request_id, payer_name, method, method_label, amount_cents, status) values ('splittoken0000000000000000000001', 'Guest', 'card', 'Visa •••• 4242', 2500, 'paid');
+insert into pg_temp.r select 'split with one of two paid is still open', (select status = 'pending' from public.pay_request_public('splittoken0000000000000000000001'));
+update public.pay_requests set split = jsonb_set(split, '{cashPaid}', '1') where id = 'splittoken0000000000000000000001';
+insert into pg_temp.r select 'split closes when everyone paid (incl. cash)', (select status = 'paid' and is_split from public.pay_request_public('splittoken0000000000000000000001'));
+
 \set QUIET off
 select test, case when ok then 'PASS' else 'FAIL' end as result from pg_temp.r;
 do $$ begin

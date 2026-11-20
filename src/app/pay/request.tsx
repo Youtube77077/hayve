@@ -22,9 +22,10 @@ export default function RequestMoney() {
   const [amount, setAmount] = useState('');
   const [title, setTitle] = useState('');
   const [people, setPeople] = useState(4);
-  const [names, setNames] = useState<string[]>([]);
+  // "I'm not sure": no fixed number of people; everyone who opens the link pays the same amount.
+  const [unsure, setUnsure] = useState(false);
   const [reusable, setReusable] = useState(false);
-  const [expires, setExpires] = useState<'1' | '7' | '14' | '30'>('14');
+  const [expires, setExpires] = useState<'3' | '7' | '14' | '30'>('14');
   const [isBusiness, setIsBusiness] = useState(false);
   const [invoice, setInvoice] = useState('');
   const [refKey, setRefKey] = useState<string | null>(params.ref && params.refKind ? `${params.refKind}:${params.ref}` : null);
@@ -37,7 +38,7 @@ export default function RequestMoney() {
   const cents = parseEuro(amount) ?? 0;
   const verified = biz?.status === 'verified';
   const ref = linkables.find((l) => `${l.kind}:${l.id}` === refKey) ?? null;
-  const share = mode === 'split' && people >= 2 ? Math.round(cents / people) : 0;
+  const share = mode === 'split' ? (unsure ? cents : people >= 2 ? Math.round(cents / people) : 0) : 0;
   const kind = mode === 'split' ? 'split' : deposit && ref?.depositAllowed ? 'deposit' : isBusiness && verified ? 'business' : 'personal';
 
   const create = () =>
@@ -46,12 +47,11 @@ export default function RequestMoney() {
         requests.create({
           kind,
           title,
-          amountCents: mode === 'split' ? undefined : cents,
-          splitTotalCents: mode === 'split' ? cents : undefined,
-          people: mode === 'split' ? people : undefined,
-          names: mode === 'split' ? names : undefined,
+          amountCents: mode === 'split' && !unsure ? undefined : cents,
+          splitTotalCents: mode === 'split' && !unsure ? cents : undefined,
+          people: mode === 'split' && !unsure ? people : undefined,
           reusable: kind === 'personal' || kind === 'business' ? reusable : false,
-          expiresInDays: Number(expires),
+          expiresInDays: kind === 'business' ? Number(expires) : undefined,
           invoiceNumber: kind === 'business' ? invoice : undefined,
           ref: ref ? { kind: ref.kind, id: ref.id } : undefined,
         }),
@@ -112,35 +112,38 @@ export default function RequestMoney() {
           <AmountInput value={amount} onChange={setAmount} />
           {mode === 'split' && (
             <T variant="footnote" color={color.textSecondary} center style={{ marginTop: -10, marginBottom: 12 }}>
-              Total bill{share ? ` · ${money(share)} per person` : ''}
+              {unsure ? 'What each person pays' : `Total bill${share ? ` · everyone pays ${money(share)}` : ''}`}
             </T>
           )}
           <Input icon="chatbubble-outline" label="Description" placeholder={mode === 'split' ? 'Dinner at Napoli Forno' : 'Dinner'} value={title} onChangeText={setTitle} maxLength={80} />
 
           {mode === 'split' && (
-            <Section title="People">
+            <Section title="How many people?">
               <Card style={{ gap: 12 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <View>
-                    <T variant="headline">Splitting between</T>
-                    <T variant="footnote" color={color.textSecondary}>
-                      Including you
-                    </T>
+                <Segmented
+                  value={unsure ? 'unsure' : 'count'}
+                  onChange={(v) => setUnsure(v === 'unsure')}
+                  options={[
+                    { key: 'count', label: 'I know how many' },
+                    { key: 'unsure', label: "I'm not sure" },
+                  ]}
+                />
+                {!unsure && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <View>
+                      <T variant="headline">Splitting between</T>
+                      <T variant="footnote" color={color.textSecondary}>
+                        Including you
+                      </T>
+                    </View>
+                    <Stepper value={people} min={2} max={20} onChange={setPeople} />
                   </View>
-                  <Stepper value={people} min={2} max={20} onChange={setPeople} />
-                </View>
-                {Array.from({ length: people - 1 }, (_, i) => (
-                  <Input
-                    key={i}
-                    icon="person-outline"
-                    placeholder={`Person ${i + 2} (optional name)`}
-                    value={names[i] ?? ''}
-                    onChangeText={(v) => setNames((n) => Object.assign([...n], { [i]: v }))}
-                    maxLength={40}
-                  />
-                ))}
+                )}
                 <T variant="footnote" color={color.textSecondary}>
-                  Everyone opens the same link, picks their name and pays their share. You see who has paid.
+                  {unsure
+                    ? `Send one link. Everyone who opens it pays ${share ? money(share) : 'the same amount'}; however many pay, pay.`
+                    : `Send one link. Everyone pays ${share ? money(share) : 'their share'} and your bar fills up as they pay.`}{' '}
+                  Only you can see who paid. Links work for 72 hours.
                 </T>
               </Card>
             </Section>
@@ -174,21 +177,23 @@ export default function RequestMoney() {
             </Section>
           )}
 
-          <Section title="Expires">
-            <Segmented
-              value={expires}
-              onChange={setExpires}
-              options={[
-                { key: '1', label: '1 day' },
-                { key: '7', label: '7 days' },
-                { key: '14', label: '14 days' },
-                { key: '30', label: '30 days' },
-              ]}
-            />
-          </Section>
+          {kind === 'business' ? (
+            <Section title="Expires">
+              <Segmented
+                value={expires}
+                onChange={setExpires}
+                options={[
+                  { key: '3', label: '3 days' },
+                  { key: '7', label: '7 days' },
+                  { key: '14', label: '14 days' },
+                  { key: '30', label: '30 days' },
+                ]}
+              />
+            </Section>
+          ) : null}
 
           <T variant="footnote" color={color.grey500} style={{ marginTop: 12 }}>
-            {kind === 'business' ? 'Business requests have a small fee per payment, shown on each payment. The person paying never pays a fee.' : 'Free. Your friends can pay by bank, card or Hayve, without a Hayve account.'}
+            {kind === 'business' ? 'Business requests have a small fee per payment, shown on each payment. The person paying never pays a fee.' : 'Free. Your friends can pay by card or with Hayve, without a Hayve account. The link works for 72 hours.'}
           </T>
         </>
       )}

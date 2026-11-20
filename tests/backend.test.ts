@@ -432,8 +432,7 @@ describe('Wave Back', () => {
 
   it('caps Shop Wave Back at €5 per purchase and pays 2% on services', () => {
     as(NOOR);
-    api.wallet.connectBank({ connection: 'instant', bank: 'Barclays' });
-    api.wallet.addMoney(80000, 'bank');
+    api.wallet.addMoney(80000);
     const r = api.shop.checkout('p_laptop', { addressId: 'ad_noor', method: 'wallet' });
     expect(r.waveBackCents).toBe(500); // 1% of €640 = €6.40 → capped
     const ride = api.ride.requestRide('home', 'grand_central', 'go', 'wallet');
@@ -445,8 +444,7 @@ describe('Wave Back', () => {
 
   it('gives new members 5% for 30 days up to €10, within the €20 monthly cap', () => {
     api.session.signUp({ email: 'fresh@hayve.app', password: 'password1', displayName: 'Fresh Member', username: 'fresh' });
-    api.wallet.connectBank({ connection: 'instant', bank: 'Chase' });
-    api.wallet.addMoney(100000, 'bank');
+    api.wallet.addMoney(100000);
     api.social.saveAddress({ label: 'Home', fullName: 'Fresh Member', line1: '350 5th Ave', city: 'New York, NY', postcode: '10118', country: 'United States' });
     const addr = api.social.addresses()[0].id;
     const first = api.shop.checkout('p_jacket', { addressId: addr, method: 'wallet' }); // 5% of €120 = €6.00 → shop cap €5
@@ -621,170 +619,6 @@ describe('Hayve Store and admin', () => {
   });
 });
 
-describe('Tap to Pay', () => {
-  const wb = (email: string) => {
-    as(email);
-    return api.wallet.waveBackSummary().totalCents;
-  };
-
-  it('requires an identity check and enforces amounts and the private monthly limit', () => {
-    as(SAM);
-    expect(() => api.tap.createCharge(2400)).toThrow(/Verify your identity/);
-    api.tap.verifyIdentity();
-    expect(() => api.tap.createCharge(10)).toThrow(/at least/);
-    expect(() => api.tap.createCharge(60_000)).toThrow(/most you can take/);
-    getDb().settings!.tapToPay = { ...getDb().settings!.tapToPay!, privateMonthlyLimitCents: 3000 };
-    expect(() => api.tap.createCharge(4000)).toThrow(/monthly limit/);
-  });
-
-  it('takes a card tap: receiver gets amount minus Fees as pending, then available; payer pays nothing extra', () => {
-    as(SAM);
-    api.tap.verifyIdentity();
-    const acc = accountIdFor('u_sam');
-    const before = balancesFor(acc);
-    const id = api.tap.createCharge(2400, 'Concert tickets');
-    const v = api.tap.simulateTap(id, { method: 'card', brand: 'Visa', last4: '4417' });
-    expect(v.feeCents).toBe(60); // 2.5%
-    expect(v.netCents).toBe(2340);
-    expect(v.status).toBe('pending');
-    expect(balancesFor(acc).pending - before.pending).toBe(2340);
-    expect(v.waveBackClaimable).toBe(true); // payer unknown: QR claim offered
-    // Settlement
-    getDb().tapPayments.find((t) => t.id === id)!.settleAt = Date.now() - 1;
-    expect(api.tap.getTap(id).status).toBe('available');
-    expect(balancesFor(acc).available - before.available).toBe(2340);
-    expect(ledgerIsBalanced()).toBe(true);
-  });
-
-  it('never marks a payment paid without provider confirmation (offline, declined)', () => {
-    as(SAM);
-    api.tap.verifyIdentity();
-    const id = api.tap.createCharge(1000);
-    expect(() => api.tap.simulateTap(id, { method: 'card', offline: true })).toThrow(/No connection/);
-    expect(api.tap.getTap(id).status).toBe('awaiting_tap');
-    expect(() => api.tap.simulateTap(id, { method: 'card', decline: true })).toThrow(/declined/);
-    expect(api.tap.getTap(id).status).toBe('failed');
-    expect(api.tap.history().find((t) => t.id === id)?.txId).toBeUndefined();
-  });
-
-  it('pays 1% Wave Back when the payer uses their Hayve balance, 0.5% for a saved card, none for self', () => {
-    const noorBefore = wb(NOOR);
-    as(SAM);
-    api.tap.verifyIdentity();
-    let id = api.tap.createCharge(2000);
-    api.tap.simulateTap(id, { method: 'hayve_balance', payerUsername: 'noor' });
-    expect(wb(NOOR) - noorBefore).toBe(20);
-    const noorMid = wb(NOOR);
-    as(SAM);
-    id = api.tap.createCharge(2000);
-    api.tap.simulateTap(id, { method: 'card', brand: 'Mastercard', last4: '5100', payerUsername: 'noor' }); // Noor's saved card
-    expect(wb(NOOR) - noorMid).toBe(10);
-    as(SAM);
-    id = api.tap.createCharge(2000);
-    expect(() => api.tap.simulateTap(id, { method: 'hayve_balance', payerUsername: 'samrivera' })).toThrow(/pay yourself/);
-  });
-
-  it('lets the payer claim Wave Back once with the receipt QR within 24 hours', () => {
-    as(SAM);
-    api.tap.verifyIdentity();
-    const id = api.tap.createCharge(3000);
-    api.tap.simulateTap(id, { method: 'apple_pay', last4: '9999' });
-    const token = api.tap.getTap(id).receiptToken;
-    expect(() => api.tap.claimWaveBack(token)).toThrow(/yourself/);
-    const before = wb(NOOR);
-    expect(api.tap.receipt(token).claimable).toBe(true);
-    expect(api.tap.claimWaveBack(token)).toBe(15);
-    expect(wb(NOOR) - before).toBe(15);
-    expect(() => api.tap.claimWaveBack(token)).toThrow(/already been claimed/);
-  });
-
-  it('refunds within 30 days, reverses the payer Wave Back, and blocks later refunds', () => {
-    as(SAM);
-    api.tap.verifyIdentity();
-    const id = api.tap.createCharge(2000);
-    api.tap.simulateTap(id, { method: 'hayve_balance', payerUsername: 'noor' });
-    const noorAfterPay = wb(NOOR);
-    as(SAM);
-    api.tap.refund(id);
-    expect(api.tap.getTap(id).status).toBe('refunded');
-    expect(wb(NOOR)).toBe(noorAfterPay - 20);
-    as(SAM);
-    const id2 = api.tap.createCharge(1500);
-    api.tap.simulateTap(id2, { method: 'card' });
-    getDb().tapPayments.find((t) => t.id === id2)!.paidAt = Date.now() - 31 * 86_400_000;
-    expect(() => api.tap.refund(id2)).toThrow(/within 30 days/);
-    expect(ledgerIsBalanced()).toBe(true);
-  });
-});
-
-describe('Hayve Card', () => {
-  it('issues after identity check, applies controls and limits, and pays Wave Back by merchant type', () => {
-    as(SAM);
-    expect(() => api.card.issue()).toThrow(/Verify your identity/);
-    api.tap.verifyIdentity();
-    api.card.issue();
-    const before = api.wallet.waveBackSummary().totalCents;
-    const r1 = api.card.simulatePurchase({ merchantId: 'ah', amountCents: 1240, channel: 'contactless' });
-    expect(r1.waveBackCents).toBe(1); // 0.1%
-    const r2 = api.card.simulatePurchase({ merchantId: 'napoli', amountCents: 2000, channel: 'chip' });
-    expect(r2.waveBackCents).toBe(20); // partner 1%
-    expect(api.wallet.waveBackSummary().totalCents - before).toBe(21);
-    expect(() => api.card.simulatePurchase({ merchantId: 'casino', amountCents: 1000, channel: 'chip' })).toThrow(/Gambling/);
-    api.card.setBlocks({ online: true });
-    expect(() => api.card.simulatePurchase({ merchantId: 'bol', amountCents: 1000, channel: 'online' })).toThrow(/Online payments are blocked/);
-    api.card.setFrozen(true);
-    expect(() => api.card.simulatePurchase({ merchantId: 'ah', amountCents: 100, channel: 'contactless' })).toThrow(/frozen/);
-    api.card.setFrozen(false);
-    api.card.setLimits({ dailyCents: 5000, monthlyCents: 10000 });
-    expect(() => api.card.simulatePurchase({ merchantId: 'ah', amountCents: 2000, channel: 'chip' })).toThrow(/daily/);
-    expect(ledgerIsBalanced()).toBe(true);
-  });
-
-  it('tops up from the linked bank in batches when the balance is too low', () => {
-    as(SAM);
-    api.tap.verifyIdentity();
-    api.card.issue();
-    const acc = accountIdFor('u_sam');
-    const bal = balancesFor(acc).available;
-    api.card.setLimits({ dailyCents: 1_000_000, monthlyCents: 2_000_000 });
-    getDb().linkedBanks = [];
-    expect(() => api.card.simulatePurchase({ merchantId: 'bol', amountCents: bal + 100, channel: 'chip' })).toThrow(/auto top-up/);
-    api.card.linkBank({ holder: 'Sam Rivera', iban: 'NL91 ABNA 0417 1643 00', method: 'sepa_debit' });
-    api.card.setAutoTopUp({ enabled: true, amountCents: 5000 });
-    const r = api.card.simulatePurchase({ merchantId: 'bol', amountCents: bal + 7000, channel: 'chip' });
-    expect(r.toppedUpCents).toBe(10000); // two batches of €50
-    expect(balancesFor(acc).available).toBe(bal + 10000 - (bal + 7000) + r.waveBackCents);
-  });
-
-  it('applies admin Wave Back boosts and keeps the monthly maximum', () => {
-    as(SAM);
-    api.tap.verifyIdentity();
-    api.card.issue();
-    api.card.setLimits({ dailyCents: 1_000_000, monthlyCents: 2_000_000 });
-    getDb().waveBackBoosts.push({ id: 'b1', merchant: 'FreshMart', rate: 0.05, startsAt: Date.now() - 1000, endsAt: Date.now() + 86_400_000, createdBy: 'u_admin', createdAt: Date.now() });
-    const r = api.card.simulatePurchase({ merchantId: 'ah', amountCents: 2000, channel: 'chip' });
-    expect(r.waveBackCents).toBe(100); // 5% boost
-    api.card.linkBank({ holder: 'Sam Rivera', iban: 'NL91ABNA0417164300', method: 'ideal_wero' });
-    const big = api.card.simulatePurchase({ merchantId: 'ah', amountCents: 100_000, channel: 'chip' });
-    const month = api.wallet.waveBackSummary().thisMonthCents;
-    expect(month).toBeLessThanOrEqual(2000);
-    expect(big.waveBackCents).toBeLessThan(5000);
-  });
-
-  it('reveals details only after re-authentication and validates PIN and IBAN', () => {
-    as(SAM);
-    api.tap.verifyIdentity();
-    api.card.issue();
-    expect(() => api.card.revealDetails({ password: 'nope' })).toThrow(/incorrect/);
-    const d = api.card.revealDetails({ password: DEMO_PASSWORD });
-    expect(d.number.replace(/\s/g, '')).toHaveLength(16);
-    expect(d.number.endsWith(api.card.get().card!.last4)).toBe(true);
-    expect(() => api.card.changePin('1234')).toThrow(/harder to guess/);
-    api.card.changePin('8302');
-    expect(() => api.card.linkBank({ holder: 'Sam', iban: '123', method: 'sepa_debit' })).toThrow(/valid IBAN/);
-  });
-});
-
 describe('payment requests and links', () => {
   const samAcc = () => balancesFor(accountIdFor('u_sam')).available;
 
@@ -797,11 +631,9 @@ describe('payment requests and links', () => {
     expect(pub.amountCents).toBe(2500);
     expect(pub.requester.firstName).toBe('Sam');
     expect(contains(pub, 'payments')).toBe(false);
-    expect(() => api.requests.pay(id, { method: 'bank', bank: 'Chase' })).toThrow(/your name/);
-    // Pay by bank uses the payer's own country (default: the requester's country, the US).
-    expect(() => api.requests.pay(id, { method: 'bank', bank: 'ING', payerName: 'Max' })).toThrow(/your bank/);
+    expect(() => api.requests.pay(id, { method: 'card' })).toThrow(/card details/);
     expect(() => api.requests.pay(id, { method: 'hayve', payerName: 'Guest' })).toThrow(/Sign in/);
-    const res = api.requests.pay(id, { method: 'bank', bank: 'Barclays', country: 'GB', payerName: 'Max' });
+    const res = api.requests.pay(id, { method: 'card', card: { brand: 'Visa', last4: '1111' }, payerName: 'Max' });
     expect(res.signedIn).toBe(false);
     expect(api.requests.publicView(id).status).toBe('paid');
     expect(() => api.requests.pay(id, { method: 'card', payerName: 'Max', card: { brand: 'Visa', last4: '4242' } })).toThrow(/already been paid/);
@@ -809,31 +641,47 @@ describe('payment requests and links', () => {
     expect(samAcc()).toBe(before + 2500); // personal requests are free
     const v = api.requests.get(id);
     expect(v.payments[0].payerId).toBeNull();
-    expect(v.payments[0].methodLabel).toBe('Pay by bank · Barclays');
+    expect(v.payments[0].methodLabel).toBe('Visa •••• 1111');
     expect(api.requests.publicView(id).currency).toBe('USD');
     expect(ledgerIsBalanced()).toBe(true);
   });
 
-  it('splits a bill, tracks who paid and closes when everyone has paid', () => {
+  it('splits a bill without names, fills the bar for the requester only and closes when everyone has paid', () => {
     as(SAM);
-    const id = api.requests.create({ kind: 'split', title: 'Dinner', splitTotalCents: 10000, people: 4, names: ['Noor', 'Eva'] });
+    const id = api.requests.create({ kind: 'split', title: 'Dinner', splitTotalCents: 10000, people: 4 });
     const v = api.requests.get(id);
-    expect(v.amountCents).toBe(2500);
-    expect(v.expectedCount).toBe(3);
-    expect(v.split!.shares.map((s) => s.name)).toEqual(['Sam Rivera', 'Noor', 'Eva', 'Person 4']);
+    expect(v.amountCents).toBe(2500); // everyone pays the same
+    expect(v.expectedCount).toBe(3); // everyone except you
+    expect(v.expiresAt - v.createdAt).toBe(72 * 3_600_000);
+    // Payers don't pick a name and never see who else paid.
+    const pub = api.requests.publicView(id);
+    expect(contains(pub, 'payments')).toBe(false);
+    expect(pub.isSplit).toBe(true);
     as(NOOR);
-    expect(() => api.requests.pay(id, { method: 'hayve' })).toThrow(/who you are/);
-    api.requests.pay(id, { method: 'hayve', shareId: 's1' });
-    expect(() => api.requests.pay(id, { method: 'hayve', shareId: 's1' })).toThrow(/already paid/);
+    api.requests.pay(id, { method: 'hayve' });
     api.session.signOut();
-    api.requests.pay(id, { method: 'card', shareId: 's2', card: { brand: 'Mastercard', last4: '5100' } });
+    api.requests.pay(id, { method: 'card', card: { brand: 'Mastercard', last4: '5100' } });
     as(SAM);
+    expect(api.requests.get(id).paidCount).toBe(2);
     expect(api.requests.get(id).status).toBe('pending');
-    api.requests.markSharePaid(id, 's3');
+    api.requests.markCashPaid(id);
     const done = api.requests.get(id);
     expect(done.status).toBe('paid');
     expect(done.collectedCents).toBe(5000);
-    expect(api.requests.mine('paid').items.map((r) => r.id)).toContain(id);
+    expect(done.payments.map((p) => p.payerName).sort()).toEqual(['Guest', 'Noor Haddad']);
+  });
+
+  it("supports \"I'm not sure\" splits: everyone pays the same, as many as want to, for 72 hours", () => {
+    as(SAM);
+    const id = api.requests.create({ kind: 'split', title: 'Gift for Eva', amountCents: 1500 });
+    expect(api.requests.get(id).expectedCount).toBeNull();
+    api.session.signOut();
+    for (let i = 0; i < 5; i++) api.requests.pay(id, { method: 'card', card: { brand: 'Visa', last4: '4242' } });
+    as(SAM);
+    const v = api.requests.get(id);
+    expect(v.paidCount).toBe(5);
+    expect(v.collectedCents).toBe(7500);
+    expect(v.status).toBe('pending');
   });
 
   it('charges business requests a small fee (never the payer) and needs a verified business', () => {
@@ -845,8 +693,7 @@ describe('payment requests and links', () => {
     expect(pub.business?.invoiceNumber).toBe('INV-2026-014');
     expect(pub.amountCents).toBe(10000);
     as(NOOR);
-    api.wallet.connectBank({ connection: 'instant', bank: 'Barclays' });
-    api.wallet.addMoney(50000, 'bank');
+    api.wallet.addMoney(50000);
     const noorBefore = balancesFor(accountIdFor('u_noor')).available;
     api.requests.pay(id, { method: 'hayve' });
     api.requests.pay(id, { method: 'hayve' }); // reusable
@@ -884,8 +731,7 @@ describe('payment requests and links', () => {
     expect(() => api.requests.create({ kind: 'deposit', title: 'Deposit', amountCents: 20000 })).toThrow(/stay or rental/);
     const id = api.requests.create({ kind: 'deposit', title: 'Deposit', amountCents: 20000, ref: { kind: 'stay', id: stay.id } });
     as(NOOR);
-    api.wallet.connectBank({ connection: 'instant', bank: 'Barclays' });
-    api.wallet.addMoney(30000, 'bank');
+    api.wallet.addMoney(30000);
     const before = balancesFor(accountIdFor('u_noor'));
     api.requests.pay(id, { method: 'hayve' });
     expect(balancesFor(accountIdFor('u_noor')).available).toBe(before.available - 20000);
@@ -903,28 +749,6 @@ describe('payment requests and links', () => {
   });
 });
 
-describe('cards and banks', () => {
-  it('connects a bank with iDEAL | Wero, adds cards without ever seeing the number, and pays with them', () => {
-    as(NOOR);
-    expect(() => api.wallet.addMoney(1000, 'bank')).toThrow(/Connect a bank/);
-    api.wallet.connectBank({ connection: 'instant', bank: 'Barclays' });
-    const bank = api.wallet.paymentMethods().find((m) => m.kind === 'bank')!;
-    expect(bank.label).toMatch(/^Barclays •••• \d{4}$/);
-    expect(bank.rail).toBe('faster_payments');
-    expect(getDb().linkedBanks.find((b) => b.userId === 'u_noor')?.bank).toBe('Barclays');
-    api.wallet.addMoney(1000, 'bank');
-    expect(() => api.wallet.addCard({ brand: 'Visa', last4: '1111', expiry: '01/20', funding: 'debit' })).toThrow(/expired/);
-    api.wallet.addCard({ brand: 'Visa', last4: '1111', expiry: '12/30', funding: 'credit' });
-    expect(() => api.wallet.addCard({ brand: 'Visa', last4: '1111', expiry: '12/30', funding: 'credit' })).toThrow(/already saved/);
-    expect(contains(getDb().paymentMethods, '4111111111111111')).toBe(false);
-    const id = api.wallet.paymentMethods().find((m) => m.last4 === '1111')!.id;
-    api.wallet.setDefaultCard(id);
-    expect(api.wallet.paymentMethods().find((m) => m.id === id)!.isDefault).toBe(true);
-    api.wallet.deletePaymentMethod(bank.id);
-    expect(getDb().linkedBanks.some((b) => b.userId === 'u_noor')).toBe(false);
-  });
-});
-
 describe('international', () => {
   it('shows money in each person’s currency and offers their local banks', () => {
     as(SAM);
@@ -934,10 +758,8 @@ describe('international', () => {
     // Stored in base dollars, shown converted at the current rate (offline default 0.79).
     expect(money(1234)).toBe('£9.75');
     expect(fromDisplay(975)).toBe(1234);
-    expect(api.regions.region('GB').banks).toContain('Barclays');
-    expect(api.regions.region('US').bankRailName).toBe('Bank account (ACH)');
-    // iDEAL | Wero only for the Netherlands.
-    expect(api.regions.REGIONS.filter((r) => r.bankRail === 'ideal_wero').map((r) => r.code)).toEqual(['NL']);
+    expect(api.regions.region('GB').account.routingLabel).toBe('Sort code');
+    expect(api.regions.region('US').account.routingLabel).toBe('Routing number');
     api.social.updateProfile({ country: 'IE' });
     expect(money(500)).toBe('€4.60');
     expect(() => api.social.updateProfile({ country: 'XX' })).toThrow(/supported country/);
@@ -955,13 +777,33 @@ describe('international', () => {
     expect(api.regions.regionFromLocale('zz')).toBe('US');
   });
 
-  it('connects a US bank by routing and account number (ACH)', () => {
-    as(SAM);
-    expect(() => api.wallet.connectBank({ connection: 'manual', account: '000123456789', routing: '12' })).toThrow(/routing number/);
-    api.wallet.connectBank({ connection: 'manual', account: '000123456789', routing: '110000000' });
-    const bank = api.wallet.paymentMethods().find((m) => m.kind === 'bank')!;
-    expect(bank.rail).toBe('ach');
-    expect(bank.last4).toBe('6789');
+  it('withdraws to a payout account, but not money added in the last 7 days', () => {
+    as(NOOR);
+    expect(() => api.wallet.withdraw(1000)).toThrow(/payout account/);
+    expect(() => api.wallet.setPayoutAccount({ holder: 'Noor Haddad', account: '12345678', routing: '12' })).toThrow(/sort code/);
+    api.wallet.setPayoutAccount({ holder: 'Noor Haddad', account: '12345678', routing: '12-34-56' });
+    expect(api.wallet.payoutAccount()?.last4).toBe('5678');
+    const before = api.wallet.withdrawable();
+    api.wallet.addMoney(50000);
+    const after = api.wallet.withdrawable();
+    expect(after.withdrawableCents).toBe(before.withdrawableCents); // fresh top-ups can be spent, not withdrawn
+    expect(after.heldTopUpsCents).toBeGreaterThan(0);
+    expect(() => api.wallet.withdraw(after.withdrawableCents + 100)).toThrow(/last 7 days|Not enough/);
+    if (before.withdrawableCents >= 100) api.wallet.withdraw(100);
+    expect(contains(getDb().paymentMethods, '12345678')).toBe(false); // only the last 4 digits are kept
+  });
+
+  it('pays with balance plus card for the rest when the balance is short', () => {
+    as(NOOR);
+    const bal = api.wallet.wallet().available;
+    const price = api.shop.quote('p_vinyl_bowl').totalCents;
+    // Spend down to a small balance first.
+    if (bal > 500) api.wallet.sendMoney('u_sam', bal - 500);
+    const r = api.shop.checkout('p_vinyl_bowl', { addressId: 'ad_noor', method: 'wallet_card' });
+    expect(r.orderId).toBeTruthy();
+    expect(api.wallet.wallet().available).toBeLessThan(100); // only Wave Back on the balance part is left
+    expect(price).toBeGreaterThan(500);
+    expect(ledgerIsBalanced()).toBe(true);
   });
 
   it('books rides anywhere: London pickup finds a nearby driver', () => {
@@ -969,8 +811,7 @@ describe('international', () => {
     const kings = getDb().profiles && api.ride.places({ lng: -0.1238, lat: 51.5308 });
     expect(kings[0].name).toMatch(/King's Cross/);
     expect(kings.some((p) => p.id === 'home')).toBe(false); // saved places belong to the demo account
-    api.wallet.connectBank({ connection: 'instant', bank: 'Barclays' });
-    api.wallet.addMoney(10000, 'bank');
+    api.wallet.addMoney(10000);
     const id = api.ride.requestRide('kings_cross', 'tower_bridge', 'go', 'wallet');
     const r = getDb().rides.find((x) => x.id === id)!;
     expect(r.offer?.etaMin).toBeLessThan(15);

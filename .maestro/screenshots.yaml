@@ -61,22 +61,6 @@ appId: com.hayve.app
     timeout: 15000
     optional: true
 - takeScreenshot: 06-pay
-- openLink: "hayve:///pay/get-paid"
-- waitForAnimationToEnd:
-    timeout: 4000
-- extendedWaitUntil:
-    visible: ".*Verify my identity.*"
-    timeout: 15000
-    optional: true
-- takeScreenshot: 06b-get-paid
-- openLink: "hayve:///pay/card"
-- waitForAnimationToEnd:
-    timeout: 4000
-- extendedWaitUntil:
-    visible: ".*Get my virtual card.*"
-    timeout: 15000
-    optional: true
-- takeScreenshot: 06c-hayve-card
 - openLink: "hayve:///pay/request?mode=split"
 - waitForAnimationToEnd:
     timeout: 4000
@@ -89,10 +73,10 @@ appId: com.hayve.app
 - waitForAnimationToEnd:
     timeout: 4000
 - extendedWaitUntil:
-    visible: ".*Debit and credit cards.*"
+    visible: ".*Bank account for withdrawals.*"
     timeout: 15000
     optional: true
-- takeScreenshot: 06e-cards-and-banks
+- takeScreenshot: 06e-payout-account
 - openLink: "hayve:///business/driver"
 - waitForAnimationToEnd:
     timeout: 4000

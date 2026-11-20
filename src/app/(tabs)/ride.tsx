@@ -519,7 +519,7 @@ function SheetContent(p: {
           <Pressable onPress={p.openPay} accessibilityRole="button" accessibilityLabel="Change payment method" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, opacity: pressed ? 0.7 : 1 })}>
             <Icon name={p.method === 'wallet' ? 'wallet-outline' : 'card-outline'} size={20} />
             <View style={{ flex: 1 }}>
-              <T variant="headline">{p.method === 'wallet' ? 'Hayve balance' : p.method === 'card' ? 'Debit or credit card' : p.method === 'bank' ? 'Bank account' : 'Test card (declines)'}</T>
+              <T variant="headline">{p.method === 'wallet' ? 'Hayve balance' : p.method === 'card' ? 'Debit or credit card' : p.method === 'wallet_card' ? 'Balance + card for the rest' : 'Test card (declines)'}</T>
               {p.selected && p.selected.waveBackCents > 0 ? (
                 <T variant="caption" color={p.method === 'wallet' ? color.indigo : color.textSecondary}>
                   {p.method === 'wallet' ? `${money(p.selected.waveBackCents)} Wave Back on this ride` : `Pay with your Hayve balance and get ${money(p.selected.waveBackCents)} Wave Back`}
