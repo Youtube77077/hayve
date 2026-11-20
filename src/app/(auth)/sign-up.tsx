@@ -52,8 +52,12 @@ export default function SignUp() {
         <Input label="Email" icon="mail-outline" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" textContentType="emailAddress" placeholder="you@example.com" />
         <Input label="Password" icon="lock-closed-outline" value={password} onChangeText={setPassword} secureTextEntry textContentType="newPassword" placeholder="At least 8 characters" error={error} />
         <Button title="Create account" size="lg" full loading={busy} onPress={submit} />
-        <T variant="footnote" color={color.textTertiary} center>
-          By continuing you agree to the Hayve Terms and Privacy Policy.
+        <T variant="footnote" color={color.textSecondary} center>
+          By continuing you agree to the Hayve Terms and{' '}
+          <T variant="footnote" color={color.indigo} weight="700" onPress={() => router.push('/privacy')} accessibilityRole="link">
+            Privacy Policy
+          </T>
+          .
         </T>
         <Button title="I already have an account" variant="ghost" full onPress={() => router.replace('/sign-in')} />
       </View>

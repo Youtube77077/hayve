@@ -74,7 +74,10 @@ export default function Welcome() {
         <View style={{ marginTop: 24, flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
           <Icon name="information-circle" size={18} color={color.grey500} />
           <T variant="footnote" color={color.textSecondary} style={{ flex: 1 }}>
-            Preview build. Payments, rides, rentals, stays and deliveries are simulated and marked Demo. No real money or services are involved.
+            Preview build. Payments, rides, rentals, stays and deliveries are simulated and marked Demo. No real money or services are involved.{' '}
+            <T variant="footnote" color={color.indigo} weight="700" onPress={() => router.push('/privacy')} accessibilityRole="link">
+              Privacy policy
+            </T>
           </T>
         </View>
       </View>
