@@ -8,6 +8,7 @@ import { type Config, storageConfigured } from './config.js';
 import type { Db } from './db.js';
 import { ApiError } from './errors.js';
 import { meRoutes } from './me.js';
+import { paymentRoutes } from './payments.js';
 import { Storage } from './storage.js';
 
 /** Builds the API (exported separately from the listener so tests can inject requests). */
@@ -15,6 +16,15 @@ export async function buildApp(c: Config, db: Db) {
   const app = Fastify({ logger: c.NODE_ENV !== 'test', trustProxy: true, bodyLimit: 256 * 1024 });
   await app.register(cors, { origin: c.APP_ORIGINS.split(',').map((s) => s.trim()), credentials: false });
   await app.register(rateLimit, { max: 300, timeWindow: '1 minute' });
+  // Keep the raw body for signed webhooks (signature is computed over the exact bytes).
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {
+    (req as unknown as { rawBody: string }).rawBody = body as string;
+    try {
+      done(null, body ? JSON.parse(body as string) : {});
+    } catch (e) {
+      done(e as Error, undefined);
+    }
+  });
 
   app.addHook('onSend', async (_req, reply) => {
     reply.header('X-Content-Type-Options', 'nosniff');
@@ -46,5 +56,6 @@ export async function buildApp(c: Config, db: Db) {
   authRoutes(app, db, c);
   meRoutes(app, db, c, storage);
   adminRoutes(app, db, storage);
+  paymentRoutes(app, db, c);
   return app;
 }

@@ -112,3 +112,15 @@ run('API against PostgreSQL (migrations + RLS)', () => {
     expect((await call('POST', '/me/avatar/upload-url', owner, { contentType: 'image/gif', size: 1000 })).status).toBe(400);
   });
 });
+
+run('payments without a provider configured', () => {
+  it('reports payments as unavailable instead of pretending to take money', async () => {
+    const c = loadConfig({ DATABASE_URL: url, JWT_SECRET: 'test-secret-test-secret-test-secret-123', NODE_ENV: 'test' } as NodeJS.ProcessEnv);
+    const db = createPool(c);
+    const app = await buildApp(c, db);
+    const r = await app.inject({ method: 'POST', url: '/webhooks/stripe', payload: { type: 'payment_intent.succeeded' } });
+    expect(r.statusCode).toBe(503);
+    await app.close();
+    await db.end();
+  });
+});

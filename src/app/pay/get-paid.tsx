@@ -138,7 +138,7 @@ export default function GetPaid() {
         <View style={{ alignItems: 'center', gap: 8, marginTop: 24 }}>
           <SuccessMark size={88} />
           <T weight="800" style={{ fontSize: 40, lineHeight: 48, marginTop: 12 }}>{money(result.amountCents)}</T>
-          <T variant="headline">Paid by {result.cardBrand}{result.last4 ? ` •••• ${result.last4}` : ''}</T>
+          <T variant="headline">Paid by {result.payerMethod === 'apple_pay' || result.payerMethod === 'google_pay' ? `${result.methodLabel} · ` : ''}{result.cardBrand}{result.last4 ? ` •••• ${result.last4}` : ''}</T>
           <T color={color.textSecondary} center>
             {money(result.netCents)} added to your Hayve balance · Pending, available soon
           </T>

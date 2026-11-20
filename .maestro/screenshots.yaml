@@ -39,6 +39,14 @@ appId: com.hayve.app
 - waitForAnimationToEnd:
     timeout: 4000
 - takeScreenshot: 06-pay
+- openLink: "hayve:///pay/get-paid"
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: 06b-get-paid
+- openLink: "hayve:///pay/card"
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: 06c-hayve-card
 - openLink: "hayve:///ride"
 - waitForAnimationToEnd:
     timeout: 6000

@@ -88,6 +88,14 @@ services:
       - key: POSTMARK_TOKEN
         type: SECRET
         value: change-me
+      - key: STRIPE_SECRET_KEY
+        type: SECRET
+        value: change-me
+      - key: STRIPE_WEBHOOK_SECRET
+        type: SECRET
+        value: change-me
+      - key: STRIPE_TERMINAL_LOCATION
+        value: ""
 
 static_sites:
   - name: web
