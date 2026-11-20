@@ -22,10 +22,12 @@ appId: com.hayve.app
 # The demo accounts are below the form on a phone screen.
 - scrollUntilVisible:
     element:
-      text: "Sam Rivera"
+      id: "demo-sam"
     direction: DOWN
     timeout: 20000
-- tapOn: "Sam Rivera"
+    visibilityPercentage: 50
+- tapOn:
+    id: "demo-sam"
 - extendedWaitUntil:
     visible: "Recent activity"
     timeout: 30000

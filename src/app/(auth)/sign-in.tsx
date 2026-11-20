@@ -52,6 +52,8 @@ export default function SignIn() {
         {DEMO_ACCOUNTS.map((a) => (
           <Pressable
             key={a.email}
+            testID={`demo-${a.email.split('@')[0]}`}
+            accessibilityLabel={`Sign in as ${a.label}`}
             onPress={() => {
               setEmail(a.email);
               setPassword(DEMO_PASSWORD);
