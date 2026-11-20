@@ -1,0 +1,15 @@
+.git
+**/node_modules
+.expo
+dist
+web-build
+ios
+android
+build
+coverage
+sim/out
+*.ipa
+.env
+.env.*
+deploy/droplet/.env
+docs/screenshots

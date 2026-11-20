@@ -7,7 +7,7 @@ export type Tx = pg.PoolClient;
 export function createPool(c: Config): Db {
   return new pg.Pool({
     connectionString: c.DATABASE_URL,
-    ssl: c.DATABASE_CA_CERT ? { ca: c.DATABASE_CA_CERT, rejectUnauthorized: true } : c.NODE_ENV === 'production' ? { rejectUnauthorized: true } : undefined,
+    ssl: c.DATABASE_SSL === 'disable' ? false : c.DATABASE_CA_CERT ? { ca: c.DATABASE_CA_CERT, rejectUnauthorized: true } : c.NODE_ENV === 'production' ? { rejectUnauthorized: true } : undefined,
     max: 10,
   });
 }

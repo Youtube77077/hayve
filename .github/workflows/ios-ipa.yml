@@ -111,3 +111,22 @@ jobs:
 
             Demo login: sam@hayve.app / hayve123 (more demo accounts on the sign-in screen).
             All payments and services in this build are simulated.
+
+      # One permanent download link for the newest build from main:
+      #   https://github.com/<owner>/<repo>/releases/latest/download/Hayve.ipa
+      - name: Update the "latest" release (main only)
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete ios-latest --cleanup-tag --yes --repo "$GITHUB_REPOSITORY" || true
+          gh release create ios-latest Hayve.ipa \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Hayve for iPhone (latest)" \
+            --latest \
+            --notes "Newest Hayve build from main (build ${{ github.run_number }}, commit ${GITHUB_SHA::7}).
+
+          Install: download Hayve.ipa on your computer or iPhone and open it with AltStore, SideStore, Sideloadly or Feather; they sign it with your own Apple ID.
+
+          Demo login: sam@hayve.app / hayve123. All payments and services in this build are simulated."

@@ -1,9 +1,12 @@
 /**
- * 1,000-person simulation. Synthetic people with a country, age, income, interests and attitudes
- * use Hayve through the real backend API (the same code the app runs). Every step is recorded:
- * success, friction (an expected error a real person would hit), or a bug (an unexpected crash or
- * a broken invariant), plus money, fees, Wave Back and what the person would think.
- * Output: sim/out/results.json (read by sim/report.mjs → HTML report).
+ * 1,000-person simulation. Synthetic people (country, age, job, household, income, device, how they
+ * found Hayve, interests with strengths, attitudes) use Hayve over several days through the real
+ * backend API — the same code the app runs. The simulation adds its own example catalogue
+ * (sim/catalog.ts: restaurants, products, cars and stays in every city); the app's data is untouched.
+ *
+ * Every step is recorded in full: when, what, the outcome (done / blocked / chose not to / error),
+ * the items, prices, fees, payment method, Wave Back, balance afterwards and what the person thought.
+ * Output: sim/out/results.json → node sim/report.mjs <dir>
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { it } from 'vitest';
@@ -12,6 +15,7 @@ import { accountIdFor, balancesFor, ledgerIsBalanced } from '../src/backend/ledg
 import { REGIONS } from '../src/backend/regions';
 import { createSeedDatabase } from '../src/backend/seed';
 import { attachStorage, getDb, HayveError } from '../src/backend/store';
+import { addExampleCatalog } from './catalog';
 
 const N = Number(process.env.SIM_N ?? 1000);
 const OUT = process.env.SIM_OUT ?? 'sim/out/results.json';
@@ -29,60 +33,112 @@ const R = rng(20261120);
 const pick = <T,>(a: readonly T[]) => a[Math.floor(R() * a.length)];
 const between = (a: number, b: number) => a + R() * (b - a);
 const chance = (p: number) => R() < p;
+const round2 = (x: number) => Math.round(x * 100) / 100;
+const usd = (c: number) => `$${(c / 100).toFixed(2)}`;
+function weighted<T extends string>(w: Record<T, number>): T {
+  const total = Object.values<number>(w).reduce((a, b) => a + b, 0);
+  let x = R() * total;
+  for (const [k, v] of Object.entries<number>(w)) if ((x -= v) <= 0) return k as T;
+  return Object.keys(w)[0] as T;
+}
 
-const COUNTRY_MIX: [string, number][] = [['US', 0.42], ['GB', 0.12], ['CA', 0.08], ['DE', 0.07], ['FR', 0.06], ['IE', 0.05], ['NL', 0.05], ['ES', 0.05], ['IT', 0.04], ['AU', 0.04], ['BE', 0.01], ['PT', 0.01]];
+const COUNTRY_MIX: Record<string, number> = { US: 0.42, GB: 0.12, CA: 0.08, DE: 0.07, FR: 0.06, IE: 0.05, NL: 0.05, ES: 0.05, IT: 0.04, AU: 0.04, BE: 0.01, PT: 0.01 };
 const FIRST: Record<string, string[]> = {
-  US: ['Ava', 'Liam', 'Mia', 'Noah', 'Emma', 'Ethan', 'Sofia', 'Jayden', 'Chloe', 'Mason', 'Zoe', 'Lucas', 'Aaliyah', 'Diego', 'Grace'],
-  GB: ['Oliver', 'Amelia', 'George', 'Isla', 'Harry', 'Poppy', 'Jack', 'Freya', 'Arthur', 'Ivy'],
-  CA: ['Liam', 'Olivia', 'Noah', 'Charlotte', 'Benjamin', 'Léa', 'William', 'Emma'],
-  DE: ['Lukas', 'Mia', 'Felix', 'Hannah', 'Leon', 'Emilia', 'Paul', 'Lena'],
-  FR: ['Gabriel', 'Jade', 'Louis', 'Louise', 'Raphaël', 'Emma', 'Hugo', 'Alice'],
+  US: ['Ava', 'Liam', 'Mia', 'Noah', 'Emma', 'Ethan', 'Sofia', 'Jayden', 'Chloe', 'Mason', 'Zoe', 'Lucas', 'Aaliyah', 'Diego', 'Grace', 'Marcus', 'Priya', 'Tyler', 'Destiny', 'Hannah'],
+  GB: ['Oliver', 'Amelia', 'George', 'Isla', 'Harry', 'Poppy', 'Jack', 'Freya', 'Arthur', 'Ivy', 'Amir', 'Leah'],
+  CA: ['Liam', 'Olivia', 'Noah', 'Charlotte', 'Benjamin', 'Léa', 'William', 'Emma', 'Raj', 'Chloé'],
+  DE: ['Lukas', 'Mia', 'Felix', 'Hannah', 'Leon', 'Emilia', 'Paul', 'Lena', 'Mehmet', 'Clara'],
+  FR: ['Gabriel', 'Jade', 'Louis', 'Louise', 'Raphaël', 'Emma', 'Hugo', 'Alice', 'Yasmine', 'Théo'],
   IE: ['Jack', 'Emily', 'James', 'Grace', 'Conor', 'Aoife', 'Seán', 'Niamh'],
-  NL: ['Daan', 'Emma', 'Sem', 'Julia', 'Finn', 'Tess', 'Levi', 'Sophie'],
-  ES: ['Hugo', 'Lucía', 'Martín', 'Sofía', 'Mateo', 'Martina'],
-  IT: ['Leonardo', 'Sofia', 'Francesco', 'Aurora', 'Alessandro', 'Giulia'],
-  AU: ['Oliver', 'Charlotte', 'Jack', 'Amelia', 'William', 'Isla'],
-  BE: ['Noah', 'Olivia', 'Arthur', 'Louise'],
-  PT: ['Francisco', 'Maria', 'Afonso', 'Leonor'],
+  NL: ['Daan', 'Emma', 'Sem', 'Julia', 'Finn', 'Tess', 'Levi', 'Sophie', 'Noor', 'Bram'],
+  ES: ['Hugo', 'Lucía', 'Martín', 'Sofía', 'Mateo', 'Martina', 'Pablo', 'Carmen'],
+  IT: ['Leonardo', 'Sofia', 'Francesco', 'Aurora', 'Alessandro', 'Giulia', 'Matteo', 'Chiara'],
+  AU: ['Oliver', 'Charlotte', 'Jack', 'Amelia', 'William', 'Isla', 'Mia', 'Thomas'],
+  BE: ['Noah', 'Olivia', 'Arthur', 'Louise', 'Lucas', 'Elise'],
+  PT: ['Francisco', 'Maria', 'Afonso', 'Leonor', 'Tomás', 'Beatriz'],
 };
-const LAST = ['Smith', 'Johnson', 'Garcia', 'Brown', 'Murphy', 'Müller', 'Martin', 'de Jong', 'Rossi', 'López', 'Kelly', 'Wilson', 'Nguyen', 'Patel', 'Kim', 'Dubois', 'Schmidt', 'Silva', 'Taylor', 'Anderson'];
-const INTERESTS = ['shopping', 'food', 'rides', 'travel', 'cars', 'payments'] as const;
+const LAST = ['Smith', 'Johnson', 'Garcia', 'Brown', 'Murphy', 'Müller', 'Martin', 'de Jong', 'Rossi', 'López', 'Kelly', 'Wilson', 'Nguyen', 'Patel', 'Kim', 'Dubois', 'Schmidt', 'Silva', 'Taylor', 'Anderson', 'Okafor', 'Haddad', 'Novak', 'Costa', 'Jansen'];
+const NEIGHBOURHOOD: Record<string, string[]> = {
+  'New York': ['Astoria', 'Harlem', 'Park Slope', 'Williamsburg', 'Upper West Side', 'Bushwick'],
+  Toronto: ['Leslieville', 'The Annex', 'Liberty Village', 'Yorkville'], London: ['Camden', 'Peckham', 'Islington', 'Brixton', 'Hackney'],
+  Dublin: ['Rathmines', 'Smithfield', 'Ranelagh'], Amsterdam: ['De Pijp', 'Oost', 'Noord', 'Westerpark'], Berlin: ['Kreuzberg', 'Neukölln', 'Prenzlauer Berg'],
+  Paris: ['Belleville', 'Montmartre', 'Bastille'], Brussels: ['Ixelles', 'Saint-Gilles'], Madrid: ['Malasaña', 'Lavapiés', 'Chamberí'], Rome: ['Trastevere', 'Monti', 'Testaccio'],
+  Lisbon: ['Alfama', 'Graça', 'Campo de Ourique'], Sydney: ['Surry Hills', 'Bondi', 'Newtown'],
+};
+const LANGUAGE: Record<string, string> = { US: 'English', GB: 'English', CA: 'English', IE: 'English', AU: 'English', DE: 'German', FR: 'French', NL: 'Dutch', ES: 'Spanish', IT: 'Italian', BE: 'French', PT: 'Portuguese' };
+const JOBS = {
+  student: ['University student', 'Graduate student', 'Design student'],
+  low: ['Barista', 'Retail assistant', 'Warehouse worker', 'Care worker', 'Delivery rider', 'Receptionist'],
+  middle: ['Nurse', 'Teacher', 'Software developer', 'Marketing manager', 'Electrician', 'Accountant', 'Graphic designer', 'Project manager', 'Pharmacist'],
+  high: ['Product director', 'Surgeon', 'Lawyer', 'Founder', 'Investment analyst', 'Architect', 'Consultant'],
+  retired: ['Retired teacher', 'Retired engineer', 'Retired nurse'],
+};
+const CHANNELS = ["A friend's split link", 'Instagram ad', 'TikTok video', 'App Store search', 'Google search', 'Word of mouth', 'A restaurant flyer', 'Podcast ad'];
+const DEVICES = { iphone: ['iPhone 16', 'iPhone 15', 'iPhone 13', 'iPhone SE'], android: ['Pixel 9', 'Galaxy S24', 'Galaxy A55', 'OnePlus 12'], web: ['Laptop (Chrome)', 'Laptop (Safari)', 'Desktop (Edge)'] };
+const INTERESTS = ['shopping', 'food', 'groceries', 'rides', 'travel', 'cars', 'payments'] as const;
 type Interest = (typeof INTERESTS)[number];
+const SHOP_CATS = ['fashion', 'electronics', 'home', 'accessories', 'collectibles', 'books', 'sport', 'general'] as const;
+const CUISINE_LIKES = ['Pizza', 'Healthy', 'Burgers', 'Noodles', 'Bakery', 'Vegan', 'Spicy', 'Coffee'];
 
 export interface Step {
+  day: number;
+  time: string;
+  service: string;
   action: string;
-  outcome: 'ok' | 'friction' | 'bug' | 'skipped';
+  outcome: 'ok' | 'friction' | 'skipped' | 'bug';
   message?: string;
+  detail?: Record<string, string | number>;
   spentCents?: number;
   feesCents?: number;
-  service?: string;
+  waveBackCents?: number;
+  balanceAfterCents?: number;
+  thought?: string;
 }
 
 export interface Persona {
   id: string;
+  userId?: string;
   name: string;
-  country: string;
-  city: string;
   age: number;
+  country: string;
+  countryName: string;
+  city: string;
+  neighbourhood: string;
+  language: string;
+  occupation: string;
+  household: string;
   income: 'low' | 'middle' | 'high';
+  annualIncomeUsd: number;
+  monthlyAppBudgetUsd: number;
+  device: string;
+  platform: 'iphone' | 'android' | 'web';
+  channel: string;
+  motivation: string;
+  bio: string;
   priceSensitivity: number;
   techSavvy: number;
   patience: number;
-  interests: Interest[];
+  loyalty: number;
+  interests: Record<Interest, number>;
+  topInterests: Interest[];
+  shopCategories: string[];
+  cuisines: string[];
+  sessions: number;
   steps: Step[];
   thoughts: string[];
+  topUpCents: number;
   startBalanceCents: number;
   endBalanceCents: number;
+  receivedCents: number;
   spentCents: number;
   feesCents: number;
   waveBackCents: number;
+  spentByService: Record<string, number>;
   satisfaction: number;
   wouldRecommend: number;
-  interestScore: number;
-}
-
-function cityFor(country: string) {
-  return REGIONS.find((r) => r.code === country)!.city;
+  favouriteService: string;
+  verdict: string;
+  churnRisk: 'low' | 'medium' | 'high';
 }
 
 function near(c: { lng: number; lat: number }, km: number) {
@@ -90,309 +146,364 @@ function near(c: { lng: number; lat: number }, km: number) {
   const d = R() * km;
   return { lng: c.lng + (Math.cos(a) * d) / (111 * Math.cos((c.lat * Math.PI) / 180)), lat: c.lat + (Math.sin(a) * d) / 111 };
 }
+const dateIn = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+const clock = (h: number) => `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.floor((h % 1) * 60)).padStart(2, '0')}`;
 
-function dateIn(days: number) {
-  return new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+function makePersona(i: number): Persona {
+  const country = weighted(COUNTRY_MIX);
+  const region = REGIONS.find((r) => r.code === country)!;
+  const age = Math.round(between(18, 74));
+  const student = age < 25 && chance(0.55);
+  const retired = age >= 65 && chance(0.7);
+  const income: Persona['income'] = student || retired ? (chance(0.7) ? 'low' : 'middle') : chance(0.22) ? 'low' : chance(0.75) ? 'middle' : 'high';
+  const occupation = pick(student ? JOBS.student : retired ? JOBS.retired : JOBS[income]);
+  const household = student ? pick(['Shares a flat with 3 housemates', 'Lives in student housing', 'Lives with parents']) : age > 30 && chance(0.45) ? pick(['Couple with 1 child', 'Couple with 2 kids', 'Single parent with 1 child']) : pick(['Lives alone', 'Lives with partner', 'Shares a flat with a friend']);
+  const annual = Math.round((income === 'low' ? between(14, 32) : income === 'middle' ? between(38, 95) : between(110, 320)) * 1000);
+  const platform = weighted({ iphone: country === 'US' || country === 'GB' || country === 'AU' ? 0.55 : 0.35, android: 0.4, web: 0.15 } as Record<Persona['platform'], number>);
+  const kids = household.includes('child') || household.includes('kids');
+  const w = (base: number) => Math.round(Math.max(0, Math.min(1, base + between(-0.35, 0.35))) * 100) / 100;
+  const interests: Record<Interest, number> = {
+    shopping: w(age < 40 ? 0.55 : 0.35),
+    food: w(student || household === 'Lives alone' ? 0.7 : 0.5),
+    groceries: w(kids ? 0.65 : 0.3),
+    rides: w(age < 35 ? 0.55 : 0.35),
+    travel: w(income === 'high' ? 0.65 : 0.35),
+    cars: w(kids ? 0.5 : 0.25),
+    payments: w(student ? 0.7 : 0.45),
+  };
+  const topInterests = [...INTERESTS].sort((a, b) => interests[b] - interests[a]).slice(0, 3);
+  const motivation =
+    topInterests[0] === 'food' ? 'Wants dinner delivered without juggling five apps'
+    : topInterests[0] === 'payments' ? 'Splits bills with friends and housemates every week'
+    : topInterests[0] === 'travel' ? 'Plans weekend trips and wants stays and cars in one place'
+    : topInterests[0] === 'rides' ? 'Needs reliable rides to work and back at night'
+    : topInterests[0] === 'shopping' ? 'Buys and sells second-hand to save money'
+    : topInterests[0] === 'groceries' ? 'Orders groceries so weekends are free for the family'
+    : 'Rents a car a few times a year for family trips';
+  const name = `${pick(FIRST[country])} ${pick(LAST)}`;
+  const city = region.city.name;
+  const neighbourhood = pick(NEIGHBOURHOOD[city] ?? ['Centre']);
+  const priceSensitivity = round2(income === 'low' ? between(0.6, 1) : income === 'middle' ? between(0.3, 0.8) : between(0, 0.45));
+  const techSavvy = round2(Math.max(0.05, Math.min(1, 1.1 - age / 85 + between(-0.2, 0.2))));
+  const p: Persona = {
+    id: `sim${i}`, name, age, country, countryName: region.name, city, neighbourhood, language: LANGUAGE[country] ?? 'English',
+    occupation, household, income, annualIncomeUsd: annual, monthlyAppBudgetUsd: Math.round(annual / 12 * (income === 'low' ? 0.06 : 0.09)),
+    platform, device: pick(DEVICES[platform]), channel: pick(CHANNELS), motivation, bio: '',
+    priceSensitivity, techSavvy, patience: round2(between(0.2, 1)), loyalty: round2(between(0.2, 1)),
+    interests, topInterests, shopCategories: SHOP_CATS.filter(() => chance(0.3)).slice(0, 3), cuisines: CUISINE_LIKES.filter(() => chance(0.3)).slice(0, 3),
+    sessions: Math.max(1, Math.round(between(1, 3) + (techSavvy > 0.6 ? 1.5 : 0) + interests[topInterests[0]] * 1.5)),
+    steps: [], thoughts: [], topUpCents: 0, startBalanceCents: 0, endBalanceCents: 0, receivedCents: 0, spentCents: 0, feesCents: 0, waveBackCents: 0, spentByService: {},
+    satisfaction: 7, wouldRecommend: 7, favouriteService: '', verdict: '', churnRisk: 'medium',
+  };
+  if (!p.shopCategories.length) p.shopCategories.push(pick(SHOP_CATS));
+  if (!p.cuisines.length) p.cuisines.push(pick(CUISINE_LIKES));
+  p.bio = `${occupation}, ${age}, in ${neighbourhood}, ${city}. ${household}. Found Hayve through ${p.channel.toLowerCase()} on ${/^[AEIOU]/i.test(p.device) && !p.device.startsWith('One') ? 'an' : 'a'} ${p.device}. ${motivation}.`;
+  return p;
 }
 
 it(`simulates ${N} people`, () => {
   attachStorage(null);
   createSeedDatabase();
   api.session.signOut();
+  const catalog = addExampleCatalog();
   const people: Persona[] = [];
   const bugs: { persona: string; action: string; message: string; stack?: string }[] = [];
   const invariantFailures: string[] = [];
+  const openLinks: { id: string; ownerId: string; ownerName: string; title: string; amountCents: number; left: number }[] = [];
   const t0 = Date.now();
 
-  // People who received a split link pay it later (cross-person interaction).
-  const openLinks: { id: string; owner: string; amountCents: number; left: number }[] = [];
-
   for (let i = 0; i < N; i++) {
-    let x = R();
-    let country = 'US';
-    for (const [c, w] of COUNTRY_MIX) {
-      if ((x -= w) <= 0) {
-        country = c;
-        break;
-      }
-    }
-    const age = Math.round(between(18, 72));
-    const income = chance(0.25) ? 'low' : chance(0.75) ? 'middle' : 'high';
-    const interests = INTERESTS.filter(() => chance(0.45));
-    if (!interests.length) interests.push(pick(INTERESTS));
-    const name = `${pick(FIRST[country])} ${pick(LAST)}`;
-    const city = cityFor(country);
-    const p: Persona = {
-      id: `sim${i}`,
-      name,
-      country,
-      city: city.name,
-      age,
-      income,
-      priceSensitivity: Math.round((income === 'low' ? between(0.6, 1) : income === 'middle' ? between(0.3, 0.8) : between(0, 0.5)) * 100) / 100,
-      techSavvy: Math.round(Math.max(0.05, Math.min(1, 1.1 - age / 90 + between(-0.2, 0.2))) * 100) / 100,
-      patience: Math.round(between(0.2, 1) * 100) / 100,
-      interests,
-      steps: [],
-      thoughts: [],
-      startBalanceCents: 0,
-      endBalanceCents: 0,
-      spentCents: 0,
-      feesCents: 0,
-      waveBackCents: 0,
-      satisfaction: 7,
-      wouldRecommend: 7,
-      interestScore: 0,
-    };
-    const step = (action: string, service: string | undefined, fn: () => { spentCents?: number; feesCents?: number; note?: string } | void) => {
+    const p = makePersona(i);
+    const region = REGIONS.find((r) => r.code === p.country)!;
+    const center = REGIONS.find((r) => r.code === p.country)!.city;
+    let day = 1;
+    let hour = 9;
+    const acc = () => accountIdFor(p.userId!);
+    const bal = () => balancesFor(acc()).available;
+    const waveBackTotal = () => getDb().transactions.filter((t) => t.type === 'wave_back' && t.toAccountId === acc()).reduce((a, t) => a + t.amountCents, 0);
+
+    const step = (service: string, action: string, fn: () => { detail?: Step['detail']; spentCents?: number; feesCents?: number; thought?: string } | void, at?: number): boolean => {
+      if (at != null) hour = at;
+      const wb0 = p.userId ? waveBackTotal() : 0;
+      const s: Step = { day, time: clock(hour), service, action, outcome: 'ok' };
       try {
         const r = fn() || {};
-        p.steps.push({ action, outcome: 'ok', service, spentCents: r.spentCents, feesCents: r.feesCents, message: r.note });
+        Object.assign(s, { detail: r.detail, spentCents: r.spentCents, feesCents: r.feesCents, thought: r.thought });
         p.spentCents += r.spentCents ?? 0;
         p.feesCents += r.feesCents ?? 0;
-        return true;
+        if (r.spentCents) p.spentByService[service] = (p.spentByService[service] ?? 0) + r.spentCents;
       } catch (e) {
-        if (e instanceof HayveError) {
-          p.steps.push({ action, outcome: 'friction', service, message: e.message });
-        } else {
-          const err = e as Error;
-          p.steps.push({ action, outcome: 'bug', service, message: err.message });
-          bugs.push({ persona: p.id, action, message: err.message, stack: err.stack?.split('\n').slice(0, 4).join(' | ') });
+        if (e instanceof HayveError) s.outcome = 'friction';
+        else {
+          s.outcome = 'bug';
+          bugs.push({ persona: p.id, action, message: (e as Error).message, stack: (e as Error).stack?.split('\n').slice(0, 4).join(' | ') });
         }
-        return false;
+        s.message = (e as Error).message;
       }
+      if (p.userId) {
+        s.waveBackCents = waveBackTotal() - wb0 || undefined;
+        s.balanceAfterCents = bal();
+      }
+      p.steps.push(s);
+      hour += between(0.2, 1.5);
+      return s.outcome === 'ok';
     };
+    const skip = (service: string, action: string, message: string, detail?: Step['detail'], thought?: string) => {
+      p.steps.push({ day, time: clock(hour), service, action, outcome: 'skipped', message, detail, thought, balanceAfterCents: p.userId ? bal() : undefined });
+      hour += between(0.1, 0.5);
+    };
+    const method = (total: number): api.PayMethod => (bal() >= total ? 'wallet' : bal() > 0 ? 'wallet_card' : 'card');
+    const methodLabel = (m: api.PayMethod) => ({ wallet: 'Hayve balance', wallet_card: 'Balance + card', card: 'Card', card_declined: 'Card (declined)' })[m];
+    const budgetLeft = () => p.monthlyAppBudgetUsd * 100 - p.spentCents;
 
-    // 1. Sign up with the detected country and the address from their location.
-    const home = near(city, 6);
-    const okSignup = step('Sign up', 'account', () => {
-      api.session.signUp({ email: `sim${i}@example.com`, password: 'password123', displayName: name, username: `sim_${i}`, country, address: { line1: `${100 + i} Main Street`, city: city.name, postcode: '00000', country: REGIONS.find((r) => r.code === country)!.name } });
-    });
-    if (!okSignup) {
+    // Day 1: sign up from the detected country with the address from their location.
+    const ok = step('account', 'Sign up', () => {
+      api.session.signUp({ email: `${p.id}@example.com`, password: 'password123', displayName: p.name, username: `sim_${i}`, country: p.country, language: undefined, address: { line1: `${100 + i} ${p.neighbourhood} Street`, city: p.city, postcode: '00000', country: region.name } });
+      p.userId = getDb().users.find((u) => u.email === `${p.id}@example.com`)!.id;
+      return { detail: { Country: region.name, Currency: region.currency, Address: `${100 + i} ${p.neighbourhood} Street, ${p.city}`, Device: p.device, 'Found us via': p.channel }, thought: p.techSavvy < 0.3 ? 'Took me a minute, but the address was already filled in.' : 'Quick sign-up, it knew where I was.' };
+    }, between(8, 21));
+    if (!ok) {
       people.push(p);
       continue;
     }
-    const me = getDb().users.find((u) => u.email === `sim${i}@example.com`)!;
 
-    // 2. Top up the balance (income decides how much; some people skip and pay by card).
-    const wantsBalance = chance(0.4 + p.techSavvy * 0.4);
-    const topUpCents = wantsBalance ? Math.round((income === 'low' ? between(20, 80) : income === 'middle' ? between(50, 250) : between(150, 800)) * 100) : 0;
-    if (topUpCents) step('Add money', 'pay', () => {
-      api.wallet.addMoney(topUpCents);
-      return { note: `Added ${topUpCents / 100}` };
-    });
-    p.startBalanceCents = balancesFor(accountIdFor(me.id)).available;
-    // Same choice the checkout picker offers: balance if it covers the total, balance + card if partial, else card.
-    const method = (total: number): api.PayMethod => {
-      const bal = balancesFor(accountIdFor(me.id)).available;
-      return bal >= total ? 'wallet' : bal > 0 ? 'wallet_card' : 'card';
-    };
+    // Top up (or not): tech-savvy and payment-minded people keep a balance.
+    if (chance(0.3 + p.techSavvy * 0.3 + p.interests.payments * 0.2)) {
+      const amount = Math.round((p.income === 'low' ? between(20, 80) : p.income === 'middle' ? between(50, 250) : between(150, 700))) * 100;
+      if (step('pay', 'Add money', () => {
+        api.wallet.addMoney(amount);
+        return { detail: { Amount: usd(amount), Method: 'Card (simulated checkout)', 'Withdrawable from': dateIn(7) }, thought: p.interests.payments > 0.6 ? 'Keeping a balance means Wave Back on everything.' : undefined };
+      })) p.topUpCents += amount;
+    }
+    p.startBalanceCents = bal();
 
-    // 3. Shopping
-    if (interests.includes('shopping') || chance(0.3)) {
-      const products = api.shop.listProducts({}).filter((x) => x.seller.id !== me.id);
-      const prod = products.length ? pick(products) : null;
-      if (!prod) {
-        p.steps.push({ action: 'Buy an item', outcome: 'friction', service: 'shop', message: 'Everything in Shop was sold out' });
-        p.thoughts.push('Shop had nothing left to buy.');
-      }
-      if (prod) {
+    const actions: Record<Interest, () => void> = {
+      shopping: () => {
+        const all = api.shop.listProducts({}).filter((x) => x.seller.id !== p.userId && x.available);
+        const liked = all.filter((x) => p.shopCategories.includes(x.category));
+        const pool = liked.length ? liked : all;
+        if (!pool.length) return skip('shop', 'Browse Shop', 'Nothing left in my categories');
+        // Prefer items from my own country (cheaper shipping), like a real shopper would after one look.
+        const local = pool.filter((x) => x.location === p.city);
+        const prod = chance(0.6) && local.length ? pick(local) : pick(pool);
         const addr = api.social.addresses()[0];
         const q = api.shop.quote(prod.id, 'ship', addr?.id);
-        const shippingShare = q.shippingCents / q.priceCents;
-        const tooExpensive = q.totalCents > (income === 'low' ? 6000 : income === 'middle' ? 25000 : 100000);
-        if (q.shippingZone === 'international' && shippingShare > 0.3 && p.priceSensitivity > 0.5) {
-          p.thoughts.push(`Shipping from abroad was ${(q.shippingCents / 100).toFixed(2)} on a ${(q.priceCents / 100).toFixed(2)} item. Too much, I left.`);
-          p.steps.push({ action: 'Buy an item', outcome: 'skipped', service: 'shop', message: 'International shipping too expensive' });
-          p.satisfaction -= 1;
-        } else if (tooExpensive) {
-          p.steps.push({ action: 'Buy an item', outcome: 'skipped', service: 'shop', message: 'Out of budget' });
-        } else {
-          const ok = step('Buy an item', 'shop', () => {
-            api.shop.checkout(prod.id, { addressId: addr?.id, method: method(q.totalCents), delivery: 'ship' });
-            return { spentCents: q.totalCents, feesCents: q.feeCents + q.shippingCents };
-          });
-          if (ok && q.shippingZone !== 'domestic') p.thoughts.push(`Bought from another country; ${q.shippingZone === 'international' ? 'international' : 'cross-border'} shipping was clearly shown.`);
-          if (ok) p.interestScore += 2;
-        }
-      }
-    }
-
-    // 4. Food
-    if (interests.includes('food') || chance(0.35)) {
-      const restaurants = api.bites.listRestaurants({}).filter((r) => r.isOpen);
-      const r = restaurants.length ? pick(restaurants) : null;
-      if (!r) {
-        const cov = api.bites.coverage();
-        p.steps.push({ action: 'Order food', outcome: 'friction', service: 'bites', message: cov.served ? 'No restaurants open' : `Bites isn't in ${cov.city} yet` });
-        p.thoughts.push(cov.served ? 'Nothing was open.' : `Wanted food, but Bites only delivers in ${cov.cities.join(', ')} so far.`);
-        p.satisfaction -= 1;
-      } else {
-        const full = api.bites.getRestaurant(r.id);
-        const items = full.menu.filter((m) => m.available);
-        const lines = Array.from({ length: Math.ceil(between(1, 3.9)) }, (_, k) => {
-          const m = pick(items);
-          return { key: `${k}`, menuItemId: m.id, qty: 1, options: m.options.filter((o) => o.required).map((o) => o.choices[0].label) };
+        const detail = { Item: prod.title, Brand: prod.brand ?? '—', Condition: prod.condition.replace(/_/g, ' '), 'Ships from': prod.location, Shipping: `${usd(q.shippingCents)} (${q.shippingZone})`, Price: usd(q.priceCents), Fees: usd(q.feeCents), Total: usd(q.totalCents) };
+        if (q.shippingZone === 'international' && q.shippingCents / q.priceCents > 0.3 && p.priceSensitivity > 0.5) return skip('shop', 'Buy an item', 'International shipping too expensive', detail, `Shipping from ${prod.location} was ${usd(q.shippingCents)} on a ${usd(q.priceCents)} item. Not worth it.`);
+        if (q.totalCents > budgetLeft() + (p.income === 'high' ? 50000 : 0)) return skip('shop', 'Buy an item', 'Over my budget this month', detail, `${prod.title} for ${usd(q.totalCents)} is more than I want to spend right now.`);
+        const m = method(q.totalCents);
+        step('shop', 'Buy an item', () => {
+          api.shop.checkout(prod.id, { addressId: addr?.id, method: m, delivery: 'ship' });
+          return { detail: { ...detail, 'Paid with': methodLabel(m) }, spentCents: q.totalCents, feesCents: q.feeCents + q.shippingCents, thought: q.shippingZone === 'domestic' ? pick(['Found exactly what I wanted, checkout was fast.', 'Good price for the condition.', 'Clear total before paying, no surprises.']) : `Ships from ${prod.location}; the extra shipping was shown up front.` };
         });
-        const priced = api.bites.priceCart(r.id, lines);
-        if (priced.addToAvoidSmallOrderCents > 0 && p.priceSensitivity > 0.6) p.thoughts.push(`A small order fee on a ${(priced.subtotalCents / 100).toFixed(2)} order feels petty, but at least it told me how much to add.`);
-        const ok = step('Order food', 'bites', () => {
-          api.bites.placeFoodOrder({ restaurantId: r.id, lines, address: api.social.addresses()[0]?.line1 ?? 'Main Street 1', method: method(priced.totalCents) });
-          return { spentCents: priced.totalCents, feesCents: priced.deliveryFeeCents + priced.serviceFeeCents };
-        });
-        if (ok) {
-          p.interestScore += 2;
-          const restCity = (full.restaurant as { city?: string }).city ?? (/Brooklyn|New York|Williamsburg/.test(full.restaurant.address) ? 'New York' : undefined);
-          if (restCity && restCity !== p.city) {
-            p.thoughts.push(`Ordered from ${full.restaurant.name}, but it's in ${restCity}. That can't be delivered to me in ${p.city}.`);
-            invariantFailures.push(`Food order across cities: ${p.city} ← ${restCity}`);
-          }
-        }
-      }
-    }
-
-    // 5. Rides
-    if (interests.includes('rides') || chance(0.3)) {
-      const a = { id: '', name: 'Pickup', address: '', ...near(city, 3) };
-      const b = { id: '', name: 'Destination', address: '', ...near(city, 8) };
-      let opts: ReturnType<typeof api.ride.quoteRide> = [];
-      const quoted = step('Get ride prices', 'ride', () => {
-        opts = api.ride.quoteRide(a, b);
-      });
-      if (quoted && opts.length) {
-        const choice = p.priceSensitivity > 0.6 ? opts[0] : pick(opts);
-        const feeShare = choice.fees.reduce((s, f) => s + f.cents, 0) / choice.priceCents;
-        if (feeShare > 0.25) p.thoughts.push(`Fees were ${(feeShare * 100).toFixed(0)}% of my ride price (${choice.fees.map((f) => f.label).join(', ')}).`);
+      },
+      food: () => food(false),
+      groceries: () => food(true),
+      rides: () => {
+        const hoods = NEIGHBOURHOOD[p.city] ?? ['Centre'];
+        const a = { id: '', name: `${p.neighbourhood}`, address: `${p.neighbourhood}, ${p.city}`, ...near(center, 3) };
+        const toName = chance(0.15) ? 'Airport' : pick(hoods.filter((h) => h !== p.neighbourhood).concat(['City centre', 'Train station']));
+        const b = { id: '', name: toName, address: `${toName}, ${p.city}`, ...near(center, toName === 'Airport' ? 14 : 8) };
+        let opts: ReturnType<typeof api.ride.quoteRide> = [];
+        if (!step('ride', 'Get ride prices', () => {
+          opts = api.ride.quoteRide(a, b);
+          return { detail: Object.fromEntries(opts.map((o) => [o.label, `${usd(o.priceCents)} · pickup ${o.pickupEtaMin} min`])) };
+        }, chance(0.5) ? between(7, 9.5) : between(17, 23.5))) return;
+        if (!opts.length) return;
+        const choice = p.priceSensitivity > 0.6 ? opts[0] : p.income === 'high' && chance(0.5) ? opts[opts.length - 1] : pick(opts);
+        const fees = choice.fees.reduce((s, f) => s + f.cents, 0);
+        const m = method(choice.priceCents);
         let rideId = '';
-        const ok = step('Book a ride', 'ride', () => {
-          rideId = api.ride.requestRide(a, b, choice.category, method(choice.priceCents));
-          return { spentCents: choice.priceCents, feesCents: choice.fees.reduce((s, f) => s + f.cents, 0) };
-        });
-        if (ok) {
-          for (let k = 0; k < 10 && api.ride.getRide(rideId).status !== 'completed'; k++) api.ride.simulateRideStep(rideId);
-          const done = api.ride.getRide(rideId);
-          if (done.status !== 'completed') {
-            p.steps.push({ action: 'Ride completes', outcome: 'friction', service: 'ride', message: `Stuck at ${done.status} (${done.matching.declined} drivers declined)` });
-            p.thoughts.push('My ride never arrived.');
-            p.satisfaction -= 3;
-            try {
-              api.ride.cancelRide(rideId);
-            } catch {
-              /* ignore */
-            }
-          } else {
-            p.interestScore += 2;
-            if (done.matching.declined > 0) p.thoughts.push(`One driver declined but the next one came quickly.`);
-            if (chance(0.7)) step('Rate the driver', 'ride', () => void api.ride.rateRide(rideId, p.patience > 0.4 ? 5 : 4));
-          }
+        if (!step('ride', 'Book a ride', () => {
+          rideId = api.ride.requestRide(a, b, choice.category, m);
+          return { detail: { From: a.address, To: b.address, Type: choice.label, Fare: usd(choice.baseCents), ...Object.fromEntries(choice.fees.map((f) => [f.label, usd(f.cents)])), Total: usd(choice.priceCents), 'Paid with': methodLabel(m) }, spentCents: choice.priceCents, feesCents: fees, thought: fees / choice.priceCents > 0.25 ? `Fees were ${Math.round((fees / choice.priceCents) * 100)}% of the price (${choice.fees.map((f) => f.label).join(', ')}).` : undefined };
+        })) return;
+        for (let k = 0; k < 12 && api.ride.getRide(rideId).status !== 'completed'; k++) api.ride.simulateRideStep(rideId);
+        const v = api.ride.getRide(rideId);
+        if (v.status !== 'completed') {
+          p.steps.push({ day, time: clock(hour), service: 'ride', action: 'Ride', outcome: 'friction', message: `Stuck at ${v.status}`, thought: 'My ride never came.' });
+          return;
         }
-      }
-    }
-
-    // 6. Stays
-    if (interests.includes('travel') || chance(0.15)) {
-      const startIn = Math.round(between(1, 90));
-      const nights = Math.round(between(1, 7));
-      const props = api.bookings.listProperties({ guests: 2, checkIn: dateIn(startIn), checkOut: dateIn(startIn + nights) });
-      const prop = props.length ? (chance(0.6) ? props[0] : pick(props)) : null;
-      if (!prop) p.steps.push({ action: 'Book a stay', outcome: 'friction', service: 'stay', message: 'Nothing free for my dates' });
-      if (prop) {
+        const d = v.driver!;
+        p.steps.push({ day, time: clock((hour += v.durationMin / 60)), service: 'ride', action: 'Ride completed', outcome: 'ok', detail: { Driver: `${d.displayName} · ★ ${d.rating.toFixed(2)}`, Car: `${d.vehicle.color} ${d.vehicle.make} ${d.vehicle.model} · ${d.vehicle.plate}`, Distance: `${v.distanceKm.toFixed(1)} km`, Duration: `${v.durationMin} min`, 'Drivers asked': String(v.matching.contacted), 'Driver declined': String(v.matching.declined) }, thought: v.matching.declined ? 'First driver passed, the next one came quickly.' : pick(['Driver was friendly, car was clean.', 'Smooth ride.', 'Arrived right when the app said.']), balanceAfterCents: bal() });
+        if (chance(0.75)) step('ride', 'Rate the driver', () => {
+          const stars = p.patience > 0.4 ? 5 : 4;
+          api.ride.rateRide(rideId, stars);
+          return { detail: { Rating: '★'.repeat(stars) } };
+        });
+      },
+      travel: () => {
+        const others = REGIONS.filter((r) => r.code !== p.country);
+        const dest = chance(0.3) ? region : chance(0.5) ? REGIONS.find((r) => r.code === p.country && r.city.name !== p.city) ?? pick(others) : pick(others);
+        const startIn = Math.round(between(3, 90));
+        const nights = Math.round(between(1, 6));
+        const guests = p.household.includes('kids') ? 4 : p.household.includes('child') ? 3 : p.household.includes('partner') || p.household.includes('Couple') ? 2 : 1;
+        const props = api.bookings.listProperties({ destination: dest.city.name, guests, checkIn: dateIn(startIn), checkOut: dateIn(startIn + nights) });
+        if (!props.length) return skip('stay', 'Search stays', `Nothing free in ${dest.city.name} for my dates`, { Destination: dest.city.name, Dates: `${dateIn(startIn)} → ${dateIn(startIn + nights)}`, Guests: guests });
+        const wantsHotel = chance(p.income === 'high' ? 0.4 : 0.15);
+        const pool = wantsHotel ? props.filter((x) => x.title.toLowerCase().includes('hotel')) : props;
+        const prop = (pool.length ? pool : props).sort((x, y) => (p.priceSensitivity > 0.6 ? x.pricePerNightCents - y.pricePerNightCents : y.rating - x.rating))[0];
         const q = api.bookings.quoteStay(prop.id, dateIn(startIn), dateIn(startIn + nights));
-        const budget = income === 'low' ? 40000 : income === 'middle' ? 150000 : 600000;
-        if (q.totalCents > budget) p.steps.push({ action: 'Book a stay', outcome: 'skipped', service: 'stay', message: 'Too expensive' });
-        else {
-          const ok = step('Book a stay', 'stay', () => {
-            api.bookings.bookStay({ propertyId: prop.id, checkIn: dateIn(startIn), checkOut: dateIn(startIn + nights), guests: 2, method: method(q.totalCents) });
-            return { spentCents: q.totalCents, feesCents: q.serviceFeeCents };
+        const detail = { Stay: prop.title, City: `${prop.city}, ${prop.country}`, Dates: `${dateIn(startIn)} → ${dateIn(startIn + nights)}`, Nights: q.nights, Guests: guests, 'Per night': usd(prop.pricePerNightCents), Cleaning: usd(q.cleaningFeeCents), Fees: usd(q.serviceFeeCents), Total: usd(q.totalCents) };
+        if (q.totalCents > (p.income === 'low' ? 45000 : p.income === 'middle' ? 160000 : 600000)) return skip('stay', 'Book a stay', 'Too expensive for this trip', detail, `${usd(q.totalCents)} for ${q.nights} nights in ${prop.city} is too much for me.`);
+        const m = method(q.totalCents);
+        step('stay', 'Book a stay', () => {
+          api.bookings.bookStay({ propertyId: prop.id, checkIn: dateIn(startIn), checkOut: dateIn(startIn + nights), guests, method: m });
+          return { detail: { ...detail, 'Paid with': methodLabel(m) }, spentCents: q.totalCents, feesCents: q.serviceFeeCents, thought: dest.code === p.country && dest.city.name === p.city ? 'A staycation, booked in two minutes.' : `Booked ${prop.city} for ${q.nights} nights. ${wantsHotel ? 'Glad I could pick a hotel room.' : 'Liked seeing the full price per stay.'}` };
+        });
+      },
+      cars: () => {
+        const startIn = Math.round(between(2, 60));
+        const days = Math.round(between(1, 6));
+        const list = api.bookings.listVehicles({ start: dateIn(startIn), end: dateIn(startIn + days) });
+        const local = list.filter((v) => v.location.includes(p.city) && v.requirements.minAge <= p.age);
+        if (!local.length) return skip('drive', 'Rent a car', list.length ? 'No car near me fits my age' : 'No cars free for those dates', { City: p.city, Dates: `${dateIn(startIn)} → ${dateIn(startIn + days)}` });
+        const v = p.household.includes('kids') ? local.find((x) => x.seats >= 5 && (x.type === 'suv' || x.type === 'van')) ?? local[0] : p.priceSensitivity > 0.6 ? [...local].sort((x, y) => x.pricePerDayCents - y.pricePerDayCents)[0] : pick(local);
+        const q = api.bookings.quoteRental(v.id, dateIn(startIn), dateIn(startIn + days));
+        const m = method(q.totalCents);
+        step('drive', 'Rent a car', () => {
+          api.bookings.bookRental({ vehicleId: v.id, start: dateIn(startIn), end: dateIn(startIn + days), pickupLocation: v.location, returnLocation: v.location, method: m, driverAge: p.age });
+          return { detail: { Car: `${v.make} ${v.model} (${v.type})`, Pickup: v.location, Dates: `${dateIn(startIn)} → ${dateIn(startIn + days)}`, Days: q.days, Rental: usd(q.baseCents - q.discountCents), Insurance: usd(q.insuranceCents), Fees: usd(q.feesCents), Total: usd(q.totalCents), Deposit: `${usd(q.depositCents)} (held, refunded)`, 'Paid with': methodLabel(m) }, spentCents: q.totalCents, feesCents: q.feesCents, thought: p.household.includes('kids') ? 'Room for the kids and the luggage.' : 'Picked it up around the corner.' };
+        });
+      },
+      payments: () => {
+        const r = R();
+        if (r < 0.45) {
+          const unsure = chance(0.3);
+          const title = pick(['Dinner', 'Groceries', 'Rent top-up', 'Birthday gift', 'Concert tickets', 'Utilities', 'Taxi home']);
+          step('pay', 'Split a bill', () => {
+            const total = Math.round(between(30, 180)) * 100;
+            const people = Math.round(between(2, 6));
+            const id = unsure ? api.requests.create({ kind: 'split', title, amountCents: Math.round(between(10, 40)) * 100 }) : api.requests.create({ kind: 'split', title, splitTotalCents: total, people });
+            const req = api.requests.get(id);
+            openLinks.push({ id, ownerId: p.userId!, ownerName: p.name, title, amountCents: req.amountCents, left: unsure ? 99 : people - 1 });
+            const detail: Record<string, string | number> = unsure ? { For: title, 'Each pays': usd(req.amountCents), People: 'Not sure yet', 'Link active': '72 hours' } : { For: title, Total: usd(total), People: people, 'Each pays': usd(req.amountCents), 'Link active': '72 hours' };
+            return { detail, thought: unsure ? 'Not sure who is coming, so I just set an amount each.' : 'Sent the link to the group chat.' };
           });
-          if (ok) p.interestScore += 3;
-          if (prop.country !== REGIONS.find((r) => r.code === country)!.name && prop.city !== p.city) p.thoughts.push(`Booked a trip to ${prop.city}.`);
+        } else if (r < 0.8) {
+          const l = [...openLinks].reverse().find((x) => x.ownerId !== p.userId && x.left > 0);
+          if (!l) return skip('pay', 'Pay a link', 'No open links from friends');
+          const m = bal() >= l.amountCents ? 'hayve' : 'card';
+          step('pay', 'Pay a friend’s link', () => {
+            api.requests.pay(l.id, m === 'hayve' ? { method: 'hayve' } : { method: 'card', card: { brand: 'Visa', last4: '4242' } });
+            l.left -= 1;
+            return { detail: { To: l.ownerName, For: l.title, Amount: usd(l.amountCents), 'Paid with': m === 'hayve' ? 'Hayve balance' : 'Card' }, spentCents: l.amountCents, thought: 'Two taps and done.' };
+          });
+        } else {
+          const friend = people.filter((x) => x.userId)[Math.floor(R() * Math.max(1, people.length))];
+          if (!friend?.userId) return skip('pay', 'Send money', 'No friends on Hayve yet');
+          const amount = Math.round(between(5, 50)) * 100;
+          if (bal() < amount) return skip('pay', 'Send money', 'Balance too low to send', { To: friend.name, Amount: usd(amount) }, 'Wanted to send money but my balance was empty.');
+          step('pay', 'Send money', () => {
+            api.wallet.sendMoney(friend.userId!, amount);
+            return { detail: { To: friend.name, Amount: usd(amount) }, spentCents: amount };
+          });
         }
+      },
+    };
+    function food(groceries: boolean) {
+      const list = api.bites.listRestaurants({ groceries }).filter((r) => r.isOpen);
+      if (!list.length) return skip('bites', groceries ? 'Order groceries' : 'Order food', 'Nothing open nearby');
+      const liked = list.filter((r) => r.tags.some((t) => p.cuisines.includes(t)));
+      const r = pick(liked.length ? liked : list);
+      const full = api.bites.getRestaurant(r.id);
+      const items = full.menu.filter((m) => m.available);
+      const household = p.household.includes('kids') ? 3 : p.household.includes('child') || p.household.includes('partner') || p.household.includes('Couple') ? 2 : 1;
+      const shuffled = [...items].sort(() => R() - 0.5);
+      const lines = Array.from({ length: Math.min(items.length, Math.ceil(between(1, 2.5 + household))) }, (_, k) => {
+        const m = shuffled[k];
+        return { key: `${k}`, menuItemId: m.id, qty: chance(0.2) ? 2 : 1, options: m.options.filter((o) => o.required).map((o) => pick(o.choices).label) };
+      });
+      let priced = api.bites.priceCart(r.id, lines);
+      if (!priced.meetsMinimum) {
+        lines.push({ key: 'x', menuItemId: items[0].id, qty: Math.ceil((r.minOrderCents - priced.subtotalCents) / items[0].priceCents) + 0, options: items[0].options.filter((o) => o.required).map((o) => o.choices[0].label) });
+        priced = api.bites.priceCart(r.id, lines);
+      }
+      const names = lines.map((l) => `${l.qty}× ${items.find((m) => m.id === l.menuItemId)!.name}${l.options.length ? ` (${l.options.join(', ')})` : ''}`).join(', ');
+      const m = method(priced.totalCents);
+      let orderId = '';
+      const done = step('bites', groceries ? 'Order groceries' : 'Order food', () => {
+        orderId = api.bites.placeFoodOrder({ restaurantId: r.id, lines, address: api.social.addresses()[0]?.line1 ?? `${p.neighbourhood} Street 1`, method: m });
+        return {
+          detail: { From: `${r.name} (${r.cuisine})`, Items: names, Subtotal: usd(priced.subtotalCents), ...Object.fromEntries(priced.fees.map((f) => [f.label, usd(f.cents)])), Total: usd(priced.totalCents), 'Delivery estimate': `${r.etaMin} min`, 'Paid with': methodLabel(m) },
+          spentCents: priced.totalCents,
+          feesCents: priced.totalCents - priced.subtotalCents,
+          thought: priced.addToAvoidSmallOrderCents > 0 && p.priceSensitivity > 0.6 ? 'Small-order fee on a small basket feels petty.' : groceries ? 'Groceries at the door before the kids got home.' : pick(['Food arrived hot.', 'Easy reorder from my favourite place.', 'Delivery fee shown before I paid, good.']),
+        };
+      }, groceries ? between(10, 18) : chance(0.4) ? between(12, 14) : between(18, 21.5));
+      if (done) {
+        let status = '';
+        for (let k = 0; k < 8 && status !== 'delivered'; k++) status = api.bites.simulateFoodStep(orderId);
+        p.steps.push({ day, time: clock((hour += r.etaMin / 60)), service: 'bites', action: status === 'delivered' ? 'Delivered' : 'Delivery', outcome: status === 'delivered' ? 'ok' : 'friction', message: status === 'delivered' ? undefined : `Order stuck at ${status}`, detail: { Status: status, Restaurant: r.name }, balanceAfterCents: bal() });
       }
     }
 
-    // 7. Car rental
-    if (interests.includes('cars') || chance(0.1)) {
-      const startIn = Math.round(between(2, 60));
-      const vehicles = api.bookings.listVehicles({ start: dateIn(startIn), end: dateIn(startIn + 3) });
-      const v = vehicles.length ? pick(vehicles) : null;
-      if (!v) p.steps.push({ action: 'Rent a car', outcome: 'friction', service: 'drive', message: 'No cars free for those dates' });
-      else {
-        const q = api.bookings.quoteRental(v.id, dateIn(startIn), dateIn(startIn + 3));
-        const ok = step('Rent a car', 'drive', () => {
-          api.bookings.bookRental({ vehicleId: v.id, start: dateIn(startIn), end: dateIn(startIn + 3), pickupLocation: v.location, returnLocation: v.location, method: method(q.totalCents), driverAge: age });
-          return { spentCents: q.totalCents, feesCents: q.feesCents };
-        });
-        if (ok) {
-          p.interestScore += 2;
-          if (!v.location.toLowerCase().includes(p.city.toLowerCase().split(' ')[0])) p.thoughts.push(`The car I rented is in ${v.location}, not near me in ${p.city}.`);
-        }
+    // Several days of use, each session doing what this person cares about most.
+    for (let s = 0; s < p.sessions; s++) {
+      day = 1 + s * Math.max(1, Math.round(between(1, 4)));
+      hour = between(7, 20);
+      const n = Math.ceil(between(0.5, 2.5));
+      for (let k = 0; k < n; k++) {
+        const what = weighted(p.interests);
+        if (chance(Math.max(0.15, p.interests[what]))) actions[what]();
       }
     }
-
-    // 8. Payments between people: split a bill, pay others' links, send money.
-    if (interests.includes('payments') || chance(0.4)) {
-      if (chance(0.5)) {
-        const unsure = chance(0.3);
-        step('Split a bill', 'pay', () => {
-          const id = unsure ? api.requests.create({ kind: 'split', title: 'Dinner', amountCents: Math.round(between(10, 40)) * 100 }) : api.requests.create({ kind: 'split', title: 'Dinner', splitTotalCents: Math.round(between(40, 160)) * 100, people: Math.round(between(2, 6)) });
-          const people = unsure ? 99 : (api.requests.get(id).split?.people ?? 2) - 1;
-          openLinks.push({ id, owner: me.id, amountCents: api.requests.get(id).amountCents, left: people });
-        });
-      }
-      // Pay up to two open links from other people.
-      for (const l of openLinks.filter((x) => x.owner !== me.id && x.left > 0).slice(-6).filter(() => chance(0.35)).slice(0, 2)) {
-        step('Pay a friend’s link', 'pay', () => {
-          const m = balancesFor(accountIdFor(me.id)).available >= l.amountCents ? 'hayve' : 'card';
-          api.requests.pay(l.id, m === 'hayve' ? { method: 'hayve' } : { method: 'card', card: { brand: 'Visa', last4: '4242' } });
-          l.left -= 1;
-          return { spentCents: l.amountCents };
-        });
-      }
-      if (chance(0.3) && people.length > 1) {
-        const other = pick(people.filter((x) => x.steps[0]?.outcome === 'ok'));
-        const otherUser = other && getDb().users.find((u) => u.email === `${other.id}@example.com`);
-        if (otherUser && balancesFor(accountIdFor(me.id)).available < 1000) p.steps.push({ action: 'Send money', outcome: 'skipped', service: 'pay', message: 'No balance to send from' });
-        else if (otherUser) step('Send money', 'pay', () => {
-          api.wallet.sendMoney(otherUser.id, 1000);
-          return { spentCents: 1000 };
-        });
-      }
-    }
-
-    // 9. Some people try to withdraw what they added (common confusion with stored balances).
-    if (chance(0.12)) {
-      step('Set payout account', 'pay', () => {
-        const reg = REGIONS.find((r) => r.code === country)!;
-        api.wallet.setPayoutAccount(reg.account.label === 'IBAN' ? { holder: name, account: 'DE89370400440532013000' } : { holder: name, account: '000123456789', routing: '110000000' });
+    // Some try to withdraw.
+    if (chance(0.1)) {
+      step('pay', 'Set payout account', () => {
+        api.wallet.setPayoutAccount(region.account.label === 'IBAN' ? { holder: p.name, account: 'DE89370400440532013000' } : { holder: p.name, account: '000123456789', routing: '110000000' });
+        return { detail: { Account: region.account.label } };
       });
       const w = api.wallet.withdrawable();
-      const ok = step('Withdraw', 'pay', () => {
-        api.wallet.withdraw(Math.max(100, Math.min(w.availableCents, 5000)));
+      if (w.withdrawableCents >= 100) step('pay', 'Withdraw', () => {
+        api.wallet.withdraw(Math.min(w.withdrawableCents, 5000));
+        return { detail: { Amount: usd(Math.min(w.withdrawableCents, 5000)), 'Arrives in': '1–2 business days' } };
       });
-      if (!ok && w.heldTopUpsCents > 0) p.thoughts.push(`I couldn't withdraw money I just added. The 7-day hold was explained, but it surprised me.`);
+      else skip('pay', 'Withdraw', w.heldTopUpsCents > 0 ? 'Added money is withdrawable after 7 days' : 'Nothing to withdraw', { 'Held for 7 days': usd(w.heldTopUpsCents) }, w.heldTopUpsCents > 0 ? 'Makes sense, but I wish the date was shown where I add money.' : undefined);
     }
-
-    // Score how the session felt.
-    const s = p.steps;
-    const frictions = s.filter((x) => x.outcome === 'friction').length;
-    const bugsHere = s.filter((x) => x.outcome === 'bug').length;
-    const oks = s.filter((x) => x.outcome === 'ok').length;
-    const feeShare = p.spentCents ? p.feesCents / p.spentCents : 0;
-    p.waveBackCents = getDb().transactions.filter((t) => t.type === 'wave_back' && t.toAccountId === accountIdFor(me.id)).reduce((a, t) => a + t.amountCents, 0);
-    p.endBalanceCents = balancesFor(accountIdFor(me.id)).available;
-    p.satisfaction = Math.max(1, Math.min(10, Math.round(p.satisfaction + oks * 0.35 - frictions * (1.2 - p.patience * 0.6) - bugsHere * 3 - Math.max(0, feeShare - 0.12) * 10 * p.priceSensitivity + (p.waveBackCents > 0 ? 0.5 : 0))));
-    p.wouldRecommend = Math.max(0, Math.min(10, Math.round(p.satisfaction + between(-1.5, 1.5))));
-    if (p.waveBackCents > 0) p.thoughts.push(`Got ${(p.waveBackCents / 100).toFixed(2)} Wave Back for paying with my balance.`);
-    if (frictions === 0 && bugsHere === 0 && oks >= 3) p.thoughts.push(pick(['Everything just worked.', 'One app for everything is genuinely handy.', 'Fast checkout, clear prices.']));
-    for (const f of s.filter((x) => x.outcome === 'friction')) p.thoughts.push(`Tried to ${f.action.toLowerCase()}: ${(f.message ?? '').replace(/\.$/, '')}.`);
     people.push(p);
     api.session.signOut();
+  }
+
+  // Final pass: money received from others arrives after a person's own session, so settle at the end.
+  for (const p of people) {
+    if (!p.userId) continue;
+    const acc = accountIdFor(p.userId);
+    p.endBalanceCents = balancesFor(acc).available;
+    p.receivedCents = getDb().transactions.filter((t) => t.toAccountId === acc && (t.type === 'p2p' || t.type === 'request_payment')).reduce((a, t) => a + t.amountCents, 0);
+    p.waveBackCents = getDb().transactions.filter((t) => t.type === 'wave_back' && t.toAccountId === acc).reduce((a, t) => a + t.amountCents, 0);
+    const s = p.steps;
+    const oks = s.filter((x) => x.outcome === 'ok').length;
+    const frictions = s.filter((x) => x.outcome === 'friction').length;
+    const skips = s.filter((x) => x.outcome === 'skipped').length;
+    const bugsHere = s.filter((x) => x.outcome === 'bug').length;
+    const feeShare = p.spentCents ? p.feesCents / p.spentCents : 0;
+    p.satisfaction = Math.max(1, Math.min(10, Math.round(6.5 + Math.min(oks, 12) * 0.25 - frictions * (1.2 - p.patience * 0.6) - skips * 0.3 * p.priceSensitivity - bugsHere * 3 - Math.max(0, feeShare - 0.15) * 8 * p.priceSensitivity + (p.waveBackCents > 0 ? 0.5 : 0) + (p.receivedCents > 0 ? 0.3 : 0))));
+    p.wouldRecommend = Math.max(0, Math.min(10, Math.round(p.satisfaction + between(-1.5, 1.5) + (p.loyalty - 0.5))));
+    const svc = Object.entries(p.spentByService).sort((a, b) => b[1] - a[1])[0]?.[0];
+    const NAMES: Record<string, string> = { shop: 'Hayve Shop', bites: 'Hayve Bites', ride: 'Hayve Ride', stay: 'Hayve Stay', drive: 'Hayve Drive', pay: 'Hayve Pay', account: 'Hayve' };
+    p.favouriteService = svc ? NAMES[svc] : s.some((x) => x.service === 'pay' && x.outcome === 'ok') ? 'Hayve Pay' : '—';
+    p.churnRisk = p.satisfaction >= 8 ? 'low' : p.satisfaction >= 6 ? 'medium' : 'high';
+    if (p.waveBackCents > 0) p.thoughts.push(`Earned ${usd(p.waveBackCents)} Wave Back by paying from my balance.`);
+    if (p.receivedCents > 0) p.thoughts.push(`Friends paid me ${usd(p.receivedCents)} through my links.`);
+    for (const x of s) if (x.thought) p.thoughts.push(x.thought);
+    for (const x of s.filter((y) => y.outcome === 'friction')) p.thoughts.push(`Blocked: ${x.message}`);
+    p.verdict =
+      p.satisfaction >= 9 ? `Loves it. ${p.favouriteService} is now the default for me.`
+      : p.satisfaction >= 7 ? `Useful, will keep using ${p.favouriteService !== '—' ? p.favouriteService : 'it'}.`
+      : p.satisfaction >= 5 ? 'Fine, but not sure I need it every week.'
+      : 'Too many things didn’t work for me. Probably won’t come back.';
   }
 
   if (!ledgerIsBalanced()) invariantFailures.push('Ledger out of balance');
   const negative = getDb().accounts.filter((a) => a.kind === 'user' && balancesFor(a.id).available < 0).length;
   if (negative) invariantFailures.push(`${negative} wallets with a negative balance`);
+  const crossCity = getDb().foodOrders.filter((o) => {
+    const r = getDb().restaurants.find((x) => x.id === o.restaurantId);
+    const prof = getDb().profiles.find((x) => x.userId === o.customerId);
+    return r && prof?.city && api.bites.metro(r.city) !== api.bites.metro(prof.city);
+  }).length;
+  if (crossCity) invariantFailures.push(`${crossCity} food orders delivered across cities`);
 
   const revenueByService: Record<string, { orders: number; customerCents: number; hayveCents: number; supplierCents: number; netCents: number }> = {};
   for (const r of getDb().priceRecords ?? []) {
@@ -404,6 +515,6 @@ it(`simulates ${N} people`, () => {
     x.netCents += r.breakdown.netRevenueCents;
   }
   mkdirSync(OUT.replace(/\/[^/]+$/, ''), { recursive: true });
-  writeFileSync(OUT, JSON.stringify({ generatedAt: new Date().toISOString(), n: N, ms: Date.now() - t0, people, bugs, invariantFailures, revenueByService }, null, 0));
+  writeFileSync(OUT, JSON.stringify({ generatedAt: new Date().toISOString(), n: N, ms: Date.now() - t0, catalog, people, bugs, invariantFailures, revenueByService }));
   console.log(`done ${N} in ${Date.now() - t0}ms · bugs ${bugs.length} · invariant failures ${invariantFailures.length}`);
 });

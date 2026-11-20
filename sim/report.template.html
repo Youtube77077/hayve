@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: one reading column of report sections; charts sit in 2-up grids that stack on phones. */
+/* Layout: one reading column of report sections; charts in 2-up grids; people open into full profiles. */
 :root {
   --bg: #FFFFFF; --surface: #F4F4F6; --line: #E5E6EA; --fg: #0E0E10; --muted: #6B6E78;
   --accent: #4F46E5; --accent-soft: #E0E0FB; --bar2: #0E0E10; --bar3: #B9BBC3;
@@ -22,10 +22,11 @@
 body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.55;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 32px 64px }
 main { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 56px }
-h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-spacing: -0.01em }
+h1, h2, h3, h4 { font-family: var(--display); text-wrap: balance; margin: 0; letter-spacing: -0.01em }
 h1 { font-size: clamp(30px, 5vw, 44px); font-weight: 800; line-height: 1.1 }
 h2 { font-size: 24px; font-weight: 800 }
 h3 { font-size: 16px; font-weight: 700 }
+h4 { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted) }
 p { margin: 0; max-width: 68ch }
 .muted { color: var(--muted) }
 .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
@@ -35,6 +36,7 @@ section { display: flex; flex-direction: column; gap: 20px }
 header { display: flex; flex-direction: column; gap: 14px }
 .wordmark { font-weight: 800; font-size: 18px }
 .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px }
+@media (max-width: 720px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)) } }
 .tile { background: var(--surface); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 2px; min-width: 0 }
 .tile b { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.2 }
 .tile span { color: var(--muted); font-size: 13px }
@@ -46,12 +48,6 @@ header { display: flex; flex-direction: column; gap: 14px }
 .chart .grid { stroke: var(--line); stroke-width: 1 }
 .legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--muted) }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px }
-.fix { display: grid; grid-template-columns: 1fr; gap: 12px }
-.fixrow { border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 24px }
-.fixrow h3 { grid-column: 1 / -1 }
-.fixrow .k { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px }
-@media (max-width: 720px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)) } }
-@media (max-width: 640px) { .fixrow { grid-template-columns: 1fr } }
 .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--surface); color: var(--fg); white-space: nowrap }
 .pill.ok { background: var(--accent-soft); color: var(--accent) }
 .pill.dark { background: var(--fg); color: var(--bg) }
@@ -73,55 +69,64 @@ tr:last-child td { border-bottom: 0 }
 .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center }
 input[type=search], select { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-width: 0 }
 input[type=search] { flex: 1 1 220px }
+button.btn { font: inherit; font-weight: 700; color: var(--accent); background: none; border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; cursor: pointer }
+button.btn:hover { background: var(--surface) }
 input:focus-visible, select:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
 .people { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 16px; overflow: hidden }
 details.person { border-bottom: 1px solid var(--line) }
 details.person:last-child { border-bottom: 0 }
-details.person summary { list-style: none; cursor: pointer; padding: 12px 16px; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 70px 90px 60px; gap: 12px; align-items: center }
-details.person summary::-webkit-details-marker { display: none }
-details.person summary:hover { background: var(--surface) }
-details.person[open] summary { background: var(--surface) }
-.person .body { padding: 14px 16px 18px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px }
-@media (max-width: 680px) { details.person summary { grid-template-columns: minmax(0, 1fr) 60px 50px } details.person summary .hide-s { display: none } .person .body { grid-template-columns: 1fr } }
-.steps { display: flex; flex-direction: column; gap: 6px; font-size: 14px }
-.step { display: flex; gap: 8px; align-items: baseline }
-.step .o { font-family: var(--mono); font-size: 11px; width: 64px; flex: none; color: var(--muted) }
-.step .o.ok { color: var(--accent) }
-.step .o.friction { color: var(--fg); font-weight: 700 }
+details.person > summary { list-style: none; cursor: pointer; padding: 12px 16px; display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.2fr) minmax(0, 1fr) 80px 56px; gap: 12px; align-items: center }
+details.person > summary::-webkit-details-marker { display: none }
+details.person > summary:hover, details.person[open] > summary { background: var(--surface) }
+.person .body { padding: 18px 16px 24px; display: flex; flex-direction: column; gap: 22px }
+@media (max-width: 720px) { details.person > summary { grid-template-columns: minmax(0, 1fr) 70px 46px } details.person > summary .hide-s { display: none } }
+.facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px 20px }
+.fact { display: flex; flex-direction: column; min-width: 0 }
+.fact span { font-size: 12px; color: var(--muted) }
+.fact b { font-weight: 600; font-size: 14px }
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px }
+@media (max-width: 720px) { .cols { grid-template-columns: 1fr } }
+.ibar { display: grid; grid-template-columns: 120px minmax(0, 1fr) 36px; gap: 10px; align-items: center; font-size: 14px }
+.bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden }
+.bar > div { height: 100%; background: var(--accent); border-radius: 4px }
+.chips { display: flex; flex-wrap: wrap; gap: 6px }
+.money { display: flex; flex-direction: column; gap: 4px; font-size: 14px }
+.money div { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px dashed var(--line); padding-block: 4px }
+.money div:last-child { border-bottom: 0; font-weight: 700 }
+.timeline { display: flex; flex-direction: column; gap: 18px }
+.day { display: flex; flex-direction: column; gap: 8px }
+.day > h4 { padding-bottom: 4px; border-bottom: 1px solid var(--line) }
+.ev { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 4px 12px; padding: 10px 0 }
+.ev + .ev { border-top: 1px dashed var(--line) }
+.ev .t { font-family: var(--mono); font-size: 12px; color: var(--muted); padding-top: 2px }
+.ev .what { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+.ev .what b { font-weight: 700 }
+.tag { font-family: var(--mono); font-size: 11px; padding: 1px 8px; border-radius: 6px; background: var(--surface); color: var(--muted) }
+.tag.ok { background: var(--accent-soft); color: var(--accent) }
+.tag.friction, .tag.bug { background: var(--fg); color: var(--bg) }
+.kv { grid-column: 2; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 14px; font-size: 13px; margin-top: 4px }
+.kv span:nth-child(odd) { color: var(--muted) }
+.ev .after { grid-column: 2; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px }
+.ev q { grid-column: 2; quotes: '“' '”'; font-size: 14px; font-style: italic; margin-top: 2px }
+.ev .msg { grid-column: 2; font-size: 14px; color: var(--muted) }
 .thoughts { display: flex; flex-direction: column; gap: 6px; font-size: 14px }
 .thoughts q { quotes: '“' '”' }
-.bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden }
-.bar > div { height: 100%; background: var(--accent); border-radius: 3px }
 #tip { position: fixed; pointer-events: none; background: var(--fg); color: var(--bg); padding: 6px 10px; border-radius: 8px; font-size: 13px; font-weight: 600; opacity: 0; transition: opacity .1s; z-index: 20; max-width: 260px }
-button.more { font: inherit; font-weight: 700; color: var(--accent); background: none; border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; cursor: pointer; align-self: flex-start }
 @media (prefers-reduced-motion: reduce) { #tip { transition: none } }
 </style>
 
 <main>
   <header>
     <div class="wordmark">Hayve</div>
-    <h1>1,000 simulated people used Hayve. Here is what happened.</h1>
-    <p class="muted">Each person has a country, age, income, interests, price sensitivity, tech comfort and patience. They signed up with their own address and used Shop, Bites, Ride, Stay, Drive and Hayve Pay through the same backend code the app runs. Every step was recorded with its result, the money involved and what the person thought. Money is simulated and shown in US dollars, the ledger's base currency.</p>
+    <h1>1,000 simulated people used Hayve for about a week.</h1>
+    <p class="muted" id="intro"></p>
     <div class="tiles" id="tiles"></div>
   </header>
 
   <section>
-    <div class="head"><div class="eyebrow">Fixed before this report</div><h2>Critical problems found and fixed</h2>
-      <p class="muted">A 100-person pilot run found these. Each one is fixed, covered by a test and checked again in the 1,000-person run below.</p></div>
-    <div class="fix">
-      <div class="fixrow"><h3>Food could be ordered from a restaurant in another city</h3>
-        <div><div class="k">Found</div>In the pilot, 30 of 61 food orders went from people in London, Berlin, Dublin and Amsterdam to restaurants in New York. Bites showed every restaurant to everyone.</div>
-        <div><div class="k">Fixed</div>Restaurants now have a city. Bites only lists restaurants in your delivery city and refuses orders from other cities. Where Bites isn't available yet, the screen says so and lists the cities it serves. Result: 0 cross-city orders in 1,000 people.</div></div>
-      <div class="fixrow"><h3>Bites showed a Dutch street address to every customer</h3>
-        <div><div class="k">Found</div>The Bites header said "Deliver to Cornelis Dirkszoonlaan 51" for everyone, including people in the US.</div>
-        <div><div class="k">Fixed</div>The header now shows your own default delivery address, or your city if you haven't saved one.</div></div>
-      <div class="fixrow"><h3>A US restaurant promo was priced in euros</h3>
-        <div><div class="k">Found</div>"Free fries over €20" appeared on a New York restaurant for all customers, whatever their currency.</div>
-        <div><div class="k">Fixed</div>The promo no longer contains a fixed currency amount. All prices on screen use the customer's currency.</div></div>
-      <div class="fixrow"><h3>Unclear message when a split was already fully paid</h3>
-        <div><div class="k">Found</div>Friends opening a split after everyone had paid saw "This request has already been paid", which reads like an error.</div>
-        <div><div class="k">Fixed</div>It now says "Everyone has already paid their share. Nothing more to pay."</div></div>
-    </div>
+    <div class="head"><div class="eyebrow">Compared with the first run</div><h2>Example supply in every city changed the picture</h2>
+      <p class="muted">The first run used only the app's demo data: 8 restaurants (New York only), 8 cars, 8 stays and a few dozen products. Most people were blocked by "sold out" or "not available". For this run the simulation adds its own example catalogue in all 12 cities. The app's own demo data is unchanged.</p></div>
+    <div class="tablewrap"><table id="t-compare"><thead><tr><th></th><th class="r">First run</th><th class="r">This run</th></tr></thead><tbody></tbody></table></div>
     <p class="muted" id="checks"></p>
   </section>
 
@@ -129,15 +134,19 @@ button.more { font: inherit; font-weight: 700; color: var(--accent); background:
     <div class="head"><div class="eyebrow">Who took part</div><h2>People</h2></div>
     <div class="grid2">
       <div class="panel"><h3>Country</h3><div class="chart" id="c-country"></div></div>
-      <div class="panel"><h3>Interests</h3><p class="muted">People could have several interests.</p><div class="chart" id="c-interests"></div></div>
+      <div class="panel"><h3>How much people care about each service</h3><p class="muted">Average interest, 0–100. Each person has a strength for every service.</p><div class="chart" id="c-interests"></div></div>
+      <div class="panel"><h3>Age</h3><div class="chart" id="c-age"></div></div>
+      <div class="panel"><h3>How they found Hayve</h3><div class="chart" id="c-channel"></div></div>
+      <div class="panel"><h3>Household</h3><div class="chart" id="c-household"></div></div>
+      <div class="panel"><h3>Device</h3><div class="chart" id="c-platform"></div></div>
     </div>
   </section>
 
   <section>
     <div class="head"><div class="eyebrow">How it went</div><h2>Results by service</h2>
-      <p class="muted">Every attempt by every person. "Blocked" means the app stopped them with a message (sold out, not available, not enough balance). "Chose not to" means the person decided against it, for example because of price.</p></div>
+      <p class="muted">Every attempt. "Blocked" means the app stopped them. "Chose not to" means the person decided against it, for example because of price, budget or an age rule.</p></div>
     <div class="panel"><div class="legend"><span><i style="background:var(--accent)"></i>Done</span><span><i style="background:var(--bar2)"></i>Blocked</span><span><i style="background:var(--bar3)"></i>Chose not to</span></div><div class="chart" id="c-services"></div></div>
-    <div class="tablewrap"><table id="t-friction"><thead><tr><th>What they tried</th><th>What happened</th><th class="r">People</th></tr></thead><tbody></tbody></table></div>
+    <div class="tablewrap"><table id="t-reasons"><thead><tr><th>What they tried</th><th>What happened</th><th class="r">Times</th></tr></thead><tbody></tbody></table></div>
   </section>
 
   <section>
@@ -145,6 +154,8 @@ button.more { font: inherit; font-weight: 700; color: var(--accent); background:
     <div class="grid2">
       <div class="panel"><h3>Satisfaction score (1–10)</h3><div class="chart" id="c-sat"></div></div>
       <div class="panel"><h3>Average satisfaction by group</h3><div class="chart" id="c-groups"></div></div>
+      <div class="panel"><h3>Favourite service</h3><p class="muted">Where each person spent the most.</p><div class="chart" id="c-fav"></div></div>
+      <div class="panel"><h3>Will they stay?</h3><div class="chart" id="c-churn"></div></div>
     </div>
     <div class="panel"><h3>Average satisfaction by country</h3><div class="chart" id="c-satcountry"></div></div>
   </section>
@@ -166,22 +177,24 @@ button.more { font: inherit; font-weight: 700; color: var(--accent); background:
 
   <section>
     <div class="head"><div class="eyebrow">For you to decide</div><h2>Optional improvements</h2>
-      <p class="muted">These are not bugs. They are friction the test showed, mostly from thin demo supply. Reply with the numbers you approve, for example "approve 1, 3, 7".</p></div>
+      <p class="muted">No bugs or blocked steps came up in this run. These are the most common reasons people decided against something. Reply with the numbers you approve, for example "approve 1, 3".</p></div>
     <div class="opts" id="opts"></div>
   </section>
 
-  <section>
-    <div class="head"><div class="eyebrow">Everyone</div><h2>All 1,000 people</h2><p class="muted">Open a person to see every step they took, the money involved and what they thought.</p></div>
+  <section id="everyone">
+    <div class="head"><div class="eyebrow">Everyone</div><h2>All 1,000 people, in full</h2><p class="muted">Open anyone to see their whole profile, how much they care about each service, their money, and every step they took day by day with prices, fees, payment method, Wave Back, balance afterwards and what they thought.</p></div>
     <div class="controls">
-      <label for="q" class="muted" hidden>Search</label>
-      <input id="q" type="search" placeholder="Search name, city or thought">
+      <label for="q" hidden>Search</label>
+      <input id="q" type="search" placeholder="Search name, city, job, item or thought">
       <label for="fc" hidden>Country</label><select id="fc"><option value="">All countries</option></select>
-      <label for="fo" hidden>Filter</label><select id="fo"><option value="">Everyone</option><option value="friction">Blocked at least once</option><option value="happy">Satisfaction 9–10</option><option value="unhappy">Satisfaction 1–5</option><option value="wb">Earned Wave Back</option></select>
-      <label for="fs" hidden>Sort</label><select id="fs"><option value="id">Sign-up order</option><option value="spent">Spent most</option><option value="sat">Least satisfied</option><option value="satd">Most satisfied</option></select>
+      <label for="fi" hidden>Top interest</label><select id="fi"><option value="">Any top interest</option></select>
+      <label for="fo" hidden>Filter</label><select id="fo"><option value="">Everyone</option><option value="happy">Satisfaction 9–10</option><option value="unhappy">Satisfaction 1–6</option><option value="wb">Earned Wave Back</option><option value="received">Got paid by friends</option><option value="skipped">Decided against something</option></select>
+      <label for="fs" hidden>Sort</label><select id="fs"><option value="id">Sign-up order</option><option value="spent">Spent most</option><option value="steps">Most active</option><option value="sat">Least satisfied</option><option value="satd">Most satisfied</option></select>
+      <button class="btn" id="random" type="button">Random person</button>
       <span class="muted num" id="count"></span>
     </div>
     <div class="people" id="people"><div style="padding:16px" class="muted">Loading people…</div></div>
-    <button class="more" id="more" hidden>Show 50 more</button>
+    <button class="btn" id="more" type="button" hidden>Show 50 more</button>
   </section>
 </main>
 <div id="tip" role="status" aria-live="polite"></div>
@@ -189,30 +202,27 @@ button.more { font: inherit; font-weight: 700; color: var(--accent); background:
 <script>
 const S = /*SUMMARY*/null;
 const $ = (s) => document.querySelector(s);
-const usd = (c, d = 0) => '$' + (c / 100).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+const usd = (c, d = 0) => (c < 0 ? '−' : '') + '$' + (Math.abs(c) / 100).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
 const fmt = (n) => n.toLocaleString('en-US');
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const tip = $('#tip');
-function showTip(e, text) { tip.textContent = text; tip.style.opacity = 1; const x = Math.min(e.clientX + 12, innerWidth - 270); tip.style.left = x + 'px'; tip.style.top = (e.clientY + 14) + 'px'; }
-function hideTip() { tip.style.opacity = 0; }
-document.addEventListener('pointermove', (e) => { const t = e.target.closest('[data-tip]'); t ? showTip(e, t.dataset.tip) : hideTip(); });
+document.addEventListener('pointermove', (e) => { const t = e.target.closest('[data-tip]'); if (!t) { tip.style.opacity = 0; return; } tip.textContent = t.dataset.tip; tip.style.opacity = 1; tip.style.left = Math.min(e.clientX + 12, innerWidth - 270) + 'px'; tip.style.top = (e.clientY + 14) + 'px'; });
 
-/* Horizontal bars: rows [{key, n}], optional value formatter; stacked when `parts` given. */
 const CHARTS = [];
-function widthOf(el) { return Math.max(300, Math.round(el.clientWidth || 560)); }
+const widthOf = (el) => Math.max(300, Math.round(el.clientWidth || 560));
 function hbars(el, rows, opts = {}) {
   if (!el._reg) { el._reg = true; CHARTS.push(() => hbars(el, rows, opts)); }
-  const { value = (r) => r.n, label = (r) => fmt(value(r)), tipText, parts, max } = opts;
-  const W = widthOf(el), rowH = 30, left = 130, right = 84;
+  const { value = (r) => r.n, label = (r) => fmt(value(r)), tipText, parts, max, left = 150 } = opts;
+  const W = widthOf(el), rowH = 30, right = 90;
   const m = max ?? Math.max(...rows.map((r) => parts ? parts.reduce((a, p) => a + r[p.key], 0) : value(r)));
   const H = rows.length * rowH + 4;
   let svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img">`;
   rows.forEach((r, i) => {
     const y = i * rowH + 6;
-    svg += `<text x="${left - 10}" y="${y + 13}" text-anchor="end">${esc(r.key)}</text>`;
+    svg += `<text x="${left - 10}" y="${y + 13}" text-anchor="end">${esc(r.key.length > 24 ? r.key.slice(0, 23) + '…' : r.key)}</text>`;
     if (parts) {
       let x = left; const total = parts.reduce((a, p) => a + r[p.key], 0);
-      parts.forEach((p) => { const w = (r[p.key] / m) * (W - left - right); if (w > 0) svg += `<rect x="${x}" y="${y}" width="${Math.max(0, w - 2)}" height="18" rx="4" fill="var(${p.color})" data-tip="${esc(r.key)} · ${p.label}: ${p.fmt ? p.fmt(r[p.key]) : fmt(r[p.key])}${p.pct ? ` (${Math.round(r[p.key] / total * 100)}%)` : ''}"></rect>`; x += w; });
+      parts.forEach((p) => { const w = (r[p.key] / m) * (W - left - right); if (w > 0) svg += `<rect x="${x}" y="${y}" width="${Math.max(1, w - 2)}" height="18" rx="4" fill="var(${p.color})" data-tip="${esc(r.key)} · ${p.label}: ${p.fmt ? p.fmt(r[p.key]) : fmt(r[p.key])} (${Math.round(r[p.key] / total * 100)}%)"></rect>`; x += w; });
       svg += `<text x="${x + 6}" y="${y + 13}" class="lbl num">${label(r)}</text>`;
     } else {
       const w = Math.max(2, (value(r) / m) * (W - left - right));
@@ -222,106 +232,161 @@ function hbars(el, rows, opts = {}) {
   });
   el.innerHTML = svg + '</svg>';
 }
-/* Vertical bars for distributions. */
 function vbars(el, rows, opts = {}) {
   if (!el._reg) { el._reg = true; CHARTS.push(() => vbars(el, rows, opts)); }
-  const { tipText } = opts;
   const W = widthOf(el), H = 220, top = 20, bottom = 28, left = 8, n = rows.length;
   const m = Math.max(...rows.map((r) => r.n)); const bw = (W - left * 2) / n;
   let svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img"><line class="grid" x1="0" x2="${W}" y1="${H - bottom}" y2="${H - bottom}"></line>`;
   rows.forEach((r, i) => {
     const h = m ? (r.n / m) * (H - top - bottom) : 0; const x = left + i * bw + 3;
-    svg += `<rect x="${x}" y="${H - bottom - h}" width="${bw - 6}" height="${Math.max(h, 0.5)}" rx="4" fill="var(--accent)" data-tip="${esc(tipText ? tipText(r) : `${r.key}: ${fmt(r.n)} people`)}"></rect>`;
+    svg += `<rect x="${x}" y="${H - bottom - h}" width="${bw - 6}" height="${Math.max(h, 0.5)}" rx="4" fill="var(--accent)" data-tip="${esc(opts.tipText ? opts.tipText(r) : `${r.key}: ${fmt(r.n)} people`)}"></rect>`;
     if (r.n) svg += `<text x="${x + (bw - 6) / 2}" y="${H - bottom - h - 6}" text-anchor="middle" class="lbl num">${fmt(r.n)}</text>`;
     svg += `<text x="${x + (bw - 6) / 2}" y="${H - 8}" text-anchor="middle" class="lbl">${esc(r.key)}</text>`;
   });
   el.innerHTML = svg + '</svg>';
 }
 
-// Tiles
-const T = S.totals;
+const T = S.totals, C = S.catalog;
+const revTotal = S.revenue.reduce((a, r) => a + r.hayveCents, 0);
+$('#intro').textContent = `Each person has a country, neighbourhood, age, job, household, income and monthly budget, a phone or computer, how they found Hayve, and how much they care about each service. Over ${fmt(T.sessions)} sessions across several days they signed up, added money, shopped, ordered food and groceries, took rides, booked stays and cars, split bills and paid friends, all through the same backend code the app runs. The simulation added an example catalogue for this run: ${C.restaurants} restaurants with ${C.menuItems} menu items, ${C.products} products, ${C.cars} cars and ${C.stays} stays across ${C.cities} cities. Money is simulated and shown in US dollars, the ledger's base currency.`;
 $('#tiles').innerHTML = [
-  [fmt(S.n), 'people in ' + S.countries.length + ' countries'],
-  [fmt(T.actions), 'actions, ' + Math.round(T.ok / T.actions * 100) + '% completed'],
-  [String(S.bugs), 'crashes or unexpected errors'],
+  [fmt(S.n), `people in ${S.countries.length} countries`],
+  [fmt(T.actions), `steps, ${Math.round(T.ok / T.actions * 100)}% done`],
+  [String(S.bugs + T.blocked), 'crashes or blocked steps'],
   [S.avgSatisfaction.toFixed(1) + ' / 10', 'average satisfaction'],
   [(S.nps > 0 ? '+' : '') + S.nps, 'net promoter score'],
   [usd(T.spentCents), 'spent across Hayve'],
-  [usd(S.revenue.reduce((a, r) => a + r.hayveCents, 0)), 'Hayve revenue (fees + commission)'],
-  [usd(T.waveBackCents, 2), 'Wave Back to ' + fmt(T.waveBackPeople) + ' people'],
+  [usd(revTotal), 'Hayve revenue (fees + commission)'],
+  [usd(T.waveBackCents, 2), `Wave Back to ${fmt(T.waveBackPeople)} people`],
 ].map(([b, s]) => `<div class="tile"><b>${b}</b><span>${s}</span></div>`).join('');
-$('#checks').textContent = `Checks on the 1,000-person run: ${S.bugs} crashes, ${S.invariantFailures.length ? S.invariantFailures.join('; ') : 'ledger balanced to the cent, no wallet below zero'}, every booked ride completed, ${fmt(S.n)} people simulated in ${(S.ms / 1000).toFixed(1)} s.`;
+
+const orders = S.revenue.reduce((a, r) => a + r.orders, 0);
+$('#t-compare tbody').innerHTML = [
+  ['Steps completed', '74%', Math.round(T.ok / T.actions * 100) + '%'],
+  ['Steps blocked by the app', '1,625', fmt(T.blocked)],
+  ['Orders and bookings', '1,221', fmt(orders)],
+  ['Spent across Hayve', '$266,651', usd(T.spentCents)],
+  ['Average satisfaction', '7.4', S.avgSatisfaction.toFixed(1)],
+  ['Net promoter score', '−3', (S.nps > 0 ? '+' : '') + S.nps],
+  ['Hayve revenue', '$49,315', usd(revTotal)],
+  ['Crashes', '0', String(S.bugs)],
+].map((r) => `<tr><td>${r[0]}</td><td class="r">${r[1]}</td><td class="r"><b>${r[2]}</b></td></tr>`).join('');
+$('#checks').textContent = `Checks on this run: ${S.bugs} crashes; ${S.invariantFailures.length ? S.invariantFailures.join('; ') : 'ledger balanced to the cent, no wallet below zero, no food order delivered across cities (the fix from the first run holds)'}; ${fmt(S.n)} people simulated in ${(S.ms / 1000).toFixed(1)} s.`;
 
 hbars($('#c-country'), S.countries, { tipText: (r) => `${r.key}: ${r.n} people (${Math.round(r.n / S.n * 100)}%)` });
-hbars($('#c-interests'), S.interests.map((r) => ({ ...r, key: r.key[0].toUpperCase() + r.key.slice(1) })), { tipText: (r) => `${r.key}: ${r.n} people` });
+hbars($('#c-interests'), S.interests, { max: 100, tipText: (r) => `${r.key}: average ${r.n}/100 · top interest for ${r.top} people` });
+vbars($('#c-age'), S.ages);
+hbars($('#c-channel'), S.channels);
+hbars($('#c-household'), S.households, { left: 190 });
+hbars($('#c-platform'), S.platforms);
 hbars($('#c-services'), S.services.map((s) => ({ ...s, blocked: s.friction + s.bug })), {
-  parts: [{ key: 'ok', label: 'Done', color: '--accent', pct: true }, { key: 'blocked', label: 'Blocked', color: '--bar2', pct: true }, { key: 'skipped', label: 'Chose not to', color: '--bar3', pct: true }],
-  label: (r) => fmt(r.ok + r.blocked + r.skipped) + ' tries',
+  parts: [{ key: 'ok', label: 'Done', color: '--accent' }, { key: 'blocked', label: 'Blocked', color: '--bar2' }, { key: 'skipped', label: 'Chose not to', color: '--bar3' }],
+  label: (r) => fmt(r.ok + r.blocked + r.skipped) + ' steps',
 });
-$('#t-friction tbody').innerHTML = S.friction.slice(0, 14).map((f) => `<tr><td>${esc(f.action)}</td><td><span class="pill ${f.outcome === 'friction' ? 'dark' : ''}">${f.outcome === 'friction' ? 'Blocked' : f.outcome === 'bug' ? 'Error' : 'Chose not to'}</span> ${esc(f.message)}</td><td class="r">${fmt(f.n)}</td></tr>`).join('');
-
+$('#t-reasons tbody').innerHTML = S.reasons.slice(0, 12).map((f) => `<tr><td>${esc(f.action)}</td><td><span class="pill ${f.outcome === 'friction' || f.outcome === 'bug' ? 'dark' : ''}">${f.outcome === 'friction' ? 'Blocked' : f.outcome === 'bug' ? 'Error' : 'Chose not to'}</span> ${esc(f.message)}</td><td class="r">${fmt(f.n)}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">Everything people tried worked.</td></tr>';
 vbars($('#c-sat'), S.satisfaction, { tipText: (r) => `Score ${r.key}: ${r.n} people` });
-const inc = { low: 'Low income', middle: 'Middle income', high: 'High income' };
-hbars($('#c-groups'), [...['low', 'middle', 'high'].map((k) => S.byIncome.find((g) => g.key === k)).filter(Boolean).map((g) => ({ ...g, key: inc[g.key] })), ...S.byAge.map((g) => ({ ...g, key: 'Age ' + g.key }))], { value: (r) => r.satisfaction, label: (r) => r.satisfaction.toFixed(1), max: 10, tipText: (r) => `${r.key}: ${r.satisfaction.toFixed(2)} average, ${r.n} people, spent ${usd(r.spentCents)} each` });
+const INC = { low: 'Low income', middle: 'Middle income', high: 'High income' };
+hbars($('#c-groups'), [...['low', 'middle', 'high'].map((k) => S.byIncome.find((g) => g.key === k)).filter(Boolean).map((g) => ({ ...g, key: INC[g.key] })), ...S.byAge.map((g) => ({ ...g, key: 'Age ' + g.key }))], { value: (r) => r.satisfaction, label: (r) => r.satisfaction.toFixed(1), max: 10, tipText: (r) => `${r.key}: ${r.satisfaction.toFixed(2)} average, ${r.n} people, spent ${usd(r.spentCents)} each` });
+hbars($('#c-fav'), S.favourites);
+hbars($('#c-churn'), S.churn);
 hbars($('#c-satcountry'), S.byCountry, { value: (r) => r.satisfaction, label: (r) => r.satisfaction.toFixed(1), max: 10, tipText: (r) => `${r.key}: ${r.satisfaction.toFixed(2)} average, ${r.n} people, spent ${usd(r.spentCents)} each` });
-
-$('#quotes').innerHTML = S.themes.slice(0, 15).map((t) => `<div class="quote"><q>${esc(t.samples[0].text)}</q><div class="meta"><span>${esc(t.samples[0].who)}</span><span class="pill num">${fmt(t.n)} people</span></div></div>`).join('');
-
-hbars($('#c-revenue'), S.revenue.map((r) => ({ ...r })), {
-  parts: [{ key: 'supplierCents', label: 'To suppliers', color: '--bar3', fmt: usd, pct: true }, { key: 'hayveCents', label: 'Hayve revenue', color: '--accent', fmt: usd, pct: true }],
-  label: (r) => usd(r.customerCents),
-});
-vbars($('#c-spend'), S.spend, { tipText: (r) => `${r.key}: ${r.n} people` });
-const tot = S.revenue.reduce((a, r) => ({ orders: a.orders + r.orders, c: a.c + r.customerCents, s: a.s + r.supplierCents, h: a.h + r.hayveCents, n: a.n + r.netCents }), { orders: 0, c: 0, s: 0, h: 0, n: 0 });
+$('#quotes').innerHTML = S.themes.slice(0, 15).map((t) => `<div class="quote"><q>${esc(t.sample)}</q><div class="meta"><span>${esc(t.who)}</span><span class="pill num">${fmt(t.n)} people</span></div></div>`).join('');
+hbars($('#c-revenue'), S.revenue, { parts: [{ key: 'supplierCents', label: 'To suppliers', color: '--bar3', fmt: usd }, { key: 'hayveCents', label: 'Hayve revenue', color: '--accent', fmt: usd }], label: (r) => usd(r.customerCents) });
+vbars($('#c-spend'), S.spend);
+const tot = S.revenue.reduce((a, r) => ({ o: a.o + r.orders, c: a.c + r.customerCents, s: a.s + r.supplierCents, h: a.h + r.hayveCents, n: a.n + r.netCents }), { o: 0, c: 0, s: 0, h: 0, n: 0 });
 $('#t-revenue tbody').innerHTML = S.revenue.map((r) => `<tr><td>${esc(r.key)}</td><td class="r">${fmt(r.orders)}</td><td class="r">${usd(r.customerCents)}</td><td class="r">${usd(r.supplierCents)}</td><td class="r">${usd(r.hayveCents)}</td><td class="r">${Math.round(r.hayveCents / r.customerCents * 100)}%</td><td class="r">${usd(r.netCents)}</td></tr>`).join('') +
-  `<tr><td><b>Total</b></td><td class="r"><b>${fmt(tot.orders)}</b></td><td class="r"><b>${usd(tot.c)}</b></td><td class="r"><b>${usd(tot.s)}</b></td><td class="r"><b>${usd(tot.h)}</b></td><td class="r"><b>${Math.round(tot.h / tot.c * 100)}%</b></td><td class="r"><b>${usd(tot.n)}</b></td></tr>`;
+  `<tr><td><b>Total</b></td><td class="r"><b>${fmt(tot.o)}</b></td><td class="r"><b>${usd(tot.c)}</b></td><td class="r"><b>${usd(tot.s)}</b></td><td class="r"><b>${usd(tot.h)}</b></td><td class="r"><b>${Math.round(tot.h / tot.c * 100)}%</b></td><td class="r"><b>${usd(tot.n)}</b></td></tr>`;
 
-const n = (needle) => S.friction.filter((f) => f.message.includes(needle)).reduce((a, f) => a + f.n, 0);
-const th = (needle) => S.themes.filter((t) => t.theme.includes(needle)).reduce((a, t) => a + t.n, 0);
+const reason = (needle) => S.reasons.filter((f) => f.message.includes(needle)).reduce((a, f) => a + f.n, 0);
+const theme = (needle) => S.themes.filter((t) => t.theme.includes(needle)).reduce((a, t) => a + t.n, 0);
 const OPTS = [
-  ['"Notify me" when Bites launches in my city', `${fmt(n("Bites isn't in"))} people outside New York wanted food. Add a one-tap waitlist on the "not in your city yet" screen, and show admins demand per city so you know where to launch next (London, Berlin and Toronto lead).`, ['App', 'Small']],
-  ['Show the next free dates for cars', `${fmt(n('No cars free'))} of ${fmt(S.services.find((s) => s.key === 'Hayve Drive')?.ok + S.services.find((s) => s.key === 'Hayve Drive')?.friction)} car rental tries found nothing. Instead of an empty list, suggest the closest dates when cars are free.`, ['App', 'Small']],
-  ['Suggest nearby dates for stays', `${fmt(n('Nothing free for my dates'))} people found no stay for their dates. Show "Free from …" on homes that are booked, and nearby date ranges that work.`, ['App', 'Small']],
-  ['Similar items and alerts when something sells out', `Shop sold out after ${S.revenue.find((r) => r.key === 'Hayve Shop')?.orders ?? 0} orders, then ${fmt(n('sold out'))} people found nothing. Second-hand items are one of a kind, so show similar listings and let people save a search to be notified.`, ['App', 'Medium']],
-  ['Cars near you first', `${fmt(th('The car I rented is in'))} people rented a car in another city than theirs. Sort cars by distance from your city, like stays already do with your country.`, ['App', 'Small']],
-  ['Show when added money can be withdrawn', `${fmt(th("couldn't withdraw money I just added"))} people were surprised by the 7-day hold on added money. Show "Withdrawable from 27 Nov" on the balance and on the Add money screen.`, ['App', 'Small']],
-  ['"Add money and send" in one step', `${fmt(n('No balance to send from'))} people wanted to send money with an empty balance. Offer to add the amount by card first, then send. This stays inside the wallet design.`, ['App', 'Small']],
-  ['Lower or drop the small-order fee for groceries', `${fmt(th('small order fee'))} price-sensitive people found the small-order fee petty. Option: only charge it on restaurant orders under ${'$'}10, not on Hayve Market groceries. This is a pricing rule you can change in Admin, Revenue & pricing.`, ['Pricing', 'Admin setting']],
-  ['"Ships from your country" filter in Shop', `${fmt(n('International shipping too expensive'))} people left because shipping from abroad cost more than 30% of the item. Add a filter and show local items first.`, ['App', 'Small']],
-  ['Show minimum driver age on the car card', `${fmt(n('minimum driver age'))} people only learned at checkout that they were too young for a car. Show the age rule on the card and filter cars by the driver's age.`, ['App', 'Small']],
-  ['Show "add X to reach the minimum" in the Bites cart', `${fmt(n('Minimum order'))} people tried to order below a restaurant's minimum. Show how much to add before checkout.`, ['App', 'Small']],
-  ['Onboard real supply before launch', 'The demo has 8 restaurants (New York only), 8 cars, 8 stays and a few dozen one-of-a-kind products. Most blocked steps came from this. The link import (paste an Airbnb, hotel, rental or restaurant link) is the fastest way to add listings.', ['Business', 'Planned']],
+  ['"Ships from your country" filter and local items first in Shop', `${fmt(reason('International shipping'))} times someone left because shipping from another country cost more than 30% of the item.`, ['App', 'Small']],
+  ['No small-order fee once a basket meets the minimum', `${fmt(theme('Small-order fee'))} people found the small-order fee petty, often on grocery baskets that already met the store's minimum. A pricing rule you can change in Admin, Revenue & pricing.`, ['Pricing', 'Admin setting']],
+  ['"Add money and send" in one step', `${fmt(reason('Balance too low to send'))} times someone wanted to send money with too little balance. Offer to add the amount by card first, then send.`, ['App', 'Small']],
+  ['Show minimum driver age on car cards and filter by age', `${fmt(reason('fits my age'))} times a young driver found no car they were allowed to rent. Show the age rule on the card and hide cars they can't book.`, ['App', 'Small']],
+  ['Show when added money can be withdrawn', `${fmt(reason('withdrawable after'))} people tried to withdraw money they had just added. Show "Withdrawable from …" on the balance and the Add money screen.`, ['App', 'Small']],
+  ['Monthly spending overview', `${fmt(reason('Over my budget'))} times people stopped because of their monthly budget. A simple "spent this month" view in Pay helps them plan.`, ['App', 'Medium']],
+  ['Cheaper stay suggestions', `${fmt(reason('Too expensive for this trip'))} times a stay was over someone's budget. Show cheaper options nearby, or rooms in the same area.`, ['App', 'Small']],
+  ['Onboard real supply before launch', 'This run shows what happens with supply in every city: satisfaction and revenue go up sharply. The link import (paste an Airbnb, hotel, rental or restaurant link) is the fastest way to get there.', ['Business', 'Planned']],
 ];
 $('#opts').innerHTML = OPTS.map(([t, why, tags], i) => `<div class="opt"><div class="id">${String(i + 1).padStart(2, '0')}</div><h3>${esc(t)}</h3><div class="why">${esc(why)}</div><div class="tags">${tags.map((x) => `<span class="pill">${esc(x)}</span>`).join('')}</div></div>`).join('');
-
 let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => CHARTS.forEach((f) => f()), 150); });
 
-// People explorer
-let PEOPLE = [], shown = 50;
-const outcomeLabel = { ok: 'done', friction: 'blocked', skipped: 'chose not', bug: 'error' };
-function personHTML(p) {
-  const steps = p.steps.map(([a, o, m, c]) => `<div class="step"><span class="o ${o}">${outcomeLabel[o]}</span><span>${esc(a)}${c ? ` · <span class="num">${usd(c, 2)}</span>` : ''}${m && o !== 'ok' ? ` <span class="muted">· ${esc(m)}</span>` : ''}</span></div>`).join('');
-  const thoughts = p.thoughts.length ? p.thoughts.map((t) => `<q>${esc(t)}</q>`).join('') : '<span class="muted">No strong opinions.</span>';
-  return `<details class="person"><summary><span><b>${esc(p.name)}</b> <span class="muted">· ${p.age}</span></span><span class="hide-s muted">${esc(p.city)}, ${esc(p.country)}</span><span class="num">${usd(p.spent)}</span><span class="hide-s"><div class="bar" data-tip="Satisfaction ${p.sat}/10"><div style="width:${p.sat * 10}%"></div></div></span><span class="num">${p.sat}/10</span></summary>
-  <div class="body"><div class="steps"><div class="eyebrow">What they did</div>${steps}</div>
-  <div class="thoughts"><div class="eyebrow">What they thought</div>${thoughts}
-  <div class="eyebrow" style="margin-top:8px">Profile</div><span class="muted">${inc[p.income]} · interested in ${p.interests.join(', ')} · price sensitivity ${Math.round(p.ps * 100)}% · tech comfort ${Math.round(p.tech * 100)}% · patience ${Math.round(p.patience * 100)}%</span>
-  <span class="muted num">Balance ${usd(p.start, 2)} after top-up → ${usd(p.end, 2)} at the end · fees ${usd(p.fees, 2)} · Wave Back ${usd(p.wb, 2)} · would recommend ${p.rec}/10</span></div></div></details>`;
+// ---------- Everyone ----------
+const INTEREST = { shopping: 'Shopping', food: 'Food delivery', groceries: 'Groceries', rides: 'Rides', travel: 'Travel & stays', cars: 'Car rental', payments: 'Paying friends' };
+const SERVICE = { account: 'Hayve', pay: 'Hayve Pay', shop: 'Hayve Shop', bites: 'Hayve Bites', ride: 'Hayve Ride', stay: 'Hayve Stay', drive: 'Hayve Drive' };
+const OUT = { ok: 'done', friction: 'blocked', skipped: 'chose not to', bug: 'error' };
+let PEOPLE = [], shown = 50, openId = null;
+const pct = (x) => Math.round(x * 100) + '%';
+function fact(k, v) { return `<div class="fact"><span>${esc(k)}</span><b>${esc(v)}</b></div>`; }
+function personBody(p) {
+  const facts = [
+    ['Occupation', p.occupation], ['Household', p.household], ['Income', `${INC[p.income]} · ${usd(p.annualIncomeUsd * 100)} a year`], ['Budget for apps', `${usd(p.monthlyAppBudgetUsd * 100)} a month`],
+    ['Lives in', `${p.neighbourhood}, ${p.city}, ${p.countryName}`], ['Language', p.language], ['Device', p.device], ['Found Hayve via', p.channel],
+    ['Price sensitivity', pct(p.priceSensitivity)], ['Tech comfort', pct(p.techSavvy)], ['Patience', pct(p.patience)], ['Loyalty', pct(p.loyalty)],
+    ['Sessions', `${p.sessions} over ${Math.max(...p.steps.map((s) => s.day))} days`], ['Favourite service', p.favouriteService], ['Would recommend', `${p.wouldRecommend}/10`], ['Will they stay?', { low: 'Likely to stay', medium: 'Might drift', high: 'Likely to leave' }[p.churnRisk]],
+  ].map(([k, v]) => fact(k, v)).join('');
+  const interests = Object.entries(p.interests).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<div class="ibar"><span>${INTEREST[k]}</span><div class="bar" data-tip="${INTEREST[k]}: ${Math.round(v * 100)}/100"><div style="width:${v * 100}%"></div></div><span class="num muted">${Math.round(v * 100)}</span></div>`).join('');
+  const spentRows = Object.entries(p.spentByService).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<div><span>Spent on ${SERVICE[k] ?? k}</span><span class="num">${usd(v, 2)}</span></div>`).join('');
+  const money = `<div class="money"><div><span>Added to balance</span><span class="num">${usd(p.topUpCents, 2)}</span></div>${spentRows}<div><span>Of which fees</span><span class="num">${usd(p.feesCents, 2)}</span></div><div><span>Wave Back earned</span><span class="num">${usd(p.waveBackCents, 2)}</span></div><div><span>Received from friends</span><span class="num">${usd(p.receivedCents, 2)}</span></div><div><span>Balance at the end</span><span class="num">${usd(p.endBalanceCents, 2)}</span></div></div>`;
+  const days = [...new Set(p.steps.map((s) => s.day))];
+  const timeline = days.map((d) => `<div class="day"><h4>Day ${d}</h4>${p.steps.filter((s) => s.day === d).map((s) => {
+    const kv = s.detail ? `<div class="kv">${Object.entries(s.detail).map(([k, v]) => `<span>${esc(k)}</span><span>${esc(v)}</span>`).join('')}</div>` : '';
+    const chips = [s.spentCents ? `<span class="pill num">Paid ${usd(s.spentCents, 2)}</span>` : '', s.feesCents ? `<span class="pill num">Fees ${usd(s.feesCents, 2)}</span>` : '', s.waveBackCents ? `<span class="pill ok num">+${usd(s.waveBackCents, 2)} Wave Back</span>` : '', s.balanceAfterCents != null ? `<span class="pill num">Balance ${usd(s.balanceAfterCents, 2)}</span>` : ''].join('');
+    return `<div class="ev"><div class="t">${s.time}</div><div class="what"><b>${esc(s.action)}</b><span class="tag ${s.outcome}">${OUT[s.outcome]}</span><span class="muted">${SERVICE[s.service] ?? ''}</span></div>${s.message ? `<div class="msg">${esc(s.message)}</div>` : ''}${kv}${chips ? `<div class="after">${chips}</div>` : ''}${s.thought ? `<q>${esc(s.thought)}</q>` : ''}</div>`;
+  }).join('')}</div>`).join('');
+  return `<p>${esc(p.bio)}</p>
+  <div class="facts">${facts}</div>
+  <div class="cols"><div style="display:flex;flex-direction:column;gap:10px"><h4>Interests</h4>${interests}
+    <div class="chips"><span class="muted" style="font-size:13px">Shops for</span>${p.shopCategories.map((c) => `<span class="pill">${esc(c)}</span>`).join('')}</div>
+    <div class="chips"><span class="muted" style="font-size:13px">Likes</span>${p.cuisines.map((c) => `<span class="pill">${esc(c)}</span>`).join('')}</div></div>
+    <div style="display:flex;flex-direction:column;gap:10px"><h4>Money</h4>${money}</div></div>
+  <div style="display:flex;flex-direction:column;gap:10px"><h4>Everything they did</h4><div class="timeline">${timeline}</div></div>
+  <div class="cols"><div class="thoughts"><h4>What they thought</h4>${p.thoughts.length ? p.thoughts.map((t) => `<q>${esc(t)}</q>`).join('') : '<span class="muted">No strong opinions.</span>'}</div>
+  <div class="thoughts"><h4>Verdict</h4><b>${esc(p.verdict)}</b><span class="muted">Satisfaction ${p.sat ?? p.satisfaction}/10 · would recommend ${p.wouldRecommend}/10</span></div></div>`;
+}
+function row(p) {
+  const done = p.steps.filter((s) => s.outcome === 'ok').length;
+  return `<details class="person" id="${p.id}" ${openId === p.id ? 'open' : ''}><summary><span><b>${esc(p.name)}</b> <span class="muted">· ${p.age} · ${esc(p.occupation)}</span></span><span class="hide-s muted">${esc(p.neighbourhood)}, ${esc(p.city)}</span><span class="hide-s muted">${p.topInterests.map((k) => INTEREST[k]).join(', ')}</span><span class="num">${usd(p.spentCents)}</span><span class="num" data-tip="Satisfaction">${p.satisfaction}/10</span></summary><div class="body" data-id="${p.id}"></div></details>`;
+}
+function filtered() {
+  const q = $('#q').value.trim().toLowerCase(), c = $('#fc').value, ti = $('#fi').value, o = $('#fo').value, s = $('#fs').value;
+  const rows = PEOPLE.filter((p) => (!c || p.countryName === c) && (!ti || p.topInterests[0] === ti) &&
+    (!q || p._text.includes(q)) &&
+    (!o || (o === 'happy' ? p.satisfaction >= 9 : o === 'unhappy' ? p.satisfaction <= 6 : o === 'wb' ? p.waveBackCents > 0 : o === 'received' ? p.receivedCents > 0 : p.steps.some((x) => x.outcome === 'skipped'))));
+  if (s === 'spent') rows.sort((a, b) => b.spentCents - a.spentCents); else if (s === 'steps') rows.sort((a, b) => b.steps.length - a.steps.length); else if (s === 'sat') rows.sort((a, b) => a.satisfaction - b.satisfaction); else if (s === 'satd') rows.sort((a, b) => b.satisfaction - a.satisfaction);
+  return rows;
 }
 function render() {
-  const q = $('#q').value.trim().toLowerCase(), c = $('#fc').value, o = $('#fo').value, s = $('#fs').value;
-  let rows = PEOPLE.filter((p) => (!c || p.country === c) && (!q || `${p.name} ${p.city} ${p.thoughts.join(' ')}`.toLowerCase().includes(q)) &&
-    (!o || (o === 'friction' ? p.steps.some((x) => x[1] === 'friction') : o === 'happy' ? p.sat >= 9 : o === 'unhappy' ? p.sat <= 5 : p.wb > 0)));
-  if (s === 'spent') rows.sort((a, b) => b.spent - a.spent); else if (s === 'sat') rows.sort((a, b) => a.sat - b.sat); else if (s === 'satd') rows.sort((a, b) => b.sat - a.sat);
+  const rows = filtered();
   $('#count').textContent = `${fmt(rows.length)} people`;
-  $('#people').innerHTML = rows.length ? rows.slice(0, shown).map(personHTML).join('') : '<div style="padding:16px" class="muted">Nobody matches. Clear the search or pick another filter.</div>';
+  $('#people').innerHTML = rows.length ? rows.slice(0, shown).map(row).join('') : '<div style="padding:16px" class="muted">Nobody matches. Clear the search or pick another filter.</div>';
   $('#more').hidden = rows.length <= shown;
+  if (openId) fill(document.getElementById(openId));
 }
-['q', 'fc', 'fo', 'fs'].forEach((id) => $('#' + id).addEventListener('input', () => { shown = 50; render(); }));
+function fill(d) {
+  if (!d) return;
+  const body = d.querySelector('.body');
+  if (!body.dataset.filled) { body.innerHTML = personBody(PEOPLE.find((p) => p.id === body.dataset.id)); body.dataset.filled = '1'; }
+}
+$('#people').addEventListener('toggle', (e) => { if (e.target.open) { fill(e.target); openId = e.target.id; try { history.replaceState(null, '', '#' + e.target.id); } catch {} } }, true);
+['q', 'fc', 'fi', 'fo', 'fs'].forEach((id) => $('#' + id).addEventListener('input', () => { shown = 50; render(); }));
 $('#more').addEventListener('click', () => { shown += 50; render(); });
+function openPerson(id) {
+  const i = filtered().findIndex((p) => p.id === id);
+  if (i < 0) { ['q', 'fc', 'fi', 'fo'].forEach((x) => ($('#' + x).value = '')); $('#fs').value = 'id'; }
+  const idx = filtered().findIndex((p) => p.id === id);
+  if (idx < 0) return;
+  shown = Math.max(shown, Math.ceil((idx + 1) / 50) * 50); openId = id; render();
+  document.getElementById(id)?.scrollIntoView({ block: 'start' });
+}
+$('#random').addEventListener('click', () => { const rows = filtered(); if (rows.length) openPerson(rows[Math.floor(Math.random() * rows.length)].id); });
+addEventListener('hashchange', () => { const h = location.hash.slice(1); if (/^sim\d+$/.test(h)) openPerson(h); });
 fetch('people.json').then((r) => r.json()).then((rows) => {
-  PEOPLE = rows;
-  [...new Set(rows.map((p) => p.country))].sort().forEach((c) => $('#fc').insertAdjacentHTML('beforeend', `<option>${esc(c)}</option>`));
-  render();
+  PEOPLE = rows.map((p) => ({ ...p, _text: [p.name, p.city, p.neighbourhood, p.countryName, p.occupation, p.household, p.channel, ...p.thoughts, ...p.steps.flatMap((s) => [s.action, ...Object.values(s.detail ?? {})])].join(' ').toLowerCase() }));
+  [...new Set(rows.map((p) => p.countryName))].sort().forEach((c) => $('#fc').insertAdjacentHTML('beforeend', `<option>${esc(c)}</option>`));
+  Object.entries(INTEREST).forEach(([k, v]) => $('#fi').insertAdjacentHTML('beforeend', `<option value="${k}">${esc(v)}</option>`));
+  const h = location.hash.slice(1);
+  if (/^sim\d+$/.test(h)) openPerson(h); else render();
 }).catch(() => { $('#people').innerHTML = '<div style="padding:16px" class="muted">The people list could not load. The summary above is complete.</div>'; });
 </script>

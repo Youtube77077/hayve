@@ -1,0 +1,68 @@
+# Hayve on one DigitalOcean droplet: website + API + PostgreSQL, behind Caddy (automatic HTTPS).
+# Started by setup.sh. Every service restarts on crash and after a reboot.
+#   docker compose -f deploy/droplet/docker-compose.yml --env-file deploy/droplet/.env up -d --build
+name: hayve
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: hayve
+      POSTGRES_USER: hayve
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U hayve -d hayve']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    # Not published to the internet: only the API can reach it.
+
+  api:
+    build:
+      context: ../..
+      dockerfile: deploy/droplet/Dockerfile.api
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      DATABASE_URL: postgres://hayve:${POSTGRES_PASSWORD}@db:5432/hayve
+      DATABASE_SSL: disable
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://localhost:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: ../..
+      dockerfile: deploy/droplet/Dockerfile.web
+      args:
+        EXPO_PUBLIC_API_URL: ${PUBLIC_URL:-}/api
+        EXPO_PUBLIC_MAPBOX_TOKEN: ${EXPO_PUBLIC_MAPBOX_TOKEN:-}
+        EXPO_PUBLIC_MAPBOX_STYLE_URL: ${EXPO_PUBLIC_MAPBOX_STYLE_URL:-}
+    restart: always
+    depends_on:
+      - api
+    environment:
+      # ":80" serves plain HTTP on the droplet's IP. Set to your domain (hayve.example.com) for HTTPS.
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  db-data:
+  caddy-data:
+  caddy-config:

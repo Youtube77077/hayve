@@ -7,6 +7,8 @@ const Env = z.object({
   DATABASE_URL: z.string().min(1),
   /** Managed PostgreSQL CA certificate (PEM). DigitalOcean provides it as ${db.CA_CERT}. */
   DATABASE_CA_CERT: z.string().optional(),
+  /** 'disable' for a database on the same private network (single-server Docker setup), else TLS is used in production. */
+  DATABASE_SSL: z.enum(['require', 'disable']).optional(),
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   APP_ORIGINS: z.string().default('http://localhost:8081'),
   SPACES_ENDPOINT: z.string().url().optional(),
@@ -26,7 +28,9 @@ const Env = z.object({
 export type Config = z.infer<typeof Env>;
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const parsed = Env.safeParse(env);
+  // Blank values (KEY= in an .env file) count as not set.
+  const cleaned = Object.fromEntries(Object.entries(env).filter(([, v]) => v !== undefined && v !== ''));
+  const parsed = Env.safeParse(cleaned);
   if (!parsed.success) {
     const msg = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
     throw new Error(`Invalid configuration: ${msg}`);
