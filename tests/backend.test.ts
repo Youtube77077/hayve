@@ -293,9 +293,11 @@ describe('services', () => {
     api.ride.driverAdvance(id);
     const done = api.ride.getRide(id);
     expect(done.status).toBe('completed');
-    // The driver keeps 85%; Hayve's commission is 15%.
-    expect(done.split.hayveCents).toBe(Math.round(done.priceCents * 0.15));
-    expect(api.wallet.wallet().available).toBe(before + done.priceCents - done.split.hayveCents);
+    // The driver keeps 85% of the fare; Hayve keeps its 15% commission plus the disclosed fees.
+    const fare = done.pricing!.baseCents;
+    expect(done.split.driverCents).toBe(fare - Math.round(fare * 0.15));
+    expect(done.priceCents).toBe(fare + done.pricing!.lines.reduce((a, l) => a + l.cents, 0));
+    expect(api.wallet.wallet().available).toBe(before + done.split.driverCents);
   });
 
   it('offers a ride to the nearest suitable driver, then the next one on decline or timeout', () => {
@@ -437,7 +439,7 @@ describe('Wave Back', () => {
     expect(r.waveBackCents).toBe(500); // 1% of €640 = €6.40 → capped
     const ride = api.ride.requestRide('home', 'grand_central', 'go', 'wallet');
     for (let i = 0; i < 8 && api.ride.getRide(ride).status !== 'completed'; i++) api.ride.simulateRideStep(ride);
-    const fare = api.ride.getRide(ride).priceCents;
+    const fare = api.ride.getRide(ride).pricing!.baseCents; // Wave Back is on the fare, not the fees
     const wb = api.wallet.transactions().find((t) => t.type === 'wave_back' && t.ref?.id && t.amountCents === Math.round(fare * 0.02));
     expect(wb).toBeTruthy();
   });
@@ -831,5 +833,65 @@ describe('Hayve Send shipping zones', () => {
     as(NOOR); // London → Amsterdam is international (UK is outside the EU)
     expect(api.shop.quote('p_vinyl_bowl').shippingZone).toBe('international');
     expect(api.shop.quote('p_vinyl_bowl', 'pickup').shippingCents).toBe(0);
+  });
+});
+
+describe('pricing engine', () => {
+  it('adds disclosed contextual fees to rides (airport) and records every charge for audit', () => {
+    as(SAM);
+    const city = api.ride.quoteRide('home', 'grand_central')[0];
+    const airport = api.ride.quoteRide('grand_central', 'jfk')[0];
+    expect(city.fees.map((f) => f.label)).toContain('Booking fee');
+    expect(airport.fees.map((f) => f.label)).toContain('Airport fee');
+    expect(airport.priceCents).toBe(airport.baseCents + airport.fees.reduce((a, f) => a + f.cents, 0));
+    const id = api.ride.requestRide('grand_central', 'jfk', 'go', 'wallet');
+    const rec = getDb().priceRecords!.find((r) => r.refId === id)!;
+    expect(rec.breakdown.customerTotalCents).toBe(airport.priceCents);
+    expect(rec.context.zones).toContain('airport');
+    expect(rec.breakdown.trace.find((t) => t.ruleId === 'ride_airport')?.matched).toBe(true);
+    expect(rec.context).not.toHaveProperty('bucketKey'); // no personal key stored in the record
+  });
+
+  it('charges a small-order fee on small Bites baskets and says how much to add to avoid it', () => {
+    as(SAM);
+    const item = getDb().menuItems.find((m) => m.restaurantId === 'rs_napoli' && m.priceCents < 1500)!;
+    const small = api.bites.priceCart('rs_napoli', [{ key: 'a', menuItemId: item.id, qty: 1, options: item.options.filter((o) => o.required).map((o) => o.choices[0].label) }]);
+    expect(small.fees.map((f) => f.label)).toContain('Small order fee');
+    expect(small.addToAvoidSmallOrderCents).toBe(1500 - small.subtotalCents);
+    const big = api.bites.priceCart('rs_napoli', [{ key: 'a', menuItemId: item.id, qty: 3, options: item.options.filter((o) => o.required).map((o) => o.choices[0].label) }]);
+    expect(big.fees.map((f) => f.label)).not.toContain('Small order fee');
+  });
+
+  it('caps demand pricing, switches it off in emergencies, and never uses personal data', async () => {
+    const { priceTransaction, DEFAULT_RULES, DEFAULT_GUARDS } = await import('../src/backend/pricing');
+    const ctx = { service: 'ride' as const, at: new Date('2026-11-20T12:00:00').getTime(), city: 'New York', zones: [], demand: 4 };
+    const rules = DEFAULT_RULES.map((r) => (r.id === 'ride_demand' ? { ...r, amount: { kind: 'multiplier' as const, value: 3 } } : r));
+    const busy = priceTransaction(2000, ctx, rules, DEFAULT_GUARDS);
+    const demand = busy.customerLines.find((l) => l.component === 'demand')!;
+    expect(demand.cents).toBeLessThanOrEqual(Math.round(2000 * 0.8)); // capped at 1.8×
+    const calm = priceTransaction(2000, ctx, rules, { ...DEFAULT_GUARDS, emergencyCities: ['new york'] });
+    expect(calm.customerLines.some((l) => l.component === 'demand')).toBe(false);
+    expect(calm.trace.find((t) => t.ruleId === 'ride_demand')?.reason).toMatch(/emergency/);
+    // Same context, different people: identical price (no personalised pricing).
+    const a = priceTransaction(2000, { ...ctx, bucketKey: 'u_a' }, DEFAULT_RULES);
+    const b = priceTransaction(2000, { ...ctx, bucketKey: 'u_b' }, DEFAULT_RULES);
+    expect(a.customerTotalCents).toBe(b.customerTotalCents);
+  });
+
+  it('lets admins change rules, simulate before going live and run experiments', () => {
+    makeOwnerAdmin();
+    expect(api.revenue.rules().length).toBeGreaterThan(10);
+    expect(() => api.revenue.updateRule('ride_commission', { amount: { kind: 'percent', value: 0.6 } })).toThrow(/40%/);
+    const sample = Array.from({ length: 200 }, (_, i) => ({ service: 'ride' as const, baseCents: 1500 + (i % 20) * 100, ctx: { service: 'ride' as const, at: Date.now(), zones: i % 5 === 0 ? (['airport'] as const).slice() : [], demand: 1 } }));
+    const r = api.revenue.runScenario([{ ruleId: 'ride_airport', patch: { amount: { kind: 'fixed', value: 650 } } }], sample);
+    expect(r.after.hayveRevenueCents).toBeGreaterThan(r.before.hayveRevenueCents);
+    expect(r.after.keptOrders).toBeLessThan(r.before.keptOrders); // higher price, slightly fewer trips
+    const exp = api.revenue.createExperiment({ name: 'Station fee', hypothesis: 'A $1 station fee does not reduce trips', share: 0.5, ruleIds: ['ride_station'] });
+    api.revenue.updateRule('ride_station', { enabled: true });
+    api.revenue.setExperimentStatus(exp, 'running');
+    expect(api.revenue.experiments().find((e) => e.id === exp)?.status).toBe('running');
+    api.revenue.setEmergency('London', true);
+    expect(api.revenue.guards().emergencyCities).toContain('london');
+    expect(getDb().audit.some((a) => a.action === 'pricing.rule.update')).toBe(true);
   });
 });

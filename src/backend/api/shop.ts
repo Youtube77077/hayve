@@ -18,6 +18,7 @@ import {
   verifiedBusinessOf,
 } from './common';
 import { getSessionUserId, me } from './session';
+import { priceFor, recordPrice } from './revenue';
 
 /* ------------------------------------------------------------ views -- */
 
@@ -343,13 +344,16 @@ export function checkout(productId: ID, opts: { addressId?: ID; method: PayMetho
 
   const q = quote(productId, delivery, opts.addressId);
   const orderId = uid('o');
+  // Seller-side commission from the pricing engine (off for private sellers by default).
+  const sellerPrice = priceFor('shop', q.priceCents, { supplierCategory: verifiedBusinessOf(p.sellerId) ? 'business' : 'private' });
+  const sellerFee = sellerPrice.supplierLines.reduce((a, l) => a + l.cents, 0);
   const tx = beginPayment({
     payerId: user.id,
     method: opts.method,
     type: 'purchase',
     credits: [
-      { accountId: accountIdFor(p.sellerId), amountCents: q.priceCents, status: 'pending' },
-      { accountId: SYSTEM.fees, amountCents: q.shippingCents + q.feeCents },
+      { accountId: accountIdFor(p.sellerId), amountCents: q.priceCents - sellerFee, status: 'pending' },
+      { accountId: SYSTEM.fees, amountCents: q.shippingCents + q.feeCents + sellerFee },
     ],
     labelForPayer: displayName(p.sellerId),
     labelForPayee: displayName(user.id),
@@ -382,6 +386,8 @@ export function checkout(productId: ID, opts: { addressId?: ID; method: PayMetho
       createdAt: now(),
     };
     const captured = completePayment(tx, 'pending');
+    // Audit record: what the buyer paid (item + buyer fee + shipping), seller payout and Hayve's share.
+    recordPrice('shop', orderId, { ...sellerPrice, customerLines: [{ ruleId: 'shop_buyer_fee', label: 'Fees', component: 'service_fee', payer: 'customer', cents: q.feeCents }, ...(q.shippingCents ? [{ ruleId: 'send_shipping', label: 'Shipping', component: 'delivery_fee' as const, payer: 'customer' as const, cents: q.shippingCents }] : [])], customerTotalCents: q.totalCents, hayveRevenueCents: q.feeCents + q.shippingCents + sellerFee, netRevenueCents: q.feeCents + q.shippingCents + sellerFee - sellerPrice.processingCostCents });
     db.orders.push(order);
     p.quantity -= 1;
     if (p.quantity <= 0) p.status = 'sold_out';

@@ -1,4 +1,4 @@
-import { fmtMoney, region } from '../regions';
+import { fmtMoney, region, REGIONS } from '../regions';
 import { locationCoord, PICKUP_POINTS } from '../places';
 import { accountIdFor, refundTransaction, releaseTransaction, SYSTEM } from '../ledger';
 import { assert, commit, find, getDb, HayveError, now, reference, uid } from '../store';
@@ -18,12 +18,12 @@ import {
 } from './common';
 import { ratingFor } from './shop';
 import { getSessionUserId, me, requireRole } from './session';
+import { disclosed, priceFor, recordPrice } from './revenue';
 
 /** Hayve Drive (car rentals), Hayve Stay (accommodation) and Hayve Host. */
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const today = () => new Date().toISOString().slice(0, 10);
-const HOST_SHARE = 0.85;
 
 function validRange(start: string, end: string, minNights = 1) {
   assert(ISO.test(start) && ISO.test(end), 'invalid', 'Choose your dates');
@@ -110,8 +110,15 @@ export function quoteRental(vehicleId: ID, start: string, end: string) {
   const base = v.pricePerDayCents * days;
   const discount = days >= 7 ? Math.round(base * 0.15) : days >= 3 ? Math.round(base * 0.05) : 0;
   const insurance = 1200 * days;
-  const serviceFee = Math.round((base - discount) * 0.08);
+  // Service fee and airport collection fee from the pricing engine (disclosed in "Fees").
+  const at = locationCoord(v.location, v.id);
+  const leadDays = Math.max(0, Math.round((new Date(start).getTime() - now()) / 86_400_000));
+  const price = priceFor('drive', base - discount, { points: [{ ...at, name: v.location }], leadDays });
+  const serviceFee = price.customerTotalCents - (base - discount);
   return {
+    breakdown: price,
+    fees: disclosed(price),
+    commissionCents: price.supplierLines.reduce((a, l) => a + l.cents, 0),
     days,
     baseCents: base,
     discountCents: discount,
@@ -135,7 +142,7 @@ export function bookRental(input: { vehicleId: ID; start: string; end: string; p
   assert(vehicleAvailable(v, input.start, input.end), 'conflict', 'This vehicle is not available for those dates');
   const q = quoteRental(v.id, input.start, input.end);
   const id = uid('rn');
-  const hostShare = Math.round((q.baseCents - q.discountCents) * HOST_SHARE);
+  const hostShare = q.baseCents - q.discountCents - q.commissionCents;
   const tx = beginPayment({
     payerId: user.id,
     method: input.method,
@@ -150,6 +157,7 @@ export function bookRental(input: { vehicleId: ID; start: string; end: string; p
     ref: { kind: 'rental', id },
     waveBack: { category: 'services', baseCents: q.baseCents - q.discountCents },
   });
+  recordPrice('drive', id, q.breakdown);
   const rental: Rental = {
     id,
     reference: reference('HD'),
@@ -318,9 +326,17 @@ export function quoteStay(propertyId: ID, checkIn: string, checkOut: string) {
   const nights = Math.max(1, nightsBetween(checkIn, checkOut));
   const base = p.pricePerNightCents * nights;
   const weekly = nights >= 7 ? Math.round(base * 0.1) : 0;
-  const service = Math.round((base - weekly) * 0.12);
+  // Guest service fee and contextual fees (last-minute, event dates) from the pricing engine.
+  const city = REGIONS.find((r) => r.city.name.toLowerCase() === p.city.toLowerCase())?.city;
+  const leadDays = Math.max(0, Math.round((new Date(checkIn).getTime() - now()) / 86_400_000));
+  const price = priceFor('stay', base - weekly, { points: city ? [city] : [], leadDays, country: REGIONS.find((r) => r.name === p.country)?.code ?? null });
+  const service = price.customerTotalCents - (base - weekly);
+  const commissionRate = (price.supplierLines.reduce((a, l) => a + l.cents, 0) || 0) / Math.max(1, base - weekly);
   const taxes = Math.round((base - weekly) * 0.07);
   return {
+    breakdown: price,
+    fees: disclosed(price),
+    commissionCents: Math.round((base - weekly + p.cleaningFeeCents) * commissionRate),
     nights,
     baseCents: base,
     discountCents: weekly,
@@ -344,7 +360,7 @@ export function bookStay(input: { propertyId: ID; checkIn: string; checkOut: str
   assert(propertyAvailable(p, input.checkIn, input.checkOut), 'conflict', 'Those dates are no longer available');
   const q = quoteStay(p.id, input.checkIn, input.checkOut);
   const id = uid('sb');
-  const hostShare = Math.round((q.baseCents - q.discountCents + q.cleaningFeeCents) * HOST_SHARE);
+  const hostShare = q.baseCents - q.discountCents + q.cleaningFeeCents - q.commissionCents;
   const tx = beginPayment({
     payerId: user.id,
     method: input.method,
@@ -359,6 +375,7 @@ export function bookStay(input: { propertyId: ID; checkIn: string; checkOut: str
     ref: { kind: 'stay', id },
     waveBack: { category: 'services', baseCents: q.baseCents - q.discountCents + q.cleaningFeeCents },
   });
+  recordPrice('stay', id, q.breakdown);
   const booking: StayBooking = {
     id,
     reference: reference('HY'),

@@ -4,9 +4,11 @@ import { assert, commit, find, getDb, HayveError, now, reference, uid } from '..
 import type { FoodOrder, FoodOrderLine, FoodOrderStatus, ID, MenuItem, Restaurant } from '../types';
 import { abortPayment, audit, beginPayment, completePayment, displayName, notify, type PayMethod, previewWaveBack } from './common';
 import { getSessionUserId, me, requireRole } from './session';
+import { disclosed, priceFor, pricingState, recordPrice } from './revenue';
 
 /** Hayve Bites (customers) and Hayve Kitchen (restaurants). */
 
+/** Default Bites service fee (the live amount is the 'bites_service' pricing rule). */
 export const SERVICE_FEE_CENTS = 149;
 
 export interface RestaurantQuery {
@@ -78,12 +80,23 @@ export function priceCart(restaurantId: ID, lines: CartLine[]) {
     return { menuItemId: item.id, name: item.name, qty: l.qty, unitCents: unit, options: l.options };
   });
   const subtotal = priced.reduce((s, l) => s + l.unitCents * l.qty, 0);
+  // Fees from the pricing engine (service fee, small-order fee, busy-time…), all disclosed.
+  const price = priceFor('bites', subtotal, { orderCents: subtotal });
+  const fees = disclosed(price);
+  const feesCents = fees.reduce((a, f) => a + f.cents, 0);
+  const smallOrder = price.customerLines.find((l) => l.component === 'small_order_fee');
+  const smallRule = smallOrder ? pricingState().rules.find((x) => x.id === smallOrder.ruleId) : null;
   return {
     lines: priced,
     subtotalCents: subtotal,
     deliveryFeeCents: r.deliveryFeeCents,
-    serviceFeeCents: SERVICE_FEE_CENTS,
-    totalCents: subtotal + r.deliveryFeeCents + SERVICE_FEE_CENTS,
+    serviceFeeCents: feesCents,
+    fees,
+    /** How much more to add to avoid the small-order fee (shown next to it). */
+    addToAvoidSmallOrderCents: smallRule?.conditions.maxOrderCents ? smallRule.conditions.maxOrderCents - subtotal : 0,
+    commissionCents: price.supplierLines.reduce((a, l) => a + l.cents, 0),
+    breakdown: price,
+    totalCents: subtotal + r.deliveryFeeCents + feesCents,
     minOrderCents: r.minOrderCents,
     meetsMinimum: subtotal >= r.minOrderCents,
     waveBackCents: previewWaveBack(getSessionUserId(), 'services', subtotal),
@@ -108,7 +121,7 @@ export function placeFoodOrder(input: { restaurantId: ID; lines: CartLine[]; add
   const priced = priceCart(r.id, input.lines);
   assert(priced.meetsMinimum, 'invalid', `Minimum order is ${fmtMoney(r.minOrderCents)}`);
   const id = uid('fo');
-  const restaurantShare = Math.round(priced.subtotalCents * 0.85);
+  const restaurantShare = priced.subtotalCents - priced.commissionCents;
   const tx = beginPayment({
     payerId: user.id,
     method: input.method,
@@ -123,6 +136,7 @@ export function placeFoodOrder(input: { restaurantId: ID; lines: CartLine[]; add
     // Wave Back applies to the food, never to delivery or service fees.
     waveBack: { category: 'services', baseCents: priced.subtotalCents },
   });
+  recordPrice('bites', id, priced.breakdown, { orderCents: priced.subtotalCents });
   const order: FoodOrder = {
     id,
     reference: reference('HB'),

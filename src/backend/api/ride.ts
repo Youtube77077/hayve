@@ -5,6 +5,7 @@ import { assert, commit, find, getDb, HayveError, now, uid } from '../store';
 import type { DriverProfile, ID, Ride, RideCategory, RideStatus } from '../types';
 import { abortPayment, beginPayment, completePayment, displayName, notify, type PayMethod, previewWaveBack, publicUser, type PublicUser, settings } from './common';
 import { ratingFor } from './shop';
+import { disclosed, priceFor, pricingState, recordPrice } from './revenue';
 import { getSessionUserId, me, requireRole } from './session';
 
 /** Hayve Ride: passenger transport (simulated dispatch). */
@@ -23,7 +24,12 @@ export interface RideOption {
   label: string;
   seats: number;
   blurb: string;
+  /** What the rider pays, all disclosed fees included. */
   priceCents: number;
+  /** Fare before fees (what the driver's share is based on). */
+  baseCents: number;
+  /** Fees on top of the fare, shown before booking (booking fee, airport fee, busy-time price…). */
+  fees: { label: string; cents: number }[];
   pickupEtaMin: number;
   durationMin: number;
   arrivalAt: number;
@@ -76,21 +82,34 @@ export function quoteRide(pickupIn: PlaceInput, dropoffIn: PlaceInput, route?: R
   assert(a.id !== b.id && distanceKm(a, b) > 0 && !(a.lng === b.lng && a.lat === b.lat), 'invalid', 'Pickup and destination must be different');
   assert(distanceKm(a, b) < 150, 'invalid', 'That destination is too far for Hayve Ride');
   const { km, minutes } = tripMetrics(a, b, route);
+  // Market-wide context only: where, when, demand near the pickup and events. Never who you are.
+  const ctx = { points: [a, b], demand: demandAt(a), distanceKm: km };
   return RIDE_CATEGORIES.map((c) => {
-    const base = 320 + km * 145 + minutes * 30;
-    const priceCents = Math.round((base * c.multiplier) / 10) * 10;
+    const fare = Math.max(700, Math.round(((320 + km * 145 + minutes * 30) * c.multiplier) / 10) * 10);
+    const price = priceFor('ride', fare, ctx);
     return {
       category: c.id,
       label: c.label,
       seats: c.seats,
       blurb: c.blurb,
-      priceCents: Math.max(700, priceCents),
-      waveBackCents: previewWaveBack(getSessionUserId(), 'services', Math.max(700, priceCents)),
+      priceCents: price.customerTotalCents,
+      baseCents: fare,
+      fees: disclosed(price),
+      waveBackCents: previewWaveBack(getSessionUserId(), 'services', fare),
       pickupEtaMin: c.wait,
       durationMin: minutes,
       arrivalAt: now() + (c.wait + minutes) * 60_000,
     };
   });
+}
+
+/** Ride requests waiting nearby ÷ free online drivers nearby (a market signal, not personal). */
+export function demandAt(p: { lng: number; lat: number }) {
+  const db = getDb();
+  const busy = new Set(db.rides.filter((x) => x.driverId && ACTIVE.includes(x.status)).map((x) => x.driverId));
+  const free = db.drivers.filter((d) => d.online && !busy.has(d.userId) && (!d.location || haversineKm(d.location, p) < 8)).length;
+  const waiting = db.rides.filter((x) => x.status === 'requested' && haversineKm(x.pickup, p) < 8 && now() - x.createdAt < 15 * 60_000).length;
+  return (waiting + 1) / Math.max(1, free);
 }
 
 export function requestRide(pickupIn: PlaceInput, dropoffIn: PlaceInput, category: RideCategory, method: PayMethod, route?: RouteMetrics) {
@@ -103,6 +122,12 @@ export function requestRide(pickupIn: PlaceInput, dropoffIn: PlaceInput, categor
   const pickup = resolvePlace(pickupIn)!;
   const dropoff = resolvePlace(dropoffIn)!;
   const id = uid('r');
+  // The same price the rider saw: re-priced with the same context and recorded for audit.
+  const km = tripMetrics(pickup, dropoff, route).km;
+  const ctx = { points: [pickup, dropoff], demand: demandAt(pickup), distanceKm: km };
+  const price = priceFor('ride', option.baseCents, ctx);
+  assert(price.customerTotalCents === option.priceCents, 'conflict', 'The price just changed. Check the new price and request again.');
+  const commissionCents = price.supplierLines.reduce((a, l) => a + l.cents, 0);
   // Rider pays Hayve (held until the trip completes); Hayve pays the driver on completion.
   const tx = beginPayment({
     payerId: user.id,
@@ -113,8 +138,9 @@ export function requestRide(pickupIn: PlaceInput, dropoffIn: PlaceInput, categor
     labelForPayee: displayName(user.id),
     note: `${pickup.name} → ${dropoff.name}`,
     ref: { kind: 'ride', id },
-    waveBack: { category: 'services', baseCents: option.priceCents },
+    waveBack: { category: 'services', baseCents: option.baseCents },
   });
+  const recordId = recordPrice('ride', id, price, ctx);
   const ride: Ride = {
     id,
     riderId: user.id,
@@ -123,8 +149,9 @@ export function requestRide(pickupIn: PlaceInput, dropoffIn: PlaceInput, categor
     dropoff,
     category,
     priceCents: option.priceCents,
-    distanceKm: tripMetrics(pickup, dropoff, route).km,
+    distanceKm: km,
     durationMin: option.durationMin,
+    pricing: { baseCents: option.baseCents, lines: option.fees, commissionCents, recordId },
     status: 'requested',
     declinedBy: [],
     paymentTxId: tx.id,
@@ -237,7 +264,9 @@ function rideView(r: Ride, viewer: ID): RideView {
   const dp = r.driverId ? db.drivers.find((d) => d.userId === r.driverId) : null;
   const { riderId, driverId, offers, offer, ...rest } = r;
   const rate = settings().ride.commissionRate;
-  const hayveCents = r.payout?.hayveCents ?? Math.round(r.priceCents * rate);
+  const fare = r.pricing?.baseCents ?? r.priceCents;
+  const commission = r.pricing?.commissionCents ?? Math.round(fare * rate);
+  const hayveCents = r.payout?.hayveCents ?? r.priceCents - (fare - commission);
   const offerDriver = offer ? db.drivers.find((d) => d.userId === offer.driverId) : null;
   return {
     ...rest,
@@ -251,7 +280,7 @@ function rideView(r: Ride, viewer: ID): RideView {
       current: offer && offerDriver ? { firstName: displayName(offer.driverId).split(' ')[0], etaMin: offer.etaMin, secondsLeft: Math.max(0, Math.ceil((offer.expiresAt - now()) / 1000)) } : null,
       noneLeft: r.status === 'requested' && !offer,
     },
-    split: { driverCents: r.payout?.driverCents ?? r.priceCents - hayveCents, hayveCents, commissionRate: rate },
+    split: { driverCents: r.payout?.driverCents ?? fare - commission, hayveCents, commissionRate: fare ? commission / fare : rate },
     offerSecondsLeft: offer && offer.driverId === viewer ? Math.max(0, Math.ceil((offer.expiresAt - now()) / 1000)) : null,
   };
 }
@@ -289,9 +318,11 @@ function completeRide(r: Ride) {
   const tx = db.transactions.find((t) => t.id === r.paymentTxId);
   if (tx && tx.status === 'reserved') completePayment(tx, 'posted');
   if (r.driverId) {
-    // The driver keeps the fare minus Hayve's commission (15% by default, admin setting).
-    const hayveCents = Math.round(r.priceCents * settings().ride.commissionRate);
-    r.payout = { driverCents: r.priceCents - hayveCents, hayveCents };
+    // The driver keeps the fare minus Hayve's commission; disclosed fees (booking, airport…) stay with
+    // Hayve. Both come from the price recorded at booking.
+    const fare = r.pricing?.baseCents ?? r.priceCents;
+    const commission = r.pricing?.commissionCents ?? Math.round(fare * settings().ride.commissionRate);
+    r.payout = { driverCents: fare - commission, hayveCents: r.priceCents - (fare - commission) };
     createTransaction({
       type: 'earning',
       fromAccountId: SYSTEM.fees,
@@ -304,6 +335,12 @@ function completeRide(r: Ride) {
     });
     const dp = db.drivers.find((d) => d.userId === r.driverId);
     if (dp) dp.trips += 1;
+    // Waiting time at pickup beyond the free minutes goes to the driver (disclosed at booking).
+    const arrived = r.timeline.find((t) => t.status === 'arriving')?.at;
+    const started = r.timeline.find((t) => t.status === 'in_progress')?.at;
+    const waitRule = pricingState().rules.find((x) => x.id === 'ride_waiting' && x.enabled);
+    const paidMinutes = arrived && started ? Math.floor((started - arrived) / 60_000) - FREE_WAIT_MIN : 0;
+    if (waitRule && paidMinutes > 0) chargeExtra(r, `Waiting time · ${paidMinutes} min`, paidMinutes * waitRule.amount.value);
   }
   notify(r.riderId, 'ride', 'You have arrived', `Trip to ${r.dropoff.name} · ${fmtMoney(r.priceCents)}`, `/ride/${r.id}`);
 }
@@ -313,9 +350,14 @@ export function cancelRide(id: ID) {
   const db = getDb();
   const r = find(db.rides, (x) => x.id === id && x.riderId === user.id, 'Ride');
   assert(['requested', 'accepted', 'arriving'].includes(r.status), 'conflict', 'This ride can no longer be cancelled');
+  // Late cancellation (driver accepted more than 2 minutes ago): the disclosed fee goes to the driver.
+  const acceptedAt = r.timeline.find((t) => t.status === 'accepted')?.at;
+  const cancelRule = pricingState().rules.find((x) => x.id === 'ride_cancel' && x.enabled);
+  const late = !!(r.driverId && acceptedAt && now() - acceptedAt > FREE_CANCEL_MS && cancelRule);
   setStatus(r, 'cancelled');
   if (r.offer) closeOffer(r, 'timeout');
   abortPayment(db.transactions.find((t) => t.id === r.paymentTxId));
+  if (late) chargeExtra(r, 'Late cancellation fee', cancelRule!.amount.value);
   if (r.driverId) notify(r.driverId, 'ride', 'Ride cancelled', 'The passenger cancelled the trip.', '/business/driver');
   commit();
 }
@@ -369,6 +411,28 @@ export function simulateRideStep(id: ID) {
   }
   commit();
   return r.status;
+}
+
+/** Minutes a driver waits for free, and how long after acceptance a cancellation is free. */
+export const FREE_WAIT_MIN = 3;
+export const FREE_CANCEL_MS = 2 * 60_000;
+
+/** Charges a disclosed extra (waiting time, late cancellation) and pays it to the driver. */
+function chargeExtra(r: Ride, label: string, cents: number) {
+  if (!r.driverId || cents <= 0) return;
+  const tx = beginPayment({
+    payerId: r.riderId,
+    method: 'wallet_card',
+    type: 'ride',
+    credits: [{ accountId: accountIdFor(r.driverId), amountCents: cents }],
+    labelForPayer: 'Hayve Ride',
+    labelForPayee: displayName(r.riderId),
+    note: label,
+    ref: { kind: 'ride', id: r.id },
+  });
+  completePayment(tx, 'posted');
+  r.extraCharges = [...(r.extraCharges ?? []), { label, cents, txId: tx.id }];
+  notify(r.riderId, 'ride', label, `${fmtMoney(cents)} for your trip with ${displayName(r.driverId).split(' ')[0]}`, `/ride/${r.id}`);
 }
 
 /* ----------------------------------------------------- Hayve Driver -- */

@@ -352,6 +352,10 @@ export interface Ride {
   offers?: { driverId: ID; at: number; outcome: 'accepted' | 'declined' | 'timeout' | 'pending'; etaMin: number }[];
   /** Fare split once the trip completes (driver gets the fare minus Hayve's commission). */
   payout?: { driverCents: Cents; hayveCents: Cents };
+  /** Price at booking: the fare before rules, disclosed customer lines and the commission. */
+  pricing?: { baseCents: Cents; lines: { label: string; cents: Cents }[]; commissionCents: Cents; recordId?: ID };
+  /** Fees charged after the trip started (waiting time) or on a late cancellation. */
+  extraCharges?: { label: string; cents: Cents; txId: ID }[];
   rating?: number;
   paymentTxId?: ID;
   createdAt: number;
@@ -727,4 +731,8 @@ export interface Database {
   reports: Report[];
   settings: Settings;
   audit: AuditEvent[];
+  /** Pricing rules, guards, events and experiments (see pricing.ts). Created on first use. */
+  pricing?: import('./api/revenue').PricingState;
+  /** Audited price of every charged transaction. */
+  priceRecords?: import('./pricing').PriceRecord[];
 }
