@@ -133,7 +133,7 @@ export function SwitchRow({ title, subtitle, value, onChange, icon }: { title: s
           </T>
         )}
       </View>
-      <Switch value={value} onValueChange={onChange} trackColor={{ true: color.indigo, false: color.grey200 }} thumbColor="#fff" ios_backgroundColor={color.grey200} accessibilityLabel={title} />
+      <Switch value={value} onValueChange={onChange} trackColor={{ true: color.indigo, false: color.grey200 }} thumbColor="#fff" ios_backgroundColor={color.grey200} accessibilityLabel={title} {...({ activeThumbColor: '#fff', activeTrackColor: color.indigo } as object)} />
     </View>
   );
 }
