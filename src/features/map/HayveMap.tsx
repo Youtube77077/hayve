@@ -229,11 +229,22 @@ const AppleMap = forwardRef<HayveMapHandle, HayveMapProps>(function AppleMap({ c
   );
 });
 
+/**
+ * Apple Maps car. Moving a marker only updates its coordinate (cheap); re-snapshotting its view
+ * (tracksViewChanges) is expensive on iOS, so it happens only briefly when the car turns by 15°+.
+ */
 function AppleCar({ car }: { car: MapCar }) {
-  const pose = useGlide(car, 30);
+  const pose = useGlide(car, 15);
+  const heading = (Math.round(pose.heading / 15) * 15) % 360;
+  const [track, setTrack] = useState(true);
+  useEffect(() => {
+    setTrack(true);
+    const t = setTimeout(() => setTrack(false), 300);
+    return () => clearTimeout(t);
+  }, [heading, car.assigned]);
   return (
-    <Marker coordinate={ll(pose.coord)} anchor={{ x: 0.5, y: 0.5 }} flat tracksViewChanges>
-      <CarGlyph heading={pose.heading} assigned={car.assigned} />
+    <Marker coordinate={ll(pose.coord)} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={track}>
+      <CarGlyph heading={heading} assigned={car.assigned} />
     </Marker>
   );
 }

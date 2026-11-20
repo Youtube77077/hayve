@@ -40,44 +40,98 @@ appId: com.hayve.app
     optional: true
 - waitForAnimationToEnd:
     timeout: 4000
+- extendedWaitUntil:
+    visible: ".*Browse by category.*"
+    timeout: 15000
+    optional: true
 - takeScreenshot: 04-search
 - openLink: "hayve:///shop"
 - waitForAnimationToEnd:
     timeout: 4000
+- extendedWaitUntil:
+    visible: ".*Sell an item.*"
+    timeout: 15000
+    optional: true
 - takeScreenshot: 05-shop
 - openLink: "hayve:///pay"
 - waitForAnimationToEnd:
     timeout: 4000
+- extendedWaitUntil:
+    visible: ".*Hayve balance.*"
+    timeout: 15000
+    optional: true
 - takeScreenshot: 06-pay
 - openLink: "hayve:///pay/get-paid"
 - waitForAnimationToEnd:
     timeout: 4000
+- extendedWaitUntil:
+    visible: ".*Verify my identity.*"
+    timeout: 15000
+    optional: true
 - takeScreenshot: 06b-get-paid
 - openLink: "hayve:///pay/card"
 - waitForAnimationToEnd:
     timeout: 4000
+- extendedWaitUntil:
+    visible: ".*Get my virtual card.*"
+    timeout: 15000
+    optional: true
 - takeScreenshot: 06c-hayve-card
-- openLink: "hayve:///ride"
-- waitForAnimationToEnd:
-    timeout: 6000
-- takeScreenshot: 07-ride
 - openLink: "hayve:///bites"
 - waitForAnimationToEnd:
     timeout: 4000
+- extendedWaitUntil:
+    visible: ".*Restaurants.*"
+    timeout: 15000
+    optional: true
 - takeScreenshot: 08-bites
 - openLink: "hayve:///drive"
 - waitForAnimationToEnd:
     timeout: 4000
+- extendedWaitUntil:
+    visible: ".*cars available.*"
+    timeout: 15000
+    optional: true
 - takeScreenshot: 09-drive
 - openLink: "hayve:///stay"
 - waitForAnimationToEnd:
     timeout: 4000
+- extendedWaitUntil:
+    visible: ".*Check in.*"
+    timeout: 15000
+    optional: true
 - takeScreenshot: 10-stay
 - openLink: "hayve:///profile"
 - waitForAnimationToEnd:
     timeout: 4000
+- extendedWaitUntil:
+    visible: ".*Profile.*"
+    timeout: 15000
+    optional: true
 - takeScreenshot: 11-profile
 - openLink: "hayve:///services"
 - waitForAnimationToEnd:
     timeout: 4000
+- extendedWaitUntil:
+    visible: ".*Search.*"
+    timeout: 15000
+    optional: true
 - takeScreenshot: 12-more
+- openLink: "hayve:///ride"
+- waitForAnimationToEnd:
+    timeout: 6000
+- extendedWaitUntil:
+    visible: ".*Where to?.*"
+    timeout: 15000
+    optional: true
+- takeScreenshot: 13-ride
+- tapOn:
+    text: "Amsterdam Centraal"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 6000
+- extendedWaitUntil:
+    visible: ".*Request.*"
+    timeout: 15000
+    optional: true
+- takeScreenshot: 14-ride-route

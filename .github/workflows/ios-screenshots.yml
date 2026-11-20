@@ -111,6 +111,6 @@ jobs:
           git add docs/screenshots/iphone
           ls shots/*.png >/dev/null 2>&1 || { echo "No screenshots captured"; exit 1; }
           git commit -m "iOS app screenshots from the Simulator [skip ci]" || true
-          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git pull --rebase --autostash origin "${GITHUB_REF_NAME}"
           git push origin "HEAD:${GITHUB_REF_NAME}"
           test "${{ steps.capture.outputs.status }}" = "0"
