@@ -77,6 +77,26 @@ appId: com.hayve.app
     timeout: 15000
     optional: true
 - takeScreenshot: 06c-hayve-card
+- openLink: "hayve:///pay/request?mode=split"
+- waitForAnimationToEnd:
+    timeout: 4000
+- extendedWaitUntil:
+    visible: ".*Splitting between.*"
+    timeout: 15000
+    optional: true
+- takeScreenshot: 06d-request-split
+- openLink: "hayve:///pay/methods"
+- waitForAnimationToEnd:
+    timeout: 4000
+- extendedWaitUntil:
+    visible: ".*Debit and credit cards.*"
+    timeout: 15000
+    optional: true
+- takeScreenshot: 06e-cards-and-banks
+- openLink: "hayve:///business/driver"
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: 06f-hayve-driver
 - openLink: "hayve:///bites"
 - waitForAnimationToEnd:
     timeout: 4000

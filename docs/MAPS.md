@@ -26,7 +26,17 @@ EXPO_PUBLIC_MAPBOX_STYLE_URL=            # optional, mapbox://styles/<user>/<id>
 EXPO_PUBLIC_MAPTILER_KEY=                # optional web fallback
 ```
 
-`EXPO_PUBLIC_*` values are built into the app, so use a **public** token and restrict it in the Mapbox dashboard (URL restrictions for the website). For GitHub builds add repository secrets `MAPBOX_PUBLIC_TOKEN` (and optionally `MAPBOX_STYLE_URL`); both workflows pass them in.
+`EXPO_PUBLIC_*` values are built into the app, so use a **public** token (starts with `pk.`) and restrict it in the Mapbox dashboard (URL restrictions for the website). Never use a secret `sk.` token here.
+
+### Where to save your Mapbox token
+
+| Where | What to do | Used for |
+| --- | --- | --- |
+| GitHub (iPhone app + CI) | Repository → Settings → Secrets and variables → Actions → **New repository secret**. Name `MAPBOX_PUBLIC_TOKEN`, value `pk.…`. (A repository *variable* with the same name also works.) | The IPA build, the iPhone screenshots and the website build in CI. Push any commit (or re-run "Build iOS IPA") after adding it. |
+| DigitalOcean (website) | App → Settings → the `web` component → Environment variables → `EXPO_PUBLIC_MAPBOX_TOKEN` = `pk.…` (build time), then redeploy. `.do/app.yaml` already lists it. | hayve.app |
+| Your computer | Create a file `.env.local` in the project folder with `EXPO_PUBLIC_MAPBOX_TOKEN=pk.…`. It is git-ignored. | `npx expo start` |
+
+Optional: `MAPBOX_STYLE_URL` (secret or variable) for a style published from Mapbox Studio.
 
 The Mapbox iOS SDK v11 no longer needs a secret download token.
 
@@ -51,4 +61,6 @@ To use Mapbox Studio instead, recreate these colours, publish the style and set 
 - Route along real roads (Mapbox Directions or Apple MKDirections). The indigo Hayve route draws itself in from the pickup, sits on a white casing so it stands out, and the part already driven turns grey. Pins: "Pickup · 3 min" and "Arrive 21:40". The camera fits both pins above the bottom sheet.
 - Cars are drawn top-down, rotate to their heading and glide between updates (reduced motion: no gliding).
 - Draggable bottom sheet: choose ride → finding driver → driver arriving → on trip → arrived.
+- Dispatch works like Uber: Hayve ranks free, online drivers whose car fits the ride type by pickup time (then rating) and offers the trip to **one driver at a time**. The driver has 15 seconds (admin setting) to accept; a decline or no answer sends it to the next closest driver. The passenger sees "Asking Kemal · 4 min away" and then the driver's name, car, number plate, rating and a live ETA. Drivers share their phone's GPS while online (Hayve Driver), and the passenger's map starts the car from that position.
+- Hayve Driver: accept or decline with a countdown and the amount you receive, Navigate (Apple Maps / Google Maps), Message, Call (private number), "I've arrived", Start ride, Complete ride. The driver keeps 85% of the fare; Hayve's commission is 15% (admin setting).
 - Re-centre button and an indigo current-location dot (`expo-location`, asked once).

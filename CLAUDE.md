@@ -10,6 +10,7 @@
 - Hayve Send exists only inside the Shop checkout and order page; not in nav or Home.
 - Maps: always `HayveMap` from `src/features/map` (Mapbox with keys from env; Apple Maps + `modules/hayve-apple-maps` on iPhone without a key). See docs/MAPS.md.
 - Motion: use `src/design/motion.tsx` (`Appear`, `usePressScale`, `useShake`, `SuccessMark`, `HeartButton`, `Tilt`, `useHotkey`); always respect reduced motion.
+- Payment requests/links: `src/backend/api/requests.ts` (public page `src/app/r/[id].tsx`, manage `src/app/pay/link/[id].tsx`). Cards and banks: `wallet.addCard/connectBank` (never store card numbers). Ride dispatch (one driver at a time, 15% commission) in `api/ride.ts`; settings `payRequests`, `ride` in config.ts.
 - Tap to Pay and Hayve Card: `src/backend/api/tap.ts`, `card.ts`; rates and limits in `config.ts`, editable in admin. Production seam: `server/src/payments.ts` (Stripe). See docs/PAYMENTS.md.
 - Logo: regenerate with `python3 scripts/build-logo.py && node scripts/render-logo.mjs assets`.
 - Anonymous gifting privacy is a hard requirement; see docs/ARCHITECTURE.md. Keep tests green:

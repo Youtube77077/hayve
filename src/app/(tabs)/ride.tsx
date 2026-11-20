@@ -564,8 +564,8 @@ function SheetContent(p: {
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <Button title="Message" icon="chatbubble-outline" variant="secondary" style={{ flex: 1 }} onPress={p.message} />
           <Button title="Call" icon="call-outline" variant="secondary" style={{ flex: 1 }} onPress={p.call} />
-          {p.mode === 'arriving' && <Button title="Cancel" variant="outline" style={{ flex: 1 }} onPress={p.openCancel} />}
         </View>
+        {p.mode === 'arriving' && <Button title="Cancel ride" variant="ghost" size="sm" style={{ alignSelf: 'center' }} onPress={p.openCancel} />}
         <TripSummary a={a} />
       </ScrollView>
     );

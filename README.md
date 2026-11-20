@@ -42,7 +42,7 @@ cd server && npm install && npm test   # API: unit + integration tests on a real
 
 ## Maps
 
-Maps use **Mapbox** (GL JS on the web, the Maps SDK on iOS/Android, Geocoding and Directions) with one custom Hayve style. On iPhone without a Mapbox key the app uses **Apple Maps** with Apple's routes, addresses and search (free, no key). The website without a key shows a built-in map preview. Add a public token as `EXPO_PUBLIC_MAPBOX_TOKEN` (and the GitHub secret `MAPBOX_PUBLIC_TOKEN` for CI/iOS builds). See [docs/MAPS.md](docs/MAPS.md).
+Maps use **Mapbox** (GL JS on the web, the Maps SDK on iOS/Android, Geocoding and Directions) with one custom Hayve style. On iPhone without a Mapbox key the app uses **Apple Maps** with Apple's routes, addresses and search (free, no key). The website without a key shows a built-in map preview. Save your public Mapbox token (`pk.…`) as the GitHub secret `MAPBOX_PUBLIC_TOKEN` (iPhone app and CI), as `EXPO_PUBLIC_MAPBOX_TOKEN` in DigitalOcean (website) and in `.env.local` on your computer. Step by step: [docs/MAPS.md](docs/MAPS.md#where-to-save-your-mapbox-token).
 
 ## Hosting (DigitalOcean)
 

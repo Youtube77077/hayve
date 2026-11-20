@@ -42,6 +42,18 @@ The ledger (`ledger_entries` / `transactions`) stays Hayve's internal source of 
 The checkout flows already use **hold → capture / void**, which maps directly onto card authorisation and capture.
 
 
+## Payment requests and links (production wiring)
+
+Request money works like a Tikkie, inside Hayve: create a link (one person, a split bill, a business request with logo and invoice number, or an authorised deposit for a Stay or Drive booking), share it on WhatsApp, Snapchat, SMS or anywhere, and the other person pays **without a Hayve account** by bank (iDEAL | Wero), debit or credit card, or with Hayve Pay. Requests can be linked to real orders and bookings (Shop orders, Bites orders, Stay and Drive bookings, deliveries).
+
+- Personal requests, splits, deposits and personal QR codes are free. Business requests pay a small fee per payment (1.2% + €0.20 by default, admin setting), shown to the business as "Fees". The payer never pays a fee.
+- Production: the app calls `POST /requests/:id/checkout` (server/src/payments.ts), which creates a Stripe PaymentIntent for `ideal` or `card` (manual capture for deposits). Stripe's own secure form collects card details. The signed `payment_intent.succeeded` / `amount_capturable_updated` webhook records the payment in `pay_request_payments`; nobody can write that table from the app (migration 0007).
+- The link id is a random 32-character token; `pay_request_public(token)` shows only what a payer needs, never who else paid.
+
+## Cards and banks
+
+People connect their own bank (iDEAL | Wero: approve in the bank app, or IBAN + SEPA mandate) and debit or credit cards. Hayve stores only brand, last 4, expiry, debit/credit and the bank name; card numbers go straight to the payment partner. Connected methods appear in every checkout, in Add money and for withdrawals, and the bank also funds Hayve Card automatic top-ups.
+
 ## Tap to Pay (production wiring)
 
 1. Apply for Apple's **Tap to Pay on iPhone** entitlement (iPhone XS or newer) and enable Tap to Pay on Android in the Stripe dashboard.
