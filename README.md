@@ -7,7 +7,7 @@ Hayve is a consumer super app and business ecosystem: marketplace shopping, paym
 | Product | What it does | Partner app |
 |---|---|---|
 | **Hayve Shop** | Buy and sell anything, wishlists, anonymous gifting, verified **Hayve Store** businesses | Hayve Seller · Hayve Store |
-| **Hayve Pay** | Wallet, transfers, requests, receipts, **Wave Back** | Hayve Business |
+| **Hayve Pay** | Wallet, transfers, **Tap to Pay** (your phone as a card terminal), the **Hayve Card**, **Wave Back** | Hayve Business |
 | **Hayve Ride** | Rides on a live map with route, driver tracking and ETA | Hayve Driver |
 | **Hayve Bites** | Restaurants and groceries with order tracking | Hayve Kitchen · Hayve Courier |
 | **Hayve Drive** | Car rentals from local hosts | Hayve Host |
@@ -42,7 +42,7 @@ cd server && npm install && npm test   # API: unit + integration tests on a real
 
 ## Maps
 
-Maps use **Mapbox** everywhere (GL JS on the web, the Maps SDK on iOS/Android, Geocoding and Directions) with one custom Hayve style. Without a key the app shows a built-in map preview so everything still works. Add a public token as `EXPO_PUBLIC_MAPBOX_TOKEN` (and the GitHub secret `MAPBOX_PUBLIC_TOKEN` for CI/iOS builds). See [docs/MAPS.md](docs/MAPS.md).
+Maps use **Mapbox** (GL JS on the web, the Maps SDK on iOS/Android, Geocoding and Directions) with one custom Hayve style. On iPhone without a Mapbox key the app uses **Apple Maps** with Apple's routes, addresses and search (free, no key). The website without a key shows a built-in map preview. Add a public token as `EXPO_PUBLIC_MAPBOX_TOKEN` (and the GitHub secret `MAPBOX_PUBLIC_TOKEN` for CI/iOS builds). See [docs/MAPS.md](docs/MAPS.md).
 
 ## Hosting (DigitalOcean)
 
@@ -86,4 +86,6 @@ docs/             Architecture, hosting, maps, iOS builds, payments, checklist
 
 ## Brand
 
-Indigo `#4F46E5` · Black `#0E0E10` · White `#FFFFFF` · Greys `#F4F4F6` `#E5E6EA` `#6B6E78`. One font (Plus Jakarta Sans), one outline icon set (Lucide), 8 px grid. The logo is lowercase **hayve** with a wave-shaped indigo **v** (`src/design/logo.tsx`); the app icon is the wave-v on its own.
+Indigo `#4F46E5` · Black `#0E0E10` · White `#FFFFFF` · Greys `#F4F4F6` `#E5E6EA` `#6B6E78`. One font (Plus Jakarta Sans), one outline icon set (Lucide), 8 px grid. The logo is lowercase **hayve** built from the font's own outlines with a bold, wave-shaped indigo **v** that sits on the baseline (`scripts/build-logo.py`, `src/design/logo.tsx`). The app icon is the indigo wave-v on white.
+
+Motion follows a small set of rules (`src/design/motion.tsx`): press wind-up, error shake, staggered lists, springy sheets you can interrupt, a heart burst, cards that tilt toward the cursor on the web, a success check with confetti, and keyboard shortcuts (`/` to search, `Esc` to close). Reduced motion turns it all off.

@@ -8,7 +8,10 @@
 - Money is integer cents through the ledger (`src/backend/ledger.ts`). Never store balances. Label simulated money with `<SimBadge />` ("Demo").
 - Fees and Wave Back values live in `src/backend/config.ts` (admin overrides in `db.settings`). Buyers see one "Fees" line, never a percentage. Never say cashback/points/credits.
 - Hayve Send exists only inside the Shop checkout and order page; not in nav or Home.
-- Maps: always `HayveMap` from `src/features/map` (Mapbox; keys from env). See docs/MAPS.md.
+- Maps: always `HayveMap` from `src/features/map` (Mapbox with keys from env; Apple Maps + `modules/hayve-apple-maps` on iPhone without a key). See docs/MAPS.md.
+- Motion: use `src/design/motion.tsx` (`Appear`, `usePressScale`, `useShake`, `SuccessMark`, `HeartButton`, `Tilt`, `useHotkey`); always respect reduced motion.
+- Tap to Pay and Hayve Card: `src/backend/api/tap.ts`, `card.ts`; rates and limits in `config.ts`, editable in admin. Production seam: `server/src/payments.ts` (Stripe). See docs/PAYMENTS.md.
+- Logo: regenerate with `python3 scripts/build-logo.py && node scripts/render-logo.mjs assets`.
 - Anonymous gifting privacy is a hard requirement; see docs/ARCHITECTURE.md. Keep tests green:
   - `npx vitest run` (app backend), `bash supabase/tests/run.sh` (PostgreSQL), `cd server && npx vitest run` (API)
 - Before finishing: `npx tsc --noEmit && npx expo lint && npx vitest run && npx expo export --platform web`.
