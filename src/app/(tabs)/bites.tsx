@@ -62,9 +62,10 @@ export default function Bites() {
 
   const list = useLive(() => bites.listRestaurants({ q, tag: tag ?? undefined, sort, groceries: mode === 'groceries' }), [q, tag, sort, mode]).data ?? [];
   const featured = useLive(() => bites.listRestaurants({ openOnly: true }).filter((r) => r.promo)).data ?? [];
+  const area = useLive(() => bites.coverage()).data;
 
   return (
-    <Screen header={<TabHeader service="bites" subtitle="Deliver to Cornelis Dirkszoonlaan 51" />}>
+    <Screen header={<TabHeader service="bites" subtitle={area ? `Deliver to ${area.address ?? area.city}` : undefined} />}>
       <Segmented
         value={mode}
         onChange={(m) => {
@@ -112,7 +113,9 @@ export default function Bites() {
           <Chip label="Fastest" icon="time-outline" selected={sort === 'eta'} onPress={() => setSort('eta')} />
           <Chip label="Lowest fee" icon="bicycle-outline" selected={sort === 'fee'} onPress={() => setSort('fee')} />
         </HScroll>
-        {list.length === 0 ? (
+        {list.length === 0 && area && !area.served ? (
+          <EmptyState icon="restaurant-outline" title={`Hayve Bites isn't in ${area.city} yet`} body={`We deliver in ${area.cities.join(', ')} today and are adding cities. Ride, Shop, Stay and Pay work where you are.`} />
+        ) : list.length === 0 ? (
           <EmptyState icon="restaurant-outline" title="Nothing matches" body="Try another dish or cuisine." />
         ) : (
           <Grid min={isWide ? 280 : 300} gap={18}>

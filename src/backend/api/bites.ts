@@ -1,4 +1,4 @@
-import { fmtMoney } from '../regions';
+import { fmtMoney, REGIONS, getGuestCountry } from '../regions';
 import { accountIdFor, createTransaction, SYSTEM } from '../ledger';
 import { assert, commit, find, getDb, HayveError, now, reference, uid } from '../store';
 import type { FoodOrder, FoodOrderLine, FoodOrderStatus, ID, MenuItem, Restaurant } from '../types';
@@ -17,11 +17,49 @@ export interface RestaurantQuery {
   groceries?: boolean;
   sort?: 'recommended' | 'rating' | 'eta' | 'fee';
   openOnly?: boolean;
+  /** Show restaurants in every city (admin and search tools). Default: only the customer's city. */
+  anywhere?: boolean;
+}
+
+const METRO: Record<string, string> = { brooklyn: 'new york', manhattan: 'new york', queens: 'new york', bronx: 'new york', 'the bronx': 'new york', 'staten island': 'new york', williamsburg: 'new york', nyc: 'new york', 'new york city': 'new york', 'long island city': 'new york' };
+
+/** Normalises a city name so "Brooklyn, NY" and "New York" match the same delivery area. */
+export function metro(city?: string | null) {
+  const c = (city ?? '').split(',')[0].trim().toLowerCase();
+  return METRO[c] ?? c;
+}
+
+/** The city we deliver to: the signed-in customer's default address or profile, else the visitor's country. */
+export function deliveryCity(): string {
+  const uid = getSessionUserId();
+  const db = getDb();
+  if (uid) {
+    const addr = db.addresses.find((a) => a.userId === uid && a.isDefault) ?? db.addresses.find((a) => a.userId === uid);
+    const profile = db.profiles.find((p) => p.userId === uid);
+    const city = addr?.city || profile?.city;
+    if (city) return city.split(',')[0].trim();
+  }
+  return (REGIONS.find((r) => r.code === getGuestCountry()) ?? REGIONS[0]).city.name;
+}
+
+/** Where Bites delivers today, and whether that includes the customer's city. */
+export function coverage() {
+  const city = deliveryCity();
+  const cities = [...new Set(getDb().restaurants.map((r) => r.city))].sort();
+  const served = getDb().restaurants.some((r) => metro(r.city) === metro(city));
+  const address = (() => {
+    const uid = getSessionUserId();
+    const a = uid ? (getDb().addresses.find((x) => x.userId === uid && x.isDefault) ?? getDb().addresses.find((x) => x.userId === uid)) : undefined;
+    return a ? `${a.line1}, ${a.city}` : null;
+  })();
+  return { city, served, cities, address };
 }
 
 export function listRestaurants(query: RestaurantQuery = {}): Restaurant[] {
   const q = query.q?.trim().toLowerCase();
+  const here = metro(deliveryCity());
   let rows = getDb().restaurants.filter((r) => {
+    if (!query.anywhere && metro(r.city) !== here) return false;
     if (query.groceries != null && r.isGrocery !== query.groceries) return false;
     if (query.openOnly && !r.isOpen) return false;
     if (query.tag && !r.tags.includes(query.tag)) return false;
@@ -108,6 +146,7 @@ export function placeFoodOrder(input: { restaurantId: ID; lines: CartLine[]; add
   const db = getDb();
   const r = find(db.restaurants, (x) => x.id === input.restaurantId, 'Restaurant');
   assert(r.isOpen, 'conflict', `${r.name} is closed right now`);
+  assert(metro(r.city) === metro(deliveryCity()), 'invalid', `${r.name} delivers in ${r.city} only. Change your delivery address to order from it.`);
   assert(input.lines.length > 0, 'invalid', 'Your basket is empty');
   assert(input.address.trim().length >= 5, 'invalid', 'Enter a delivery address');
   for (const l of input.lines) {
@@ -270,7 +309,7 @@ export function simulateFoodStep(id: ID) {
 
 /* ---------------------------------------------------- Hayve Kitchen -- */
 
-export function registerRestaurant(input: { name: string; cuisine: string; address: string; description: string; image?: string; isGrocery?: boolean }) {
+export function registerRestaurant(input: { name: string; cuisine: string; address: string; city?: string; description: string; image?: string; isGrocery?: boolean }) {
   const user = me();
   const db = getDb();
   assert(input.name.trim().length >= 2, 'invalid', 'Enter your restaurant name');
@@ -292,6 +331,7 @@ export function registerRestaurant(input: { name: string; cuisine: string; addre
     priceLevel: 2,
     tags: input.cuisine.split(/[,·]/).map((s) => s.trim()).filter(Boolean),
     address: input.address.trim(),
+    city: (input.city?.trim() || db.profiles.find((p) => p.userId === user.id)?.city || deliveryCity()).slice(0, 80),
     isOpen: false,
     isGrocery: !!input.isGrocery,
     createdAt: now(),

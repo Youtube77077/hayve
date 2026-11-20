@@ -895,3 +895,24 @@ describe('pricing engine', () => {
     expect(getDb().audit.some((a) => a.action === 'pricing.rule.update')).toBe(true);
   });
 });
+
+describe('Bites delivery area (found by the 1,000-person simulation)', () => {
+  it('only lists and accepts restaurants in the customer’s city', () => {
+    as(SAM); // New York
+    expect(api.bites.listRestaurants().length).toBeGreaterThan(0);
+    expect(api.bites.coverage().served).toBe(true);
+    api.session.signOut();
+    as(NOOR); // London
+    expect(api.bites.listRestaurants()).toHaveLength(0);
+    const cov = api.bites.coverage();
+    expect(cov.served).toBe(false);
+    expect(cov.city).toBe('London');
+    const r = getDb().restaurants.find((x) => x.isOpen)!;
+    const item = getDb().menuItems.find((m) => m.restaurantId === r.id && m.available && !m.options.some((o) => o.required))!;
+    expect(() => api.bites.placeFoodOrder({ restaurantId: r.id, lines: [{ key: '1', menuItemId: item.id, qty: 10, options: [] }], address: '1 Test Road, London', method: 'card' })).toThrow(/delivers in New York only/);
+  });
+
+  it('treats boroughs as the same city', () => {
+    expect(api.bites.metro('Brooklyn, NY')).toBe(api.bites.metro('New York'));
+  });
+});

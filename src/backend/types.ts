@@ -399,6 +399,8 @@ export interface Restaurant {
   priceLevel: 1 | 2 | 3;
   tags: string[];
   address: string;
+  /** City the restaurant delivers in (Bites only shows restaurants in the customer's city). */
+  city: string;
   isOpen: boolean;
   isGrocery: boolean;
   promo?: string;

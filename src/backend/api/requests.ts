@@ -283,7 +283,7 @@ export function pay(id: ID, input: PayInput) {
   const status = statusOf(r);
   assert(status !== 'cancelled', 'conflict', 'This request was cancelled');
   assert(status !== 'expired', 'conflict', 'This payment link has expired');
-  assert(status !== 'paid', 'conflict', 'This request has already been paid');
+  assert(status !== 'paid', 'conflict', r.split ? 'Everyone has already paid their share. Nothing more to pay.' : 'This request has already been paid');
   const payerId = getSessionUserId();
   assert(payerId !== r.requesterId, 'invalid', "You can't pay your own request");
   if (input.method === 'hayve') assert(payerId, 'unauthenticated', 'Sign in to pay with Hayve Pay');

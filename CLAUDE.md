@@ -21,3 +21,5 @@
 - Owner admin: `rojyarzakholi@gmail.com` (config.ts and migration 0005). Admin needs verified email + 2FA; only admins add admins. Preview codes: `SIM_CODE` 246810.
 - Hosting: DigitalOcean (`.do/app.yaml`, `server/`, docs/HOSTING.md). The app still runs on the simulated backend.
 - iOS: pushing to `main`/`claude/**` builds an unsigned IPA via `.github/workflows/ios-ipa.yml` and publishes a pre-release.
+- 1,000-person simulation (real backend, synthetic people): `npx vitest run --config sim/vitest.config.ts && node sim/report.mjs <outDir>` → HTML report + people.json. Re-run after big flow changes; it must report 0 crashes and a balanced ledger.
+- Bites only lists/accepts restaurants in the customer's city (`bites.coverage()`, `metro()`); new restaurants need a `city`.

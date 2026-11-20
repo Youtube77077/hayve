@@ -16,7 +16,7 @@ import type {
   User,
 } from './types';
 
-export const DB_VERSION = 10;
+export const DB_VERSION = 11;
 export const DEMO_PASSWORD = 'hayve123';
 
 export const DEMO_ACCOUNTS = [
@@ -367,11 +367,11 @@ export function createSeedDatabase(): Database {
 
   /* ------------------------------------------------------- restaurants -- */
   const F = media.food;
-  const rest = (r: Omit<Restaurant, 'createdAt' | 'ownerId'> & { ownerId?: string }) =>
-    db.restaurants.push({ ownerId: 'u_marco', createdAt: ago(100), ...r });
+  const rest = (r: Omit<Restaurant, 'createdAt' | 'ownerId' | 'city'> & { ownerId?: string; city?: string }) =>
+    db.restaurants.push({ ownerId: 'u_marco', createdAt: ago(100), city: 'New York', ...r });
   rest({ id: 'rs_napoli', name: 'Napoli Forno', cuisine: 'Pizza · Italian', description: 'Wood-fired Neapolitan pizza with 48-hour dough.', image: F.pizza, logoColor: '#E4572E', rating: 4.7, ratingCount: 1240, deliveryFeeCents: 199, minOrderCents: 1200, etaMin: 25, priceLevel: 2, tags: ['Pizza', 'Italian', 'Vegetarian'], address: '212 Bedford Ave, Brooklyn', isOpen: true, isGrocery: false, promo: '2 for 1 Margherita' });
   rest({ id: 'rs_green', name: 'Green Ritual', cuisine: 'Bowls · Healthy', description: 'Seasonal bowls, salads and cold-pressed juice.', image: F.bowl, logoColor: '#3E8E41', rating: 4.8, ratingCount: 860, deliveryFeeCents: 149, minOrderCents: 1000, etaMin: 20, priceLevel: 2, tags: ['Healthy', 'Vegan', 'Salads'], address: '88 N 6th St, Brooklyn', isOpen: true, isGrocery: false });
-  rest({ id: 'rs_smash', name: 'Smash & Co', cuisine: 'Burgers · American', description: 'Double smash burgers, crinkle fries, thick shakes.', image: F.burger, logoColor: '#1B1B1B', rating: 4.5, ratingCount: 2210, deliveryFeeCents: 199, minOrderCents: 1200, etaMin: 30, priceLevel: 2, tags: ['Burgers', 'Fries'], address: '301 Grand St, Brooklyn', isOpen: true, isGrocery: false, promo: 'Free fries over €20', ownerId: 'u_lucas' });
+  rest({ id: 'rs_smash', name: 'Smash & Co', cuisine: 'Burgers · American', description: 'Double smash burgers, crinkle fries, thick shakes.', image: F.burger, logoColor: '#1B1B1B', rating: 4.5, ratingCount: 2210, deliveryFeeCents: 199, minOrderCents: 1200, etaMin: 30, priceLevel: 2, tags: ['Burgers', 'Fries'], address: '301 Grand St, Brooklyn', isOpen: true, isGrocery: false, promo: 'Free fries with any burger', ownerId: 'u_lucas' });
   rest({ id: 'rs_baan', name: 'Baan Thai Kitchen', cuisine: 'Thai', description: 'Family recipes from Chiang Mai. Spice levels on request.', image: F.thai, logoColor: '#C2185B', rating: 4.9, ratingCount: 512, deliveryFeeCents: 200, minOrderCents: 1500, etaMin: 35, priceLevel: 2, tags: ['Thai', 'Noodles', 'Spicy'], address: '145 Ludlow St, New York', isOpen: true, isGrocery: false, ownerId: 'u_eva' });
   rest({ id: 'rs_sora', name: 'Sora Sushi', cuisine: 'Sushi · Japanese', description: 'Omakase-inspired sushi sets and poke.', image: F.sushi, logoColor: '#263238', rating: 4.6, ratingCount: 940, deliveryFeeCents: 299, minOrderCents: 2000, etaMin: 40, priceLevel: 3, tags: ['Sushi', 'Japanese', 'Poke'], address: '61 Greenpoint Ave, Brooklyn', isOpen: true, isGrocery: false, ownerId: 'u_eva' });
   rest({ id: 'rs_spice', name: 'Spice Route', cuisine: 'Indian · Curry', description: 'Tandoor, biryani and slow-cooked curries.', image: F.curry, logoColor: '#F57C00', rating: 4.4, ratingCount: 670, deliveryFeeCents: 149, minOrderCents: 1500, etaMin: 35, priceLevel: 1, tags: ['Indian', 'Curry', 'Vegetarian'], address: '402 Graham Ave, Brooklyn', isOpen: false, isGrocery: false, ownerId: 'u_eva' });
