@@ -266,11 +266,12 @@ export function priceTransaction(baseCents: number, ctx: PricingContext, rules: 
   }
   // Cap discretionary surcharges (demand, surcharges, booking/small-order fees) to a share of the base.
   const discretionary = customerLines.filter((l) => l.component === 'surcharge' || l.component === 'demand');
-  const cap = Math.round(baseCents * guards.maxSurchargeShare);
+  // Rounded down, line by line, so the total never ends up even a cent above the cap.
+  const cap = Math.floor(baseCents * guards.maxSurchargeShare);
   const sum = discretionary.reduce((a, l) => a + l.cents, 0);
   if (sum > cap && sum > 0) {
     const f = cap / sum;
-    for (const l of discretionary) l.cents = Math.round(l.cents * f);
+    for (const l of discretionary) l.cents = Math.floor(l.cents * f);
     notes.push(`surcharges capped at ${Math.round(guards.maxSurchargeShare * 100)}% of the base price`);
   }
   const customerExtra = customerLines.reduce((a, l) => a + l.cents, 0);

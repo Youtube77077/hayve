@@ -6,6 +6,7 @@ import { createSeedDatabase, DEMO_PASSWORD } from '../src/backend/seed';
 import { attachStorage, getDb } from '../src/backend/store';
 import { money } from '../src/lib/format';
 import { fromDisplay } from '../src/backend/regions';
+import { DEFAULT_GUARDS, DEFAULT_RULES, priceTransaction } from '../src/backend/pricing';
 
 const as = (email: string) => api.session.signIn(email, DEMO_PASSWORD);
 const SAM = 'sam@hayve.app';
@@ -953,5 +954,16 @@ describe('price audit (found by the pricing analysis)', () => {
     const rr = getDb().priceRecords!.find((x) => x.refId === rentalId)!.breakdown;
     expect(rr.customerTotalCents).toBe(rq.totalCents);
     expect(rr.supplierPayoutCents).toBe(hostCredit(rentalId, v.hostId));
+  });
+});
+
+describe('pricing guard rounding', () => {
+  it('never lets surcharges exceed the cap, even by a cent', () => {
+    for (let base = 700; base < 5000; base += 37) {
+      const ctx = { service: 'ride' as const, at: Date.UTC(2026, 10, 28, 1, 0), zones: ['airport' as const], demand: 3, eventNames: ['Concert'] };
+      const b = priceTransaction(base, ctx, DEFAULT_RULES, DEFAULT_GUARDS, []);
+      const s = b.customerLines.filter((l) => l.component === 'surcharge' || l.component === 'demand').reduce((a, l) => a + l.cents, 0);
+      expect(s).toBeLessThanOrEqual(base * DEFAULT_GUARDS.maxSurchargeShare);
+    }
   });
 });
