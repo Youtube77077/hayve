@@ -278,6 +278,7 @@ describe('services', () => {
   });
 
   it('books a ride, driver completes it and earns', () => {
+    for (const d of getDb().drivers) d.online = d.userId === 'u_daan';
     as(SAM);
     const id = api.ride.requestRide('home', 'centraal', 'go', 'wallet');
     api.session.signOut();
@@ -288,8 +289,48 @@ describe('services', () => {
     api.ride.driverAdvance(id);
     api.ride.driverAdvance(id);
     api.ride.driverAdvance(id);
-    expect(api.wallet.wallet().available).toBeGreaterThan(before);
-    expect(api.ride.getRide(id).status).toBe('completed');
+    const done = api.ride.getRide(id);
+    expect(done.status).toBe('completed');
+    // The driver keeps 85%; Hayve's commission is 15%.
+    expect(done.split.hayveCents).toBe(Math.round(done.priceCents * 0.15));
+    expect(api.wallet.wallet().available).toBe(before + done.priceCents - done.split.hayveCents);
+  });
+
+  it('offers a ride to the nearest suitable driver, then the next one on decline or timeout', () => {
+    as(SAM);
+    const id = api.ride.requestRide('home', 'centraal', 'xl', 'wallet');
+    const r = getDb().rides.find((x) => x.id === id)!;
+    // XL needs an XL vehicle: Kemal's Touran.
+    expect(r.offer?.driverId).toBe('u_kemal');
+    expect(api.ride.getRide(id).matching.current?.firstName).toBe('Kemal');
+    as('kemal@hayve.app');
+    expect(api.ride.driverQueue().map((x) => x.id)).toEqual([id]);
+    api.ride.driverDecline(id);
+    // Nobody else drives an XL, so it goes to the best other driver.
+    expect(r.offer?.driverId).not.toBe('u_kemal');
+    const second = r.offer!.driverId;
+    as('daan@hayve.app');
+    if (second !== 'u_daan') expect(() => api.ride.driverAccept(id)).toThrow(/another driver/);
+    // Unanswered offers move on after the answer window.
+    r.offer!.expiresAt = Date.now() - 1;
+    api.ride.driverQueue();
+    expect(r.offers!.map((o) => o.outcome).slice(0, 2)).toEqual(['declined', 'timeout']);
+    expect(r.offer?.driverId).not.toBe(second);
+    as(SAM);
+    expect(api.ride.getRide(id).matching.declined).toBe(2);
+  });
+
+  it('ranks drivers by pickup time and shares the driver GPS position', () => {
+    as(SAM);
+    const id = api.ride.requestRide('home', 'centraal', 'go', 'wallet');
+    const r = getDb().rides.find((x) => x.id === id)!;
+    const ranked = api.ride.rankDrivers(r);
+    expect(ranked.length).toBeGreaterThan(2);
+    for (let i = 1; i < ranked.length; i++) expect(ranked[i].etaMin).toBeGreaterThanOrEqual(ranked[i - 1].etaMin);
+    as('daan@hayve.app');
+    api.ride.driverUpdateLocation(4.9, 52.37, 90);
+    expect(getDb().drivers.find((d) => d.userId === 'u_daan')!.location).toMatchObject({ lng: 4.9, lat: 52.37 });
+    expect(() => api.ride.driverUpdateLocation(400, 0)).toThrow(/Invalid/);
   });
 
   it('books a rental (host accepts) and prevents double booking', () => {
@@ -393,7 +434,7 @@ describe('Wave Back', () => {
     const r = api.shop.checkout('p_laptop', { addressId: 'ad_noor', method: 'wallet' });
     expect(r.waveBackCents).toBe(500); // 1% of €640 = €6.40 → capped
     const ride = api.ride.requestRide('home', 'centraal', 'go', 'wallet');
-    for (let i = 0; i < 4; i++) api.ride.simulateRideStep(ride);
+    for (let i = 0; i < 8 && api.ride.getRide(ride).status !== 'completed'; i++) api.ride.simulateRideStep(ride);
     const fare = api.ride.getRide(ride).priceCents;
     const wb = api.wallet.transactions().find((t) => t.type === 'wave_back' && t.ref?.id && t.amountCents === Math.round(fare * 0.02));
     expect(wb).toBeTruthy();

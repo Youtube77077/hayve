@@ -1,4 +1,4 @@
-import { DEFAULT_FEE_TIERS, DEFAULT_TAP_TO_PAY, DEFAULT_WAVE_BACK, type FeeTier, marketplaceFeeCents, type TapToPaySettings, type WaveBackSettings } from '../config';
+import { DEFAULT_FEE_TIERS, DEFAULT_TAP_TO_PAY, DEFAULT_WAVE_BACK, type FeeTier, marketplaceFeeCents, type PayRequestSettings, type RideSettings, type TapToPaySettings, type WaveBackSettings } from '../config';
 import { ledgerIsBalanced } from '../ledger';
 import { assert, commit, find, getDb, HayveError, now, uid } from '../store';
 import type { ID, Role } from '../types';
@@ -242,7 +242,7 @@ export function reviewBusiness(id: ID, decision: 'approve' | 'reject', reason = 
 export function getSettings() {
   requireAdmin();
   const s = settings();
-  return { feeTiers: s.feeTiers, waveBack: s.waveBack, tapToPay: s.tapToPay, defaults: { feeTiers: DEFAULT_FEE_TIERS, waveBack: DEFAULT_WAVE_BACK, tapToPay: DEFAULT_TAP_TO_PAY } };
+  return { feeTiers: s.feeTiers, waveBack: s.waveBack, tapToPay: s.tapToPay, payRequests: s.payRequests, ride: s.ride, defaults: { feeTiers: DEFAULT_FEE_TIERS, waveBack: DEFAULT_WAVE_BACK, tapToPay: DEFAULT_TAP_TO_PAY } };
 }
 
 export function updateFeeTiers(tiers: FeeTier[]) {
@@ -279,6 +279,29 @@ export function updateTapToPay(patch: Partial<TapToPaySettings>) {
   assert(next.claimWindowHours >= 1 && next.claimWindowHours <= 168, 'invalid', 'Claim window must be 1–168 hours');
   settings().tapToPay = next;
   log(admin.id, 'settings.tap_to_pay', JSON.stringify(next));
+  commit();
+}
+
+/** Business payment request fee and link limits. Personal requests stay free. */
+export function updatePayRequests(patch: Partial<PayRequestSettings>) {
+  const admin = requireAdmin();
+  const next = { ...settings().payRequests, ...patch };
+  assert(next.businessFeeRate >= 0 && next.businessFeeRate <= 0.05, 'invalid', 'The business fee must be between 0 and 5%');
+  assert(Number.isInteger(next.businessFeeFixedCents) && next.businessFeeFixedCents >= 0 && next.businessFeeFixedCents <= 100, 'invalid', 'The fixed fee must be €0.00–€1.00');
+  assert(Number.isInteger(next.maxExpiryDays) && next.maxExpiryDays >= 1 && next.maxExpiryDays <= 365, 'invalid', 'Links can stay open 1–365 days');
+  settings().payRequests = next;
+  log(admin.id, 'settings.pay_requests', JSON.stringify(next));
+  commit();
+}
+
+/** Hayve Ride commission (drivers keep the rest) and how long each driver has to answer. */
+export function updateRide(patch: Partial<RideSettings>) {
+  const admin = requireAdmin();
+  const next = { ...settings().ride, ...patch };
+  assert(next.commissionRate >= 0 && next.commissionRate <= 0.4, 'invalid', 'Commission must be between 0 and 40%');
+  assert(Number.isInteger(next.offerSeconds) && next.offerSeconds >= 5 && next.offerSeconds <= 120, 'invalid', 'Drivers need 5–120 seconds to answer');
+  settings().ride = next;
+  log(admin.id, 'settings.ride', JSON.stringify(next));
   commit();
 }
 

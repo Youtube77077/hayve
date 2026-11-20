@@ -120,6 +120,8 @@ run('payments without a provider configured', () => {
     const app = await buildApp(c, db);
     const r = await app.inject({ method: 'POST', url: '/webhooks/stripe', payload: { type: 'payment_intent.succeeded' } });
     expect(r.statusCode).toBe(503);
+    const checkout = await app.inject({ method: 'POST', url: '/requests/0123456789abcdef0123/checkout', payload: { method: 'ideal', payerName: 'Guest' } });
+    expect(checkout.statusCode).toBe(503);
     await app.close();
     await db.end();
   });

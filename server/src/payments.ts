@@ -11,6 +11,8 @@ import { ApiError, bad, forbidden, notFound } from './errors.js';
  *  - Tap to Pay: Stripe Terminal "Tap to Pay on iPhone/Android". The app gets a connection token,
  *    the API creates a card_present PaymentIntent with the receiver fee as application fee, and only
  *    the signed webhook (payment_intent.succeeded) marks the payment as paid.
+ *  - Payment request links: iDEAL | Wero or card PaymentIntents for people without a Hayve account;
+ *    the signed webhook records the payment against the request.
  *  - Hayve Card: Stripe Issuing (virtual + physical Visa). Card details are shown with an ephemeral
  *    key through Stripe's secure elements; authorisations are approved by `decideAuthorization`.
  * Balances and card issuing need an e-money licence or a licensed partner (EMI); this module is
@@ -174,6 +176,39 @@ export function paymentRoutes(app: FastifyInstance, db: Db, c: Config) {
     return { ok: true };
   });
 
+  /**
+   * Payment request links: anyone with the link can pay, with or without a Hayve account.
+   * Creates a PaymentIntent for iDEAL | Wero or a card (Stripe's own secure form collects the card).
+   * Deposits are authorised only (manual capture) until the requester releases or claims them.
+   * Business requests carry the small Hayve fee as the application fee; the payer never pays extra.
+   */
+  app.post('/requests/:id/checkout', async (req) => {
+    need();
+    const { id } = z.object({ id: z.string().min(16).max(64) }).parse(req.params);
+    const body = z.object({ method: z.enum(['ideal', 'card']), payerName: z.string().trim().min(2).max(60), shareId: z.string().max(10).optional() }).parse(req.body);
+    const r = (await db.query('select * from public.pay_request_public($1)', [id])).rows[0];
+    if (!r) throw notFound('Payment request not found');
+    if (r.status !== 'pending') throw bad(r.status === 'expired' ? 'This payment link has expired' : r.status === 'paid' ? 'This request has already been paid' : 'This request was cancelled');
+    const full = (await db.query('select requester_id, kind from public.pay_requests where id = $1', [id])).rows[0];
+    if (req.actor.userId && req.actor.userId === full.requester_id) throw bad("You can't pay your own request");
+    if (r.shares && !(r.shares as { id: string; paid: boolean }[]).some((s) => s.id === body.shareId && !s.paid)) throw bad('Choose who you are');
+    const fee = full.kind === 'business' ? (await db.query('select public.request_business_fee($1) f', [r.amount_cents])).rows[0].f : 0;
+    const pi = await stripe<{ id: string; client_secret: string }>(c, 'POST', '/payment_intents', {
+      amount: r.amount_cents,
+      currency: 'eur',
+      'payment_method_types[]': body.method,
+      capture_method: full.kind === 'deposit' ? 'manual' : 'automatic',
+      application_fee_amount: fee || undefined,
+      description: r.title,
+      'metadata[request_id]': id,
+      'metadata[payer_name]': body.payerName,
+      'metadata[share_id]': body.shareId,
+      'metadata[payer_id]': req.actor.userId ?? undefined,
+      'metadata[fee_cents]': fee,
+    });
+    return { paymentIntent: pi.id, clientSecret: pi.client_secret };
+  });
+
   /** Signed webhooks from the provider: the only path that marks payments paid or refunded. */
   app.post('/webhooks/stripe', { config: { rawBody: true } }, async (req, reply) => {
     need();
@@ -190,6 +225,25 @@ export function paymentRoutes(app: FastifyInstance, db: Db, c: Config) {
       await asSystem(db, (tx) => tx.query("update public.tap_payments set status = 'refunded', refunded_at = now() where id = $1", [o.metadata.tap_id]));
     } else if (event.type === 'payment_intent.payment_failed' && o.metadata?.tap_id) {
       await asSystem(db, (tx) => tx.query("update public.tap_payments set status = 'failed', failure_reason = $2 where id = $1 and status = 'awaiting_tap'", [o.metadata.tap_id, o.last_payment_error?.message ?? 'declined']));
+    } else if ((event.type === 'payment_intent.succeeded' || event.type === 'payment_intent.amount_capturable_updated') && o.metadata?.request_id) {
+      const m = o.metadata;
+      const method = o.payment_method_types?.[0] === 'ideal' ? 'bank' : 'card';
+      const card = o.latest_charge?.payment_method_details?.card ?? {};
+      const ideal = o.latest_charge?.payment_method_details?.ideal ?? {};
+      const label = method === 'bank' ? `iDEAL | Wero${ideal.bank ? ` · ${ideal.bank}` : ''}` : `${card.brand ?? 'Card'} •••• ${card.last4 ?? ''}`.trim();
+      const held = event.type === 'payment_intent.amount_capturable_updated';
+      await asSystem(db, async (tx) => {
+        await tx.query(
+          'insert into public.pay_request_payments (request_id, payer_id, payer_name, method, method_label, amount_cents, fee_cents, share_id, status, provider_ref) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) on conflict (provider_ref) do nothing',
+          [m.request_id, m.payer_id || null, m.payer_name, method, label, o.amount, Number(m.fee_cents ?? 0), m.share_id || null, held ? 'held' : 'paid', o.id],
+        );
+        if (m.share_id) {
+          await tx.query(
+            `update public.pay_requests set split = jsonb_set(split, '{shares}', (select jsonb_agg(case when s ->> 'id' = $2 then s || jsonb_build_object('paidAt', extract(epoch from now()) * 1000) else s end) from jsonb_array_elements(split -> 'shares') s)) where id = $1`,
+            [m.request_id, m.share_id],
+          );
+        }
+      });
     } else if (event.type === 'issuing_authorization.request') {
       // Real-time authorisation: respond with approved true/false within 2 seconds.
       const card = (await db.query('select c.*, u.id user_id from public.cards c join auth.users u on u.id = c.user_id where c.issuer_ref = $1', [o.card?.id])).rows[0];

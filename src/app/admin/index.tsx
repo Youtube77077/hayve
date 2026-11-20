@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { admin, session } from '../../backend/api';
-import type { FeeTier, TapToPaySettings, WaveBackSettings } from '../../backend/config';
+import type { FeeTier, PayRequestSettings, RideSettings, TapToPaySettings, WaveBackSettings } from '../../backend/config';
 import { Avatar, Badge, Button, Card, Chip, color, EmptyState, Group, Header, HScroll, Icon, Input, ListRow, Photo, radius, Screen, Section, Sheet, T, useLayout, VerifiedMark } from '../../design';
 import { StatusPill } from '../../features/common';
 import { ago, money, shortDate } from '../../lib/format';
@@ -396,6 +396,9 @@ function Settings() {
       <TapSettings s={s.tapToPay} />
       <Boosts />
     </View>
+    <View style={{ flexDirection: isWide ? 'row' : 'column', gap: 24, alignItems: 'flex-start' }}>
+      <RideAndRequestSettings ride={s.ride} req={s.payRequests} />
+    </View>
     </View>
   );
 }
@@ -433,6 +436,37 @@ function TapSettings({ s }: { s: TapToPaySettings }) {
                 claimWindowHours: Math.round(Number(v.claimWindowHours)),
               }),
             { success: 'Tap to Pay settings saved', onDone: () => setF(null) },
+          )
+        }
+      />
+    </Card>
+  );
+}
+
+function RideAndRequestSettings({ ride, req }: { ride: RideSettings; req: PayRequestSettings }) {
+  const { run } = useAction();
+  const init = { commission: pct(ride.commissionRate), offerSeconds: String(ride.offerSeconds), feeRate: pct(req.businessFeeRate), feeFixed: eur(req.businessFeeFixedCents), maxExpiry: String(req.maxExpiryDays) };
+  const [f, setF] = useState<typeof init | null>(null);
+  const v = f ?? init;
+  const field = (k: keyof typeof init, label: string) => <Input key={k} label={label} keyboardType="decimal-pad" value={v[k]} onChangeText={(x) => setF({ ...v, [k]: x })} />;
+  return (
+    <Card style={{ flex: 1, gap: 12, alignSelf: 'stretch' }}>
+      <T variant="title3">Hayve Ride and payment requests</T>
+      <T variant="footnote" color={color.grey500}>Drivers keep the fare minus the commission. Personal requests, splits and personal QR codes are always free; business requests pay the fee per payment.</T>
+      {field('commission', 'Ride commission (%)')}
+      {field('offerSeconds', 'Seconds a driver has to answer')}
+      {field('feeRate', 'Business request fee (%)')}
+      {field('feeFixed', 'Business request fixed fee (€)')}
+      {field('maxExpiry', 'Longest a link can stay open (days)')}
+      <Button
+        title="Save"
+        onPress={() =>
+          run(
+            () => {
+              admin.updateRide({ commissionRate: Number(v.commission) / 100, offerSeconds: Math.round(Number(v.offerSeconds)) });
+              admin.updatePayRequests({ businessFeeRate: Number(v.feeRate) / 100, businessFeeFixedCents: Math.round(Number(v.feeFixed) * 100), maxExpiryDays: Math.round(Number(v.maxExpiry)) });
+            },
+            { success: 'Settings saved', onDone: () => setF(null) },
           )
         }
       />

@@ -112,7 +112,7 @@ export default function Ride() {
       }
     }, ms);
     return () => clearTimeout(t);
-  }, [active?.id, active?.status, toast]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [active?.id, active?.status, active?.matching.contacted, toast]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!active) return;
@@ -132,10 +132,14 @@ export default function Ride() {
     const ctrl = new AbortController();
     const p = toLngLat(active.pickup);
     directions(p, toLngLat(active.dropoff), ctrl.signal).then(setTripRoute).catch(() => {});
-    const seed = active.id.split('').reduce((a, ch) => a + ch.charCodeAt(0), 0);
-    directions(driverStart(p, seed), p, ctrl.signal).then(setDriverRoute).catch(() => {});
+    if (active.driver) {
+      // Start from where the assigned driver really is (their phone's last GPS position).
+      const loc = active.driver.location;
+      const seed = active.id.split('').reduce((a, ch) => a + ch.charCodeAt(0), 0);
+      directions(loc ? ([loc.lng, loc.lat] as LngLat) : driverStart(p, seed), p, ctrl.signal).then(setDriverRoute).catch(() => {});
+    }
     return () => ctrl.abort();
-  }, [active?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [active?.id, active?.driver?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const statusAt = active ? active.timeline[active.timeline.length - 1]?.at ?? active.createdAt : 0;
   const elapsed = Math.max(0, clock - statusAt);
@@ -266,6 +270,7 @@ export default function Ride() {
       finish={finish}
       rate={() => lastRide && run(() => ride.rateRide(lastRide.id, stars), { success: 'Thanks for rating' })}
       message={() => active?.driver && run(() => social.startThread(active.driver!.id), { onDone: (tid) => router.push(`/messages/${tid}`) })}
+      call={() => toast(`Calling ${active?.driver?.displayName.split(' ')[0] ?? 'your driver'} through a private Hayve number (simulated). Neither of you sees the other's number.`, 'info')}
     />
   );
 
@@ -399,6 +404,7 @@ function SheetContent(p: {
   finish: () => void;
   rate: () => void;
   message: () => void;
+  call: () => void;
 }) {
   const pad = { paddingHorizontal: 24, paddingBottom: 32 };
 
@@ -515,7 +521,15 @@ function SheetContent(p: {
       <View style={[pad, { paddingTop: 12, gap: 16 }]}>
         <T variant="title2">Finding your driver</T>
         <SearchingBar />
-        <T color={color.textSecondary}>{a.categoryLabel} · {money(a.priceCents)} reserved · usually under a minute</T>
+        <View style={{ gap: 4 }}>
+          <T variant="headline">
+            {a.matching.current ? `Asking ${a.matching.current.firstName} · ${a.matching.current.etaMin} min away` : a.matching.noneLeft ? 'All nearby drivers are busy. Trying again…' : 'Looking for the closest driver…'}
+          </T>
+          <T color={color.textSecondary}>
+            {a.matching.declined > 0 ? `${a.matching.declined} ${a.matching.declined === 1 ? 'driver was' : 'drivers were'} busy, so we asked the next closest. ` : ''}
+            {a.categoryLabel} · {money(a.priceCents)} reserved
+          </T>
+        </View>
         <TripSummary a={a} />
         <Button title="Cancel request" variant="outline" full onPress={p.openCancel} />
       </View>
@@ -549,6 +563,7 @@ function SheetContent(p: {
         )}
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <Button title="Message" icon="chatbubble-outline" variant="secondary" style={{ flex: 1 }} onPress={p.message} />
+          <Button title="Call" icon="call-outline" variant="secondary" style={{ flex: 1 }} onPress={p.call} />
           {p.mode === 'arriving' && <Button title="Cancel" variant="outline" style={{ flex: 1 }} onPress={p.openCancel} />}
         </View>
         <TripSummary a={a} />
