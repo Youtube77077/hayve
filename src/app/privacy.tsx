@@ -40,12 +40,12 @@ const SECTIONS: { title: string; body: string[] }[] = [
     body: [
       'Download your data at any time from Settings → Download my data.',
       'Delete your account from Settings → Delete account. Records we must keep by law (completed payments, invoices) are kept anonymised.',
-      'You can also ask us to correct or restrict your data, or object to processing, and you can complain to the Dutch Data Protection Authority (Autoriteit Persoonsgegevens).',
+      'You can also ask us to correct or restrict your data, or object to processing, and you can complain to your local data protection authority (for example the ICO in the UK, the Data Protection Commission in Ireland, or your state attorney general in the US). Residents of California and other US states have the rights given by their state privacy laws (such as the CCPA).',
     ],
   },
   {
     title: 'Retention',
-    body: ['We keep account data while your account is open. Financial records are kept for 7 years as required by Dutch law. Backups roll over within 30 days.'],
+    body: ['We keep account data while your account is open. Financial records are kept for as long as the law in your country requires (usually 5 to 7 years). Backups roll over within 30 days.'],
   },
 ];
 

@@ -24,9 +24,10 @@ export default function Ride() {
   const { isWide } = useLayout();
   const insets = useSafeAreaInsets();
   const toast = useToast();
-  const places = useLive(() => ride.places()).data ?? NONE;
-  const home = places.find((p) => p.id === 'home');
-  const user = useUserLocation(home ? toLngLat(home) : [4.933, 52.362]);
+  const start = useLive(() => ride.startPoint()).data;
+  const user = useUserLocation(start ? [start.lng, start.lat] : [-73.9857, 40.7484]);
+  const nearKey = `${user.coord[0].toFixed(2)},${user.coord[1].toFixed(2)}`;
+  const places = useLive(() => ride.places({ lng: user.coord[0], lat: user.coord[1] }), [nearKey]).data ?? NONE;
   const active = useLive(() => ride.activeRide()).data;
   const history = useLive(() => ride.myRides().filter((r) => r.status === 'completed').slice(0, 3)).data ?? NONE;
   const mapRef = useRef<HayveMapHandle>(null);
@@ -411,7 +412,9 @@ function SheetContent(p: {
   if (p.mode === 'search') return <SearchPanel which={p.search!} near={p.near} places={p.places} onPick={p.search === 'pickup' ? p.choosePickup : p.chooseDropoff} onClose={() => p.setSearch(null)} onSetOnMap={p.search === 'pickup' ? p.setOnMap : undefined} />;
 
   if (p.mode === 'pickup') {
-    const saved = p.places.filter((x) => ['home', 'work', 'centraal', 'schiphol'].includes(x.id) && x.id !== p.pickup?.id);
+    // Saved places, then the nearest airport and a couple of popular spots near you.
+    const airport = p.places.find((x) => /airport/i.test(x.name));
+    const saved = [...p.places.filter((x) => x.id === 'home' || x.id === 'work'), ...(airport ? [airport] : []), ...p.places.filter((x) => x.id !== 'home' && x.id !== 'work' && x !== airport).slice(0, 2)].filter((x) => x.id !== p.pickup?.id);
     return (
       <ScrollView contentContainerStyle={[pad, { paddingTop: 12, gap: 16 }]} keyboardShouldPersistTaps="handled">
         <T variant="title2">Where to?</T>
@@ -429,7 +432,7 @@ function SheetContent(p: {
         </Pressable>
         <View style={{ height: 1, backgroundColor: color.grey200 }} />
         {saved.map((x) => (
-          <PlaceRow key={x.id} icon={x.id === 'home' ? 'home-outline' : x.id === 'work' ? 'briefcase-outline' : x.id === 'schiphol' ? 'airplane-outline' : 'location-outline'} title={x.name} sub={x.address} onPress={() => p.chooseDropoff(x)} />
+          <PlaceRow key={x.id} icon={x.id === 'home' ? 'home-outline' : x.id === 'work' ? 'briefcase-outline' : /airport/i.test(x.name) ? 'airplane-outline' : 'location-outline'} title={x.name} sub={x.address} onPress={() => p.chooseDropoff(x)} />
         ))}
         {p.history.length > 0 && (
           <>
@@ -500,7 +503,7 @@ function SheetContent(p: {
           <Pressable onPress={p.openPay} accessibilityRole="button" accessibilityLabel="Change payment method" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, opacity: pressed ? 0.7 : 1 })}>
             <Icon name={p.method === 'wallet' ? 'wallet-outline' : 'card-outline'} size={20} />
             <View style={{ flex: 1 }}>
-              <T variant="headline">{p.method === 'wallet' ? 'Hayve balance' : p.method === 'card' ? 'Debit or credit card' : p.method === 'bank' ? 'Bank (iDEAL | Wero)' : 'Test card (declines)'}</T>
+              <T variant="headline">{p.method === 'wallet' ? 'Hayve balance' : p.method === 'card' ? 'Debit or credit card' : p.method === 'bank' ? 'Bank account' : 'Test card (declines)'}</T>
               {p.selected && p.selected.waveBackCents > 0 ? (
                 <T variant="caption" color={p.method === 'wallet' ? color.indigo : color.textSecondary}>
                   {p.method === 'wallet' ? `${money(p.selected.waveBackCents)} Wave Back on this ride` : `Pay with your Hayve balance and get ${money(p.selected.waveBackCents)} Wave Back`}
@@ -521,7 +524,7 @@ function SheetContent(p: {
       <View style={[pad, { paddingTop: 12, gap: 16 }]}>
         <T variant="title2">Finding your driver</T>
         <SearchingBar />
-        <View style={{ gap: 4 }}>
+        <Appear key={`${a.matching.contacted}-${a.matching.noneLeft}`} style={{ gap: 4 }}>
           <T variant="headline">
             {a.matching.current ? `Asking ${a.matching.current.firstName} · ${a.matching.current.etaMin} min away` : a.matching.noneLeft ? 'All nearby drivers are busy. Trying again…' : 'Looking for the closest driver…'}
           </T>
@@ -529,7 +532,7 @@ function SheetContent(p: {
             {a.matching.declined > 0 ? `${a.matching.declined} ${a.matching.declined === 1 ? 'driver was' : 'drivers were'} busy, so we asked the next closest. ` : ''}
             {a.categoryLabel} · {money(a.priceCents)} reserved
           </T>
-        </View>
+        </Appear>
         <TripSummary a={a} />
         <Button title="Cancel request" variant="outline" full onPress={p.openCancel} />
       </View>

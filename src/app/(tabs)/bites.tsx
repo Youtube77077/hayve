@@ -7,7 +7,7 @@ import type { Restaurant } from '../../backend/types';
 import { Badge, Chip, color, EmptyState, Grid, HScroll, Input, Photo, radius, Rating, Screen, Section, Segmented, T, useLayout } from '../../design';
 import { TabHeader } from '../../features/common';
 import { BasketBar } from '../../features/bites';
-import { money } from '../../lib/format';
+import { money, currencySymbol } from '../../lib/format';
 import { useLive } from '../../lib/hooks';
 
 const CUISINE_ICON: Record<string, IconName> = {
@@ -39,7 +39,7 @@ export function RestaurantCard({ r, wide }: { r: Restaurant; wide?: boolean }) {
           <Rating value={r.rating} count={r.ratingCount} />
         </View>
         <T variant="footnote" color={color.textSecondary}>
-          {r.cuisine} · {'€'.repeat(r.priceLevel)}
+          {r.cuisine} · {currencySymbol().replace(/[A-Z]/g, '').repeat(r.priceLevel)}
         </T>
         <T variant="footnote" color={color.textSecondary}>
           {r.deliveryFeeCents ? `${money(r.deliveryFeeCents)} delivery` : 'Free delivery'} · {r.etaMin} min

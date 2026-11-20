@@ -1,5 +1,6 @@
+import { fmtMoney, region } from '../regions';
 import { accountIdFor, createTransaction, SYSTEM } from '../ledger';
-import { distanceKm, PLACES, type PlaceInput, resolvePlace } from '../places';
+import { distanceKm, haversineKm, PLACES, placesNear, type PlaceInput, resolvePlace } from '../places';
 import { assert, commit, find, getDb, HayveError, now, uid } from '../store';
 import type { DriverProfile, ID, Ride, RideCategory, RideStatus } from '../types';
 import { abortPayment, beginPayment, completePayment, displayName, notify, type PayMethod, previewWaveBack, publicUser, type PublicUser, settings } from './common';
@@ -28,8 +29,27 @@ export interface RideOption {
   arrivalAt: number;
 }
 
-export function places() {
-  return PLACES;
+/** Saved places (Home, Studio) belong to the demo account in this build. */
+const SAVED = new Set(['home', 'work']);
+
+function visible(p: { id: string }) {
+  return !SAVED.has(p.id) || getSessionUserId() === 'u_sam';
+}
+
+/** Where the map starts when the device location is unknown: your saved home, else your country's main city. */
+export function startPoint() {
+  const uid = getSessionUserId();
+  const home = uid === 'u_sam' ? PLACES.find((p) => p.id === 'home') : null;
+  if (home) return { lng: home.lng, lat: home.lat, name: home.name };
+  const country = uid ? getDb().profiles.find((p) => p.userId === uid)?.country : null;
+  return region(country).city;
+}
+
+/** Quick picks near a point (saved places first). Ride itself works anywhere via map search. */
+export function places(near?: { lng: number; lat: number }) {
+  const center = near ?? startPoint();
+  const saved = PLACES.filter((p) => SAVED.has(p.id) && visible(p) && haversineKm(center, p) < 80);
+  return [...saved, ...placesNear(center, 14).filter((p) => !SAVED.has(p.id))];
 }
 
 /**
@@ -140,8 +160,20 @@ function pickupEta(d: DriverProfile, r: Ride) {
  * Drivers who could take a ride, best first: online, free, not the rider, haven't turned it down,
  * vehicle fits the category; ranked by pickup time, then rating.
  */
+/** Demo drivers far from the pickup are placed a short drive away, so Ride works in any city. */
+function bringDemoDriversClose(r: Ride) {
+  const db = getDb();
+  db.drivers.forEach((d, i) => {
+    if (!d.demo || (d.location && haversineKm(d.location, r.pickup) < 25)) return;
+    const angle = ((i * 97 + 30) % 360) * (Math.PI / 180);
+    const km = 0.6 + ((i * 37) % 30) / 10; // 0.6–3.5 km away
+    d.location = { lng: r.pickup.lng + (Math.cos(angle) * km) / (111 * Math.cos((r.pickup.lat * Math.PI) / 180)), lat: r.pickup.lat + (Math.sin(angle) * km) / 111, at: now() };
+  });
+}
+
 export function rankDrivers(r: Ride) {
   const db = getDb();
+  bringDemoDriversClose(r);
   const busy = new Set(db.rides.filter((x) => x.driverId && ACTIVE.includes(x.status)).map((x) => x.driverId));
   const free = db.drivers.filter((d) => d.online && d.userId !== r.riderId && !busy.has(d.userId) && !r.declinedBy.includes(d.userId));
   const fitting = free.filter((d) => serves(d.vehicle.category, r.category));
@@ -273,7 +305,7 @@ function completeRide(r: Ride) {
     const dp = db.drivers.find((d) => d.userId === r.driverId);
     if (dp) dp.trips += 1;
   }
-  notify(r.riderId, 'ride', 'You have arrived', `Trip to ${r.dropoff.name} · €${(r.priceCents / 100).toFixed(2)}`, `/ride/${r.id}`);
+  notify(r.riderId, 'ride', 'You have arrived', `Trip to ${r.dropoff.name} · ${fmtMoney(r.priceCents)}`, `/ride/${r.id}`);
 }
 
 export function cancelRide(id: ID) {

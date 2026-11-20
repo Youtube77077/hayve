@@ -196,7 +196,7 @@ export function PayMethodPicker({ value, onChange, totalCents, waveBackCents = 0
     <View style={{ gap: 10 }}>
       {option('wallet', 'wallet-outline', 'Hayve balance', enough ? `${money(w?.available ?? 0)} available${waveBackCents ? ` · ${money(waveBackCents)} Wave Back` : ''}` : `${money(w?.available ?? 0)} available · not enough`, !enough)}
       {saved.card ? option('card', 'card-outline', `${saved.card.brand ?? 'Card'} •••• ${saved.card.last4}`, saved.card.funding === 'credit' ? 'Credit card' : 'Debit card') : addRow('card-outline', 'Add a debit or credit card')}
-      {saved.bank ? option('bank', 'bank-outline', saved.bank.label, 'Bank payment · iDEAL | Wero') : addRow('bank-outline', 'Connect your bank (iDEAL | Wero)')}
+      {saved.bank ? option('bank', 'bank-outline', saved.bank.label, 'Pay from your bank account') : addRow('bank-outline', 'Connect your bank')}
       {value !== 'wallet' && waveBackCents > 0 && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4 }}>
           <Icon name="sparkles-outline" size={16} color={color.indigo} />

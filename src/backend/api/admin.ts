@@ -1,3 +1,4 @@
+import { fmtMoney } from '../regions';
 import { DEFAULT_FEE_TIERS, DEFAULT_TAP_TO_PAY, DEFAULT_WAVE_BACK, type FeeTier, marketplaceFeeCents, type PayRequestSettings, type RideSettings, type TapToPaySettings, type WaveBackSettings } from '../config';
 import { ledgerIsBalanced } from '../ledger';
 import { assert, commit, find, getDb, HayveError, now, uid } from '../store';
@@ -274,7 +275,7 @@ export function updateTapToPay(patch: Partial<TapToPaySettings>) {
   const next = { ...settings().tapToPay, ...patch };
   assert(next.receiverFeeRate >= 0 && next.receiverFeeRate <= 0.1, 'invalid', 'The receiver fee must be between 0 and 10%');
   assert(Number.isInteger(next.privateMonthlyLimitCents) && next.privateMonthlyLimitCents >= 0, 'invalid', 'Monthly limit must be whole cents');
-  assert(Number.isInteger(next.maxPaymentCents) && next.maxPaymentCents >= 100, 'invalid', 'Maximum payment must be at least €1');
+  assert(Number.isInteger(next.maxPaymentCents) && next.maxPaymentCents >= 100, 'invalid', `Maximum payment must be at least ${fmtMoney(100)}`);
   assert(next.refundWindowDays >= 1 && next.refundWindowDays <= 180, 'invalid', 'Refund window must be 1–180 days');
   assert(next.claimWindowHours >= 1 && next.claimWindowHours <= 168, 'invalid', 'Claim window must be 1–168 hours');
   settings().tapToPay = next;
@@ -287,7 +288,7 @@ export function updatePayRequests(patch: Partial<PayRequestSettings>) {
   const admin = requireAdmin();
   const next = { ...settings().payRequests, ...patch };
   assert(next.businessFeeRate >= 0 && next.businessFeeRate <= 0.05, 'invalid', 'The business fee must be between 0 and 5%');
-  assert(Number.isInteger(next.businessFeeFixedCents) && next.businessFeeFixedCents >= 0 && next.businessFeeFixedCents <= 100, 'invalid', 'The fixed fee must be €0.00–€1.00');
+  assert(Number.isInteger(next.businessFeeFixedCents) && next.businessFeeFixedCents >= 0 && next.businessFeeFixedCents <= 100, 'invalid', `The fixed fee must be ${fmtMoney(0)}–${fmtMoney(100)}`);
   assert(Number.isInteger(next.maxExpiryDays) && next.maxExpiryDays >= 1 && next.maxExpiryDays <= 365, 'invalid', 'Links can stay open 1–365 days');
   settings().payRequests = next;
   log(admin.id, 'settings.pay_requests', JSON.stringify(next));

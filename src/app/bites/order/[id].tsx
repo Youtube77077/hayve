@@ -30,7 +30,8 @@ export default function FoodOrderTracking() {
   const { run } = useAction();
   const live = o && !['delivered', 'rejected', 'cancelled'].includes(o.status);
   const placeList = useLive(() => ride.places()).data;
-  const route = { from: placeList?.find((p) => p.id === 'pijp'), to: placeList?.find((p) => p.id === 'home') };
+  // Kitchen → you: your saved home (or your city's centre) and a nearby pickup point.
+  const route = { from: placeList?.find((p) => p.id !== 'home' && p.id !== 'work'), to: placeList?.find((p) => p.id === 'home') ?? placeList?.[1] };
   const mine = useLive(() => bites.myFoodOrders().some((x) => x.id === id), [id]).data;
 
   useEffect(() => {

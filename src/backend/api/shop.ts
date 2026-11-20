@@ -1,4 +1,4 @@
-import { VAT_RATE } from '../config';
+import { fmtMoney, region } from '../regions';
 import { accountIdFor, refundTransaction, releaseTransaction, SYSTEM } from '../ledger';
 import { assert, commit, find, getDb, HayveError, now, reference, uid } from '../store';
 import type { ID, Order, OrderStatus, Product, ProductCategory, ProductCondition } from '../types';
@@ -214,7 +214,7 @@ function validateListing(input: ListingInput) {
   assert(input.title.trim().length >= 3, 'invalid', 'Add a title (at least 3 characters)');
   assert(input.title.trim().length <= 80, 'invalid', 'Title is too long');
   assert(input.description.trim().length >= 10, 'invalid', 'Describe your item (at least 10 characters)');
-  assert(Number.isInteger(input.priceCents) && input.priceCents >= 100, 'invalid', 'Price must be at least €1.00');
+  assert(Number.isInteger(input.priceCents) && input.priceCents >= 100, 'invalid', `Price must be at least ${fmtMoney(100)}`);
   assert(input.priceCents <= 5_000_000, 'invalid', 'Price is too high');
   assert(input.images.length >= 1, 'invalid', 'Add at least one photo');
   assert(input.images.length <= 8, 'invalid', 'Up to 8 photos');
@@ -240,7 +240,7 @@ export function createListing(input: ListingInput): ID {
     images: input.images,
     quantity: input.quantity ?? 1,
     status: 'active',
-    location: profile?.city ?? 'Amsterdam',
+    location: profile?.city ?? region(profile?.country).city.name,
     createdAt: now(),
   };
   db.products.push(product);
@@ -361,7 +361,7 @@ export function checkout(productId: ID, opts: { addressId?: ID; method: PayMetho
       recipientId: user.id,
       shipTo: address
         ? { fullName: address.fullName, line1: address.line1, city: address.city, postcode: address.postcode, country: address.country }
-        : { fullName: name, line1: 'Pickup in person', city: p.location, postcode: '', country: 'Netherlands' },
+        : { fullName: name, line1: 'Pickup in person', city: p.location, postcode: '', country: region(getDb().profiles.find((x) => x.userId === p.sellerId)?.country).name },
       delivery,
       priceCents: q.priceCents,
       shippingCents: q.shippingCents,
@@ -650,10 +650,10 @@ export function bulkCreateListings(text: string, defaultImage: string) {
     const quantity = Math.max(1, Math.min(999, Number(qty) || 1));
     const description = desc.join(';').trim() || `${title} from ${displayName(user.id)}.`;
     if (!title || title.length < 3 || !Number.isFinite(priceCents) || priceCents < 100) {
-      errors.push(`Line ${i + 1}: needs a title and a price of at least €1`);
+      errors.push(`Line ${i + 1}: needs a title and a price of at least ${fmtMoney(100)}`);
       return;
     }
-    const product: Product = { id: uid('p'), sellerId: user.id, title: title.slice(0, 80), description: description.length >= 10 ? description : `${description} — new stock.`, priceCents, category: cat, condition: cond, images: [defaultImage], quantity, status: 'active', location: publicUser(user.id).city || 'Amsterdam', createdAt: now() };
+    const product: Product = { id: uid('p'), sellerId: user.id, title: title.slice(0, 80), description: description.length >= 10 ? description : `${description} — new stock.`, priceCents, category: cat, condition: cond, images: [defaultImage], quantity, status: 'active', location: publicUser(user.id).city || region(getDb().profiles.find((x) => x.userId === user.id)?.country).city.name, createdAt: now() };
     db.products.push(product);
     created.push(product.id);
   });
@@ -676,7 +676,7 @@ export function setStock(productId: ID, quantity: number) {
 export interface Invoice {
   number: string;
   issuedAt: number;
-  seller: { name: string; legalName: string; address: string; kvk: string; vat: string };
+  seller: { name: string; legalName: string; address: string; kvk: string; vat: string; idLabel: string; taxLabel: string };
   billTo: string;
   lines: { description: string; netCents: number; vatCents: number; grossCents: number }[];
   netCents: number;
@@ -694,8 +694,9 @@ export function invoice(orderId: ID): Invoice {
   if (!view) throw new HayveError('not_found', 'Order not found');
   const biz = verifiedBusinessOf(order.sellerId);
   if (!biz) throw new HayveError('not_found', 'Invoices are issued by verified Hayve Store businesses');
+  const reg = region(biz.country ?? 'NL');
   const split = (gross: number) => {
-    const net = Math.round(gross / (1 + VAT_RATE));
+    const net = Math.round(gross / (1 + reg.taxRate));
     return { netCents: net, vatCents: gross - net, grossCents: gross };
   };
   const product = productSummary(order.productId);
@@ -706,13 +707,13 @@ export function invoice(orderId: ID): Invoice {
   return {
     number: `INV-${biz.registrationNumber.slice(-4)}-${order.reference.slice(3)}`,
     issuedAt: order.createdAt,
-    seller: { name: biz.tradingName, legalName: biz.legalName, address: `${biz.address.line1}, ${biz.address.postcode} ${biz.address.city}`, kvk: biz.registrationNumber, vat: biz.vatNumber },
+    seller: { name: biz.tradingName, legalName: biz.legalName, address: `${biz.address.line1}, ${biz.address.postcode} ${biz.address.city}`, kvk: biz.registrationNumber, idLabel: reg.businessId.label, taxLabel: reg.taxName, vat: biz.vatNumber },
     billTo,
     lines,
     netCents: lines.reduce((a, l) => a + l.netCents, 0),
     vatCents: lines.reduce((a, l) => a + l.vatCents, 0),
     grossCents: lines.reduce((a, l) => a + l.grossCents, 0),
-    vatRateLabel: 'VAT (standard rate)',
+    vatRateLabel: reg.taxRate ? `${reg.taxName} (standard rate)` : `${reg.taxName} (where it applies)`,
   };
 }
 

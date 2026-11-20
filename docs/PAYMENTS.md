@@ -36,7 +36,7 @@ Suggested provider adapters (all have EU coverage and marketplace features):
 The ledger (`ledger_entries` / `transactions`) stays Hayve's internal source of truth. Provider adapters plug in at the system accounts:
 
 - `card` → provider PaymentIntent. Capture on success; the webhook confirms the `deposit` transaction.
-- `bank` → SEPA / iDEAL top-ups and payouts.
+- `bank` → local bank rails for top-ups and payouts: ACH (US), pre-authorized debit (CA), pay by bank / Faster Payments (UK), SEPA (euro area), iDEAL | Wero (NL), Wero / Bancontact (DE, FR, BE), PayTo / BECS (AU).
 - `payouts` → provider transfers to connected accounts.
 
 The checkout flows already use **hold → capture / void**, which maps directly onto card authorisation and capture.
@@ -44,15 +44,15 @@ The checkout flows already use **hold → capture / void**, which maps directly 
 
 ## Payment requests and links (production wiring)
 
-Request money works like a Tikkie, inside Hayve: create a link (one person, a split bill, a business request with logo and invoice number, or an authorised deposit for a Stay or Drive booking), share it on WhatsApp, Snapchat, SMS or anywhere, and the other person pays **without a Hayve account** by bank (iDEAL | Wero), debit or credit card, or with Hayve Pay. Requests can be linked to real orders and bookings (Shop orders, Bites orders, Stay and Drive bookings, deliveries).
+Request money works like a Tikkie, inside Hayve: create a link (one person, a split bill, a business request with logo and invoice number, or an authorised deposit for a Stay or Drive booking), share it on WhatsApp, Snapchat, SMS or anywhere, and the other person pays **without a Hayve account**, from any country: Apple Pay / Google Pay, debit or credit card, pay by bank with their own country's banks, or Hayve Pay. The link is in the requester's currency. Requests can be linked to real orders and bookings (Shop orders, Bites orders, Stay and Drive bookings, deliveries).
 
 - Personal requests, splits, deposits and personal QR codes are free. Business requests pay a small fee per payment (1.2% + €0.20 by default, admin setting), shown to the business as "Fees". The payer never pays a fee.
-- Production: the app calls `POST /requests/:id/checkout` (server/src/payments.ts), which creates a Stripe PaymentIntent for `ideal` or `card` (manual capture for deposits). Stripe's own secure form collects card details. The signed `payment_intent.succeeded` / `amount_capturable_updated` webhook records the payment in `pay_request_payments`; nobody can write that table from the app (migration 0007).
+- Production: the app calls `POST /requests/:id/checkout` (server/src/payments.ts), which creates a Stripe PaymentIntent in the request's currency for `card` (incl. Apple Pay / Google Pay) or the payer's local bank method (`us_bank_account`, `pay_by_bank`, `sepa_debit`, `ideal`, `bancontact`, `acss_debit`, `au_becs_debit`) (manual capture for deposits). Stripe's own secure form collects card details. The signed `payment_intent.succeeded` / `amount_capturable_updated` webhook records the payment in `pay_request_payments`; nobody can write that table from the app (migration 0007).
 - The link id is a random 32-character token; `pay_request_public(token)` shows only what a payer needs, never who else paid.
 
 ## Cards and banks
 
-People connect their own bank (iDEAL | Wero: approve in the bank app, or IBAN + SEPA mandate) and debit or credit cards. Hayve stores only brand, last 4, expiry, debit/credit and the bank name; card numbers go straight to the payment partner. Connected methods appear in every checkout, in Add money and for withdrawals, and the bank also funds Hayve Card automatic top-ups.
+People connect their own bank with their country's rail (approve in the bank app, or account details + mandate: routing + account number in the US, sort code + account number in the UK, IBAN in the euro area; iDEAL | Wero in the Netherlands) and debit or credit cards. Hayve stores only brand, last 4, expiry, debit/credit and the bank name; card numbers go straight to the payment partner. Connected methods appear in every checkout, in Add money and for withdrawals, and the bank also funds Hayve Card automatic top-ups.
 
 ## Tap to Pay (production wiring)
 

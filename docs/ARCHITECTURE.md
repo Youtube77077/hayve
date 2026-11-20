@@ -62,7 +62,7 @@ A caveat for the offline simulation: all sample users' data lives on one device,
 
 ## Money
 
-- All amounts are integer euro cents.
+- All amounts are integer cents in the account's currency (USD, CAD, GBP, EUR or AUD, from the profile's country; see `src/backend/regions.ts`). The preview does not convert between currencies; in production the payment partner handles FX.
 - Balances are derived from the ledger: available = posted + held, pending = pending, reserved = −held.
 - Checkout flows **hold** funds first, then **capture** once everything else succeeds, or **void** on failure.
 - Marketplace sales and host payouts are **pending** until delivery or completion, then **released**.

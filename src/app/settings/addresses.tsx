@@ -4,20 +4,23 @@ import { social } from '../../backend/api';
 import type { Address } from '../../backend/types';
 import { Badge, Button, color, EmptyState, Group, Header, IconButton, Input, ListRow, Screen, Sheet, SwitchRow } from '../../design';
 import { useAction, useLive } from '../../lib/hooks';
+import { useRegion } from '../../features/payments';
 
 type Draft = Omit<Address, 'id' | 'userId' | 'isDefault'> & { id?: string; isDefault: boolean };
-const EMPTY: Draft = { label: 'Home', fullName: '', line1: '', city: 'Amsterdam', postcode: '', country: 'Netherlands', isDefault: false };
+const EMPTY: Draft = { label: 'Home', fullName: '', line1: '', city: '', postcode: '', country: '', isDefault: false };
 
 export default function Addresses() {
   const list = useLive(() => social.addresses()).data ?? [];
+  const reg = useRegion();
+  const fresh = (): Draft => ({ ...EMPTY, country: reg.name });
   const [draft, setDraft] = useState<Draft | null>(null);
   const { run, busy } = useAction();
   const set = (patch: Partial<Draft>) => setDraft((d) => (d ? { ...d, ...patch } : d));
 
   return (
-    <Screen header={<Header back title="Addresses" fallback="/profile" right={<Button title="Add" icon="add" size="sm" onPress={() => setDraft({ ...EMPTY })} />} />} maxWidth={640}>
+    <Screen header={<Header back title="Addresses" fallback="/profile" right={<Button title="Add" icon="add" size="sm" onPress={() => setDraft(fresh())} />} />} maxWidth={640}>
       {list.length === 0 ? (
-        <EmptyState icon="location-outline" title="No addresses yet" body="Add a delivery address for orders and gifts sent to you." action="Add address" onAction={() => setDraft({ ...EMPTY })} />
+        <EmptyState icon="location-outline" title="No addresses yet" body="Add a delivery address for orders and gifts sent to you." action="Add address" onAction={() => setDraft(fresh())} />
       ) : (
         <Group>
           {list.map((a) => (

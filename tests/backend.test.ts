@@ -4,6 +4,7 @@ import { accountIdFor, balancesFor, ledgerIsBalanced } from '../src/backend/ledg
 import { DEFAULT_FEE_TIERS, marketplaceFeeCents, OWNER_ADMIN_EMAILS, SIM_CODE } from '../src/backend/config';
 import { createSeedDatabase, DEMO_PASSWORD } from '../src/backend/seed';
 import { attachStorage, getDb } from '../src/backend/store';
+import { money } from '../src/lib/format';
 
 const as = (email: string) => api.session.signIn(email, DEMO_PASSWORD);
 const SAM = 'sam@hayve.app';
@@ -144,7 +145,7 @@ describe('wishlists and anonymous gifting', () => {
     as('ines@hayve.app');
     const inesSale = api.shop.getOrder(receipt.orderId);
     expect(inesSale.counterparty).toMatch(/anonymous/);
-    expect(inesSale.shipTo?.line1).toBe('Prinsengracht 412-2');
+    expect(inesSale.shipTo?.line1).toBe('18 Columbia Road');
     expect(contains(inesSale, 'Jonas')).toBe(false);
     expect(contains(api.wallet.transactions(), 'Jonas')).toBe(false);
     // The seller is paid from escrow: no transaction touching the seller references the purchaser's account.
@@ -280,7 +281,7 @@ describe('services', () => {
   it('books a ride, driver completes it and earns', () => {
     for (const d of getDb().drivers) d.online = d.userId === 'u_daan';
     as(SAM);
-    const id = api.ride.requestRide('home', 'centraal', 'go', 'wallet');
+    const id = api.ride.requestRide('home', 'grand_central', 'go', 'wallet');
     api.session.signOut();
     as('daan@hayve.app');
     expect(api.ride.driverQueue().map((r) => r.id)).toContain(id);
@@ -298,7 +299,7 @@ describe('services', () => {
 
   it('offers a ride to the nearest suitable driver, then the next one on decline or timeout', () => {
     as(SAM);
-    const id = api.ride.requestRide('home', 'centraal', 'xl', 'wallet');
+    const id = api.ride.requestRide('home', 'grand_central', 'xl', 'wallet');
     const r = getDb().rides.find((x) => x.id === id)!;
     // XL needs an XL vehicle: Kemal's Touran.
     expect(r.offer?.driverId).toBe('u_kemal');
@@ -322,7 +323,7 @@ describe('services', () => {
 
   it('ranks drivers by pickup time and shares the driver GPS position', () => {
     as(SAM);
-    const id = api.ride.requestRide('home', 'centraal', 'go', 'wallet');
+    const id = api.ride.requestRide('home', 'grand_central', 'go', 'wallet');
     const r = getDb().rides.find((x) => x.id === id)!;
     const ranked = api.ride.rankDrivers(r);
     expect(ranked.length).toBeGreaterThan(2);
@@ -373,13 +374,14 @@ describe('services', () => {
   });
 });
 
+// Sam is in the United States: the business registers with an EIN; sales tax ID is optional.
 const STORE_INPUT = {
-  legalName: 'Rivera Studio B.V.',
+  legalName: 'Rivera Studio LLC',
   tradingName: 'Rivera Studio',
   category: 'Design',
-  registrationNumber: '12345678',
-  vatNumber: 'NL123456789B01',
-  address: { line1: 'Keizersgracht 1', city: 'Amsterdam', postcode: '1015 CJ', country: 'Netherlands' },
+  registrationNumber: '12-3456789',
+  vatNumber: '',
+  address: { line1: '55 Washington St', city: 'Brooklyn, NY', postcode: '11201', country: 'United States' },
   ownerIdChecked: true,
 };
 
@@ -429,11 +431,11 @@ describe('Wave Back', () => {
 
   it('caps Shop Wave Back at €5 per purchase and pays 2% on services', () => {
     as(NOOR);
-    api.wallet.connectBank({ connection: 'ideal_wero', bank: 'ING' });
+    api.wallet.connectBank({ connection: 'instant', bank: 'Barclays' });
     api.wallet.addMoney(80000, 'bank');
     const r = api.shop.checkout('p_laptop', { addressId: 'ad_noor', method: 'wallet' });
     expect(r.waveBackCents).toBe(500); // 1% of €640 = €6.40 → capped
-    const ride = api.ride.requestRide('home', 'centraal', 'go', 'wallet');
+    const ride = api.ride.requestRide('home', 'grand_central', 'go', 'wallet');
     for (let i = 0; i < 8 && api.ride.getRide(ride).status !== 'completed'; i++) api.ride.simulateRideStep(ride);
     const fare = api.ride.getRide(ride).priceCents;
     const wb = api.wallet.transactions().find((t) => t.type === 'wave_back' && t.ref?.id && t.amountCents === Math.round(fare * 0.02));
@@ -442,9 +444,9 @@ describe('Wave Back', () => {
 
   it('gives new members 5% for 30 days up to €10, within the €20 monthly cap', () => {
     api.session.signUp({ email: 'fresh@hayve.app', password: 'password1', displayName: 'Fresh Member', username: 'fresh' });
-    api.wallet.connectBank({ connection: 'ideal_wero', bank: 'ING' });
+    api.wallet.connectBank({ connection: 'instant', bank: 'Chase' });
     api.wallet.addMoney(100000, 'bank');
-    api.social.saveAddress({ label: 'Home', fullName: 'Fresh Member', line1: 'Damrak 1', city: 'Amsterdam', postcode: '1012 LG', country: 'Netherlands' });
+    api.social.saveAddress({ label: 'Home', fullName: 'Fresh Member', line1: '350 5th Ave', city: 'New York, NY', postcode: '10118', country: 'United States' });
     const addr = api.social.addresses()[0].id;
     const first = api.shop.checkout('p_jacket', { addressId: addr, method: 'wallet' }); // 5% of €120 = €6.00 → shop cap €5
     expect(first.waveBackCents).toBe(500);
@@ -529,7 +531,9 @@ describe('Hayve Store and admin', () => {
   it('requires admin review: pending → verified, with a verified label on listings', () => {
     as(SAM);
     expect(() => api.business.registerBusiness({ ...STORE_INPUT, ownerIdChecked: false })).toThrow(/ID/);
-    expect(() => api.business.registerBusiness({ ...STORE_INPUT, registrationNumber: '123' })).toThrow(/KVK/);
+    expect(() => api.business.registerBusiness({ ...STORE_INPUT, registrationNumber: '123' })).toThrow(/EIN/);
+    // A Dutch business still uses its KVK number.
+    expect(() => api.business.registerBusiness({ ...STORE_INPUT, countryCode: 'NL', registrationNumber: '12-3456789' })).toThrow(/KVK/);
     api.business.registerBusiness(STORE_INPUT);
     expect(api.business.myBusiness()!.status).toBe('pending');
     expect(api.shop.getProduct('p_laptop').fromVerifiedBusiness).toBe(false);
@@ -562,7 +566,7 @@ describe('Hayve Store and admin', () => {
     api.session.signOut();
     as(SAM);
     expect(api.business.myBusiness()!.rejectionReason).toMatch(/VAT/);
-    api.business.registerBusiness({ ...STORE_INPUT, vatNumber: 'NL999999999B01' });
+    api.business.registerBusiness({ ...STORE_INPUT, vatNumber: 'ST-99999' });
     expect(api.business.myBusiness()!.status).toBe('pending');
   });
 
@@ -756,7 +760,7 @@ describe('Hayve Card', () => {
     api.tap.verifyIdentity();
     api.card.issue();
     api.card.setLimits({ dailyCents: 1_000_000, monthlyCents: 2_000_000 });
-    getDb().waveBackBoosts.push({ id: 'b1', merchant: 'Albert Heijn', rate: 0.05, startsAt: Date.now() - 1000, endsAt: Date.now() + 86_400_000, createdBy: 'u_admin', createdAt: Date.now() });
+    getDb().waveBackBoosts.push({ id: 'b1', merchant: 'FreshMart', rate: 0.05, startsAt: Date.now() - 1000, endsAt: Date.now() + 86_400_000, createdBy: 'u_admin', createdAt: Date.now() });
     const r = api.card.simulatePurchase({ merchantId: 'ah', amountCents: 2000, channel: 'chip' });
     expect(r.waveBackCents).toBe(100); // 5% boost
     api.card.linkBank({ holder: 'Sam Rivera', iban: 'NL91ABNA0417164300', method: 'ideal_wero' });
@@ -792,9 +796,11 @@ describe('payment requests and links', () => {
     expect(pub.amountCents).toBe(2500);
     expect(pub.requester.firstName).toBe('Sam');
     expect(contains(pub, 'payments')).toBe(false);
-    expect(() => api.requests.pay(id, { method: 'bank', bank: 'ING' })).toThrow(/your name/);
+    expect(() => api.requests.pay(id, { method: 'bank', bank: 'Chase' })).toThrow(/your name/);
+    // Pay by bank uses the payer's own country (default: the requester's country, the US).
+    expect(() => api.requests.pay(id, { method: 'bank', bank: 'ING', payerName: 'Max' })).toThrow(/your bank/);
     expect(() => api.requests.pay(id, { method: 'hayve', payerName: 'Guest' })).toThrow(/Sign in/);
-    const res = api.requests.pay(id, { method: 'bank', bank: 'ING', payerName: 'Max' });
+    const res = api.requests.pay(id, { method: 'bank', bank: 'Barclays', country: 'GB', payerName: 'Max' });
     expect(res.signedIn).toBe(false);
     expect(api.requests.publicView(id).status).toBe('paid');
     expect(() => api.requests.pay(id, { method: 'card', payerName: 'Max', card: { brand: 'Visa', last4: '4242' } })).toThrow(/already been paid/);
@@ -802,7 +808,8 @@ describe('payment requests and links', () => {
     expect(samAcc()).toBe(before + 2500); // personal requests are free
     const v = api.requests.get(id);
     expect(v.payments[0].payerId).toBeNull();
-    expect(v.payments[0].methodLabel).toContain('ING');
+    expect(v.payments[0].methodLabel).toBe('Pay by bank · Barclays');
+    expect(api.requests.publicView(id).currency).toBe('USD');
     expect(ledgerIsBalanced()).toBe(true);
   });
 
@@ -837,7 +844,7 @@ describe('payment requests and links', () => {
     expect(pub.business?.invoiceNumber).toBe('INV-2026-014');
     expect(pub.amountCents).toBe(10000);
     as(NOOR);
-    api.wallet.connectBank({ connection: 'ideal_wero', bank: 'ING' });
+    api.wallet.connectBank({ connection: 'instant', bank: 'Barclays' });
     api.wallet.addMoney(50000, 'bank');
     const noorBefore = balancesFor(accountIdFor('u_noor')).available;
     api.requests.pay(id, { method: 'hayve' });
@@ -876,7 +883,7 @@ describe('payment requests and links', () => {
     expect(() => api.requests.create({ kind: 'deposit', title: 'Deposit', amountCents: 20000 })).toThrow(/stay or rental/);
     const id = api.requests.create({ kind: 'deposit', title: 'Deposit', amountCents: 20000, ref: { kind: 'stay', id: stay.id } });
     as(NOOR);
-    api.wallet.connectBank({ connection: 'ideal_wero', bank: 'ING' });
+    api.wallet.connectBank({ connection: 'instant', bank: 'Barclays' });
     api.wallet.addMoney(30000, 'bank');
     const before = balancesFor(accountIdFor('u_noor'));
     api.requests.pay(id, { method: 'hayve' });
@@ -899,10 +906,11 @@ describe('cards and banks', () => {
   it('connects a bank with iDEAL | Wero, adds cards without ever seeing the number, and pays with them', () => {
     as(NOOR);
     expect(() => api.wallet.addMoney(1000, 'bank')).toThrow(/Connect a bank/);
-    api.wallet.connectBank({ connection: 'ideal_wero', bank: 'ING' });
+    api.wallet.connectBank({ connection: 'instant', bank: 'Barclays' });
     const bank = api.wallet.paymentMethods().find((m) => m.kind === 'bank')!;
-    expect(bank.label).toMatch(/^ING •••• \d{4}$/);
-    expect(getDb().linkedBanks.find((b) => b.userId === 'u_noor')?.bank).toBe('ING');
+    expect(bank.label).toMatch(/^Barclays •••• \d{4}$/);
+    expect(bank.rail).toBe('faster_payments');
+    expect(getDb().linkedBanks.find((b) => b.userId === 'u_noor')?.bank).toBe('Barclays');
     api.wallet.addMoney(1000, 'bank');
     expect(() => api.wallet.addCard({ brand: 'Visa', last4: '1111', expiry: '01/20', funding: 'debit' })).toThrow(/expired/);
     api.wallet.addCard({ brand: 'Visa', last4: '1111', expiry: '12/30', funding: 'credit' });
@@ -913,5 +921,55 @@ describe('cards and banks', () => {
     expect(api.wallet.paymentMethods().find((m) => m.id === id)!.isDefault).toBe(true);
     api.wallet.deletePaymentMethod(bank.id);
     expect(getDb().linkedBanks.some((b) => b.userId === 'u_noor')).toBe(false);
+  });
+});
+
+describe('international', () => {
+  it('shows money in each person’s currency and offers their local banks', () => {
+    as(SAM);
+    expect(api.wallet.wallet().currency).toBe('USD');
+    expect(money(1234)).toBe('$12.34');
+    as(NOOR);
+    expect(money(1234)).toBe('£12.34');
+    expect(api.regions.region('GB').banks).toContain('Barclays');
+    expect(api.regions.region('US').bankRailName).toBe('Bank account (ACH)');
+    // iDEAL | Wero only for the Netherlands.
+    expect(api.regions.REGIONS.filter((r) => r.bankRail === 'ideal_wero').map((r) => r.code)).toEqual(['NL']);
+    api.social.updateProfile({ country: 'IE' });
+    expect(money(500)).toBe('€5.00');
+    expect(() => api.social.updateProfile({ country: 'XX' })).toThrow(/supported country/);
+  });
+
+  it('signs people up in their country (default United States)', () => {
+    api.session.signUp({ email: 'us@hayve.app', password: 'password1', displayName: 'Jordan Lee', username: 'jordan' });
+    const p = api.social.myProfile().profile;
+    expect(p.country).toBe('US');
+    expect(p.city).toBe('New York');
+    api.session.signUp({ email: 'uk@hayve.app', password: 'password1', displayName: 'Amelia Hart', username: 'amelia', country: 'GB' });
+    expect(api.social.myProfile().profile.country).toBe('GB');
+    expect(money(100)).toBe('£1.00');
+    expect(api.regions.regionFromLocale('en-CA')).toBe('CA');
+    expect(api.regions.regionFromLocale('zz')).toBe('US');
+  });
+
+  it('connects a US bank by routing and account number (ACH)', () => {
+    as(SAM);
+    expect(() => api.wallet.connectBank({ connection: 'manual', account: '000123456789', routing: '12' })).toThrow(/routing number/);
+    api.wallet.connectBank({ connection: 'manual', account: '000123456789', routing: '110000000' });
+    const bank = api.wallet.paymentMethods().find((m) => m.kind === 'bank')!;
+    expect(bank.rail).toBe('ach');
+    expect(bank.last4).toBe('6789');
+  });
+
+  it('books rides anywhere: London pickup finds a nearby driver', () => {
+    as(NOOR);
+    const kings = getDb().profiles && api.ride.places({ lng: -0.1238, lat: 51.5308 });
+    expect(kings[0].name).toMatch(/King's Cross/);
+    expect(kings.some((p) => p.id === 'home')).toBe(false); // saved places belong to the demo account
+    api.wallet.connectBank({ connection: 'instant', bank: 'Barclays' });
+    api.wallet.addMoney(10000, 'bank');
+    const id = api.ride.requestRide('kings_cross', 'tower_bridge', 'go', 'wallet');
+    const r = getDb().rides.find((x) => x.id === id)!;
+    expect(r.offer?.etaMin).toBeLessThan(15);
   });
 });

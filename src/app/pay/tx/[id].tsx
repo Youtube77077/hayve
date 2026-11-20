@@ -54,7 +54,7 @@ export default function Receipt() {
       <Card>
         <KeyValue label="Type" value={TYPE_LABEL[t.type] ?? t.type} />
         {t.note && <KeyValue label="Description" value={t.note} />}
-        <KeyValue label="Method" value={t.method === 'wallet' ? 'Hayve Pay balance' : t.method === 'card' ? 'Card' : t.method === 'bank' ? 'Bank (iDEAL | Wero)' : 'Hayve'} />
+        <KeyValue label="Method" value={t.method === 'wallet' ? 'Hayve Pay balance' : t.method === 'card' ? 'Card' : t.method === 'bank' ? 'Bank account' : 'Hayve'} />
         <KeyValue label="Date" value={dateTime(t.createdAt)} />
         <Divider style={{ marginVertical: 8 }} />
         <KeyValue label="Reference" value={t.reference} />

@@ -1,3 +1,4 @@
+import { fmtMoney, region } from '../regions';
 import { locationCoord, PICKUP_POINTS } from '../places';
 import { accountIdFor, refundTransaction, releaseTransaction, SYSTEM } from '../ledger';
 import { assert, commit, find, getDb, HayveError, now, reference, uid } from '../store';
@@ -277,7 +278,13 @@ export function listProperties(q: PropertyQuery = {}) {
   if (q.sort === 'price_asc') rows = rows.sort((a, b) => a.pricePerNightCents - b.pricePerNightCents);
   else if (q.sort === 'price_desc') rows = rows.sort((a, b) => b.pricePerNightCents - a.pricePerNightCents);
   else if (q.sort === 'rating') rows = rows.sort((a, b) => b.rating - a.rating);
-  else rows = rows.sort((a, b) => b.rating * Math.log(b.reviewCount + 2) - a.rating * Math.log(a.reviewCount + 2));
+  else {
+    // Recommended: places in your own country first, then by rating and reviews.
+    const uid = getSessionUserId();
+    const home = region(uid ? getDb().profiles.find((x) => x.userId === uid)?.country : null).name;
+    const local = (c: string) => (c === home ? 1 : 0);
+    rows = rows.sort((a, b) => local(b.country) - local(a.country) || b.rating * Math.log(b.reviewCount + 2) - a.rating * Math.log(a.reviewCount + 2));
+  }
   return rows;
 }
 
@@ -502,7 +509,7 @@ export function upsertProperty(input: PropertyInput & { id?: ID }) {
   assert(input.title.trim().length >= 5, 'invalid', 'Add a descriptive title');
   assert(input.city.trim().length >= 2, 'invalid', 'Enter the city');
   assert(input.description.trim().length >= 20, 'invalid', 'Describe the place (at least 20 characters)');
-  assert(input.pricePerNightCents >= 1000, 'invalid', 'Nightly price must be at least €10');
+  assert(input.pricePerNightCents >= 1000, 'invalid', `Nightly price must be at least ${fmtMoney(1000)}`);
   assert(input.guests >= 1 && input.bedrooms >= 0 && input.beds >= 1 && input.baths >= 0, 'invalid', 'Check the capacity details');
   assert(input.images.length >= 1, 'invalid', 'Add at least one photo');
   if (input.id) {
@@ -553,7 +560,7 @@ export function upsertVehicle(input: VehicleInput & { id?: ID }) {
   const db = getDb();
   assert(input.make.trim() && input.model.trim(), 'invalid', 'Enter make and model');
   assert(input.year >= 1990 && input.year <= new Date().getFullYear() + 1, 'invalid', 'Enter a valid year');
-  assert(input.pricePerDayCents >= 1500, 'invalid', 'Daily price must be at least €15');
+  assert(input.pricePerDayCents >= 1500, 'invalid', `Daily price must be at least ${fmtMoney(1500)}`);
   assert(input.location.trim().length >= 2, 'invalid', 'Enter the pickup location');
   assert(input.images.length >= 1, 'invalid', 'Add at least one photo');
   const base = {

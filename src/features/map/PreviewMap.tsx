@@ -2,14 +2,15 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRe
 import { PanResponder, Pressable, Text, View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { color, font } from '../../design/tokens';
-import { AMSTERDAM, fitZoom, type LngLat, project, unproject } from './geo';
+import { DEFAULT_CENTER, fitZoom, type LngLat, project, unproject } from './geo';
 import { CarGlyph, MarkerView, useGlide, UserDot } from './markers';
 import { ROUTE_STYLE, routeParts, useRouteReveal } from './route';
 import { MAP_COLORS } from './style';
 import { type HayveMapHandle, type HayveMapProps, type MapCar, NO_PADDING } from './types';
 
 /**
- * Built-in vector preview of Amsterdam in the Hayve map style. Used only when no map key
+ * Built-in vector preview in the Hayve map style (a street grid anywhere, plus water and parks for
+ * the Amsterdam demo area). Used only when no map key
  * is configured (see config.ts). It uses real coordinates and Web Mercator, so pins,
  * routes and cars land where they would on Mapbox. Not a tile server, not a static image.
  */
@@ -74,7 +75,7 @@ const LABELS: { name: string; at: LngLat; minZoom: number }[] = [
   { name: 'Schiphol', at: [4.7639, 52.3105], minZoom: 10 },
 ];
 
-export const PreviewMap = forwardRef<HayveMapHandle, HayveMapProps>(function PreviewMap({ center: initialCenter = AMSTERDAM, zoom: initialZoom = 13, markers = [], cars = [], route, routeProgress = 0, fit, padding = NO_PADDING, userLocation, interactive = true, onMove, onIdle, style, accessibilityLabel }, ref) {
+export const PreviewMap = forwardRef<HayveMapHandle, HayveMapProps>(function PreviewMap({ center: initialCenter = DEFAULT_CENTER, zoom: initialZoom = 13, markers = [], cars = [], route, routeProgress = 0, fit, padding = NO_PADDING, userLocation, interactive = true, onMove, onIdle, style, accessibilityLabel }, ref) {
   const [size, setSize] = useState({ w: 0, h: 0 });
   const reveal = useRouteReveal(route);
   const parts = routeParts(route, reveal, routeProgress);

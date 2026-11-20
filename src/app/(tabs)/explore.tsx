@@ -17,18 +17,20 @@ const CATEGORIES: { label: string; icon: IconName; to: string }[] = [
   { label: 'Restaurants', icon: 'restaurant', to: '/bites' },
   { label: 'Groceries', icon: 'basket', to: '/bites?groceries=1' },
   { label: 'Rides', icon: 'car-sport', to: '/ride' },
-  { label: 'Car rentals', icon: 'key', to: '/drive' },
+  { label: 'Car rentals', icon: 'car-outline', to: '/drive' },
   { label: 'Accommodation', icon: 'bed', to: '/stay' },
   { label: 'Local businesses', icon: 'storefront', to: '/business/merchant' },
   { label: 'Pay & transfer', icon: 'wallet', to: '/pay' },
 ];
 
 const DESTINATIONS = [
-  { city: 'Amsterdam', image: media.city.amsterdam2 },
-  { city: 'Lisbon', image: media.stays.lisbon },
+  { city: 'New York', image: media.city.newYork },
+  { city: 'Los Angeles', image: media.stays.beach },
+  { city: 'London', image: media.city.london },
   { city: 'Paris', image: media.stays.paris },
-  { city: 'Zandvoort', image: media.stays.beach },
+  { city: 'Lisbon', image: media.stays.lisbon },
   { city: 'Barcelona', image: media.stays.barcelona },
+  { city: 'Amsterdam', image: media.city.amsterdam2 },
 ];
 
 type Scope = 'all' | 'products' | 'food' | 'stays' | 'cars';

@@ -2,7 +2,8 @@
 
 export type LngLat = [number, number];
 
-export const AMSTERDAM: LngLat = [4.8952, 52.3702];
+/** Map centre before anything is known (New York). Screens pass the user's location or city. */
+export const DEFAULT_CENTER: LngLat = [-73.9857, 40.7484];
 
 export function toLngLat(p: { lng: number; lat: number }): LngLat {
   return [p.lng, p.lat];
@@ -42,7 +43,7 @@ export function lineLength(line: LngLat[]) {
 
 /** Point and heading at fraction `t` (0..1) along a polyline. */
 export function along(line: LngLat[], t: number): { point: LngLat; heading: number } {
-  if (line.length === 0) return { point: AMSTERDAM, heading: 0 };
+  if (line.length === 0) return { point: DEFAULT_CENTER, heading: 0 };
   if (line.length === 1) return { point: line[0], heading: 0 };
   const total = lineLength(line);
   let target = Math.max(0, Math.min(1, t)) * total;

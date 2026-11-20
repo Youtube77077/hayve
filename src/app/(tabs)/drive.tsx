@@ -12,7 +12,7 @@ import { useLive } from '../../lib/hooks';
 
 type Sort = 'recommended' | 'price_asc' | 'price_desc' | 'rating';
 type Panel = null | 'dates' | 'location' | 'type' | 'price' | 'seats' | 'transmission' | 'sort';
-const PRICES = [{ k: 0, label: 'Any price' }, { k: 6000, label: 'Up to €60 / day' }, { k: 9000, label: 'Up to €90 / day' }, { k: 15000, label: 'Up to €150 / day' }];
+const prices = () => [{ k: 0, label: 'Any price' }, ...[6000, 9000, 15000].map((k) => ({ k, label: `Up to ${money(k)} / day` }))];
 const SEATS = [0, 4, 5, 7];
 const SORTS: { k: Sort; label: string }[] = [
   { k: 'recommended', label: 'Recommended' },
@@ -51,12 +51,12 @@ export default function Drive() {
   const filterBar = (
     <View style={{ gap: 12 }}>
       <View style={{ flexDirection: isWide ? 'row' : 'column', gap: 8 }}>
-        <Field icon="location-outline" label="Pickup" value={location || 'Anywhere in Amsterdam'} onPress={() => setPanel('location')} flex={isWide ? 1.2 : undefined} />
+        <Field icon="location-outline" label="Pickup" value={location || 'Anywhere'} onPress={() => setPanel('location')} flex={isWide ? 1.2 : undefined} />
         <Field icon="calendar-outline" label="Dates" value={dateLabel} onPress={() => setPanel('dates')} flex={isWide ? 1 : undefined} />
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
         <Pill label={typeLabel} active={type !== 'all'} onPress={() => setPanel('type')} />
-        <Pill label={maxPrice ? PRICES.find((p) => p.k === maxPrice)!.label : 'Price'} active={!!maxPrice} onPress={() => setPanel('price')} />
+        <Pill label={maxPrice ? prices().find((p) => p.k === maxPrice)!.label : 'Price'} active={!!maxPrice} onPress={() => setPanel('price')} />
         <Pill label={seats ? `${seats}+ seats` : 'Seats'} active={!!seats} onPress={() => setPanel('seats')} />
         <Pill label={transmission === 'any' ? 'Transmission' : transmission === 'automatic' ? 'Automatic' : 'Manual'} active={transmission !== 'any'} onPress={() => setPanel('transmission')} />
         <Pill label={SORTS.find((s) => s.k === sort)!.label} icon="swap-vertical-outline" active={sort !== 'recommended'} onPress={() => setPanel('sort')} />
@@ -120,9 +120,9 @@ export default function Drive() {
       <Sheet visible={panel === 'dates'} onClose={() => setPanel(null)} title="Rental dates" footer={<Button title="Apply" size="lg" full disabled={!start || !end} onPress={() => setPanel(null)} />}>
         <RangeCalendar start={start} end={end} onChange={(s, e) => { setStart(s); setEnd(e); }} months={isWide ? 2 : 1} />
       </Sheet>
-      <OptionSheet open={panel === 'location'} title="Pickup point" onClose={() => setPanel(null)} value={location} options={[{ k: '', label: 'Anywhere in Amsterdam' }, ...points.map((p) => ({ k: p, label: p }))]} onPick={setLocation} />
+      <OptionSheet open={panel === 'location'} title="Pickup point" onClose={() => setPanel(null)} value={location} options={[{ k: '', label: 'Anywhere' }, ...points.map((p) => ({ k: p, label: p }))]} onPick={setLocation} />
       <OptionSheet open={panel === 'type'} title="Vehicle type" onClose={() => setPanel(null)} value={type} options={[{ k: 'all' as const, label: 'All types' }, ...bookings.VEHICLE_TYPES.map((t) => ({ k: t.id, label: t.label }))]} onPick={setType} />
-      <OptionSheet open={panel === 'price'} title="Price per day" onClose={() => setPanel(null)} value={maxPrice} options={PRICES} onPick={setMaxPrice} />
+      <OptionSheet open={panel === 'price'} title="Price per day" onClose={() => setPanel(null)} value={maxPrice} options={prices()} onPick={setMaxPrice} />
       <OptionSheet open={panel === 'seats'} title="Seats" onClose={() => setPanel(null)} value={seats} options={SEATS.map((n) => ({ k: n, label: n ? `${n} or more` : 'Any' }))} onPick={setSeats} />
       <OptionSheet open={panel === 'transmission'} title="Transmission" onClose={() => setPanel(null)} value={transmission} options={[{ k: 'any' as const, label: 'Any' }, { k: 'automatic' as const, label: 'Automatic' }, { k: 'manual' as const, label: 'Manual' }]} onPick={setTransmission} />
       <OptionSheet open={panel === 'sort'} title="Sort by" onClose={() => setPanel(null)} value={sort} options={SORTS} onPick={setSort} />

@@ -1,3 +1,4 @@
+import { fmtMoney, getDisplayCurrency, region } from '../regions';
 import { accountIdFor, balancesFor, createTransaction, SYSTEM, type TxView, viewTransaction } from '../ledger';
 import { assert, commit, find, getDb, HayveError, now, uid } from '../store';
 import type { ID, MoneyRequest, PaymentMethod } from '../types';
@@ -15,7 +16,7 @@ export const MAX_TRANSFER_CENTS = 1_000_000; // €10,000 per transfer (simulati
 export function wallet() {
   const user = me();
   const acc = accountIdFor(user.id);
-  return { accountId: acc, ...balancesFor(acc), currency: 'EUR' as const, simulated: true as const };
+  return { accountId: acc, ...balancesFor(acc), currency: getDisplayCurrency(), simulated: true as const };
 }
 
 export function transactions(filter: { type?: 'all' | 'in' | 'out'; limit?: number } = {}): TxView[] {
@@ -45,8 +46,8 @@ export function transaction(id: ID): TxView & { reference: string } {
 }
 
 function validAmount(cents: number) {
-  assert(Number.isInteger(cents) && cents >= 100, 'invalid', 'Minimum amount is €1.00');
-  assert(cents <= MAX_TRANSFER_CENTS, 'invalid', 'Maximum amount is €10,000.00');
+  assert(Number.isInteger(cents) && cents >= 100, 'invalid', `Minimum amount is ${fmtMoney(100)}`);
+  assert(cents <= MAX_TRANSFER_CENTS, 'invalid', `Maximum amount is ${fmtMoney(1000000)}`);
 }
 
 export function addMoney(amountCents: number, source: 'card' | 'bank' = 'card') {
@@ -59,10 +60,10 @@ export function addMoney(amountCents: number, source: 'card' | 'bank' = 'card') 
     fromAccountId: source === 'card' ? SYSTEM.card : SYSTEM.bank,
     credits: [{ accountId: accountIdFor(user.id), amountCents }],
     labelForFrom: 'Wallet top-up',
-    labelForTo: source === 'card' ? `Top-up · ${saved.card!.brand} •••• ${saved.card!.last4} (simulated)` : `Top-up · iDEAL | Wero · ${saved.bank!.bank ?? saved.bank!.label} (simulated)`,
+    labelForTo: source === 'card' ? `Top-up · ${saved.card!.brand} •••• ${saved.card!.last4} (simulated)` : `Top-up · ${saved.bank!.label} (simulated)`,
     method: source,
   });
-  notify(user.id, 'payment', 'Money added', `€${(amountCents / 100).toFixed(2)} added to your Hayve Pay balance (simulated).`, `/pay/tx/${tx.id}`);
+  notify(user.id, 'payment', 'Money added', `${fmtMoney(amountCents)} added to your Hayve Pay balance (simulated).`, `/pay/tx/${tx.id}`);
   commit();
   return tx.id;
 }
@@ -81,7 +82,7 @@ export function withdraw(amountCents: number) {
     labelForTo: 'Payout',
     method: 'bank',
   });
-  notify(user.id, 'payment', 'Withdrawal started', `€${(amountCents / 100).toFixed(2)} to ${bank.label} (simulated).`, `/pay/tx/${tx.id}`);
+  notify(user.id, 'payment', 'Withdrawal started', `${fmtMoney(amountCents)} to ${bank.label} (simulated).`, `/pay/tx/${tx.id}`);
   commit();
   return tx.id;
 }
@@ -128,7 +129,7 @@ export function sendMoney(toUserId: ID, amountCents: number, note = '') {
     note: note.trim().slice(0, 140) || undefined,
     method: 'wallet',
   });
-  notify(toUserId, 'payment', `You received €${(amountCents / 100).toFixed(2)}`, `${displayName(user.id)}${note ? ` · ${note}` : ''}`, `/pay/tx/${tx.id}`);
+  notify(toUserId, 'payment', `You received ${fmtMoney(amountCents)}`, `${displayName(user.id)}${note ? ` · ${note}` : ''}`, `/pay/tx/${tx.id}`);
   audit(user.id, 'p2p.send', tx.id);
   commit();
   return tx.id;
@@ -141,7 +142,7 @@ export function requestMoney(fromUserId: ID, amountCents: number, note = '') {
   const db = getDb();
   const req: MoneyRequest = { id: uid('mr'), requesterId: user.id, payerId: fromUserId, amountCents, note: note.trim().slice(0, 140), status: 'pending', createdAt: now() };
   db.moneyRequests.push(req);
-  notify(fromUserId, 'payment', 'Payment request', `${displayName(user.id)} requested €${(amountCents / 100).toFixed(2)}${note ? ` · ${note}` : ''}`, '/pay/requests');
+  notify(fromUserId, 'payment', 'Payment request', `${displayName(user.id)} requested ${fmtMoney(amountCents)}${note ? ` · ${note}` : ''}`, '/pay/requests');
   commit();
   return req.id;
 }
@@ -183,7 +184,7 @@ export function respondToRequest(id: ID, accept: boolean) {
       r.status = 'paid';
     } else {
       r.status = 'declined';
-      notify(r.requesterId, 'payment', 'Request declined', `${displayName(user.id)} declined your request for €${(r.amountCents / 100).toFixed(2)}`, '/pay/requests');
+      notify(r.requesterId, 'payment', 'Request declined', `${displayName(user.id)} declined your request for ${fmtMoney(r.amountCents)}`, '/pay/requests');
     }
   } else if (r.requesterId === user.id) {
     assert(!accept && r.status === 'pending', 'conflict', 'Only pending requests can be cancelled');
@@ -220,38 +221,45 @@ export function addCard(input: { brand: string; last4: string; expiry: string; f
   return pm.id;
 }
 
-const BANK_CODES: Record<string, string> = { 'ABN AMRO': 'ABNA', ING: 'INGB', Rabobank: 'RABO', bunq: 'BUNQ', 'ASN Bank': 'ASNB', Knab: 'KNAB', Revolut: 'REVO', SNS: 'SNSB', 'Triodos Bank': 'TRIO', N26: 'NTSB' };
-
 /**
- * Connects a bank account for payments, top-ups and withdrawals.
- * iDEAL | Wero: the user approves in their bank app and the bank shares the account (simulated).
- * SEPA Direct Debit: the user enters their IBAN and signs a mandate.
+ * Connects a bank account for payments, top-ups and withdrawals, using the person's local rail:
+ * US: ACH (log in to the bank, or routing + account number) · UK: pay by bank / Direct Debit ·
+ * Euro area: pay by bank or SEPA mandate (iDEAL | Wero in the Netherlands, Wero in DE/FR/BE) ·
+ * Canada: pre-authorized debit · Australia: PayTo.
+ * "instant": the person approves in their bank app and the bank shares the account (simulated).
+ * "manual": they type their account details and sign a mandate.
  * The connected bank also funds Hayve Card automatic top-ups.
  */
-export function connectBank(input: { bank?: string; connection: 'ideal_wero' | 'sepa_debit'; holder?: string; iban?: string }) {
+export function connectBank(input: { connection: 'instant' | 'manual'; bank?: string; holder?: string; account?: string; routing?: string; country?: string }) {
   const user = me();
   const db = getDb();
-  let iban: string;
+  const profile = db.profiles.find((p) => p.userId === user.id);
+  const reg = region(input.country ?? profile?.country);
+  let last4: string;
   let bank: string;
-  if (input.connection === 'ideal_wero') {
-    assert(input.bank && BANK_CODES[input.bank], 'invalid', 'Choose your bank');
+  if (input.connection === 'instant') {
+    assert(input.bank && reg.banks.includes(input.bank), 'invalid', 'Choose your bank');
     bank = input.bank;
     // The bank returns the account after approval (simulated, stable per user).
-    const digits = String(Math.abs([...user.id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7))).padStart(10, '0').slice(0, 10);
-    iban = `NL${(10 + (digits.charCodeAt(3) % 89)).toString().padStart(2, '0')}${BANK_CODES[bank]}${digits}`;
+    last4 = String(Math.abs([...user.id + bank].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7)) % 10000).padStart(4, '0');
   } else {
-    iban = (input.iban ?? '').replace(/\s+/g, '').toUpperCase();
-    assert(/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(iban), 'invalid', 'Enter a valid IBAN');
-    bank = Object.entries(BANK_CODES).find(([, c]) => c === iban.slice(4, 8))?.[0] ?? 'Bank account';
+    const acct = (input.account ?? '').replace(/[\s-]+/g, '').toUpperCase();
+    if (reg.account.label === 'IBAN') assert(/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(acct), 'invalid', 'Enter a valid IBAN');
+    else {
+      assert(/^\d{4,17}$/.test(acct), 'invalid', `Enter a valid ${reg.account.label.toLowerCase()}`);
+      const routing = (input.routing ?? '').replace(/[\s-]+/g, '');
+      assert(/^\d{5,9}$/.test(routing), 'invalid', `Enter a valid ${(reg.account.routingLabel ?? 'routing number').toLowerCase()}`);
+    }
+    last4 = acct.slice(-4);
+    bank = input.bank && reg.banks.includes(input.bank) ? input.bank : 'Bank account';
   }
   const holder = (input.holder ?? '').trim() || displayName(user.id);
-  const last4 = iban.slice(-4);
   db.paymentMethods = db.paymentMethods.filter((m) => !(m.userId === user.id && m.kind === 'bank'));
-  const pm: PaymentMethod = { id: uid('pm'), userId: user.id, kind: 'bank', label: `${bank} •••• ${last4}`, bank, last4, connection: input.connection, isDefault: false, createdAt: now() };
+  const pm: PaymentMethod = { id: uid('pm'), userId: user.id, kind: 'bank', label: `${bank} •••• ${last4}`, bank, last4, connection: input.connection, rail: reg.bankRail, isDefault: false, createdAt: now() };
   db.paymentMethods.push(pm);
   // Same account funds Hayve Card top-ups.
   db.linkedBanks = db.linkedBanks.filter((b) => b.userId !== user.id);
-  db.linkedBanks.push({ userId: user.id, holder, ibanLast4: last4, bank, method: input.connection, mandateRef: `HAYVE-${uid('m').slice(-8).toUpperCase()}`, linkedAt: now() });
+  db.linkedBanks.push({ userId: user.id, holder, ibanLast4: last4, bank, method: input.connection, rail: reg.bankRail, mandateRef: `HAYVE-${uid('m').slice(-8).toUpperCase()}`, linkedAt: now() });
   audit(user.id, 'bank.connect', last4);
   commit();
   return pm.id;

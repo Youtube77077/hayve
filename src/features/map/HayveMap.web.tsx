@@ -3,7 +3,7 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState }
 import { createPortal } from 'react-dom';
 import { Pressable, View } from 'react-native';
 import { MAPBOX_STYLE_URL, MAPBOX_TOKEN, MAPTILER_KEY, mapProvider } from './config';
-import { AMSTERDAM, bounds, type LngLat } from './geo';
+import { DEFAULT_CENTER, bounds, type LngLat } from './geo';
 import { CarGlyph, MarkerView, useGlide, UserDot } from './markers';
 import { PreviewMap } from './PreviewMap';
 import { ROUTE_STYLE, routeParts, useRouteReveal } from './route';
@@ -20,7 +20,7 @@ export const HayveMap = forwardRef<HayveMapHandle, HayveMapProps>(function Hayve
   return <GLHayveMap ref={ref} provider={provider} {...props} />;
 });
 
-const GLHayveMap = forwardRef<HayveMapHandle, HayveMapProps & { provider: 'mapbox' | 'maplibre' }>(function GLHayveMap({ provider, center = AMSTERDAM, zoom = 13, markers = [], cars = [], route, routeProgress = 0, fit, padding = NO_PADDING, userLocation, interactive = true, onMove, onIdle, style, accessibilityLabel }, ref) {
+const GLHayveMap = forwardRef<HayveMapHandle, HayveMapProps & { provider: 'mapbox' | 'maplibre' }>(function GLHayveMap({ provider, center = DEFAULT_CENTER, zoom = 13, markers = [], cars = [], route, routeProgress = 0, fit, padding = NO_PADDING, userLocation, interactive = true, onMove, onIdle, style, accessibilityLabel }, ref) {
   const host = useRef<any>(null);
   const [gl, setGl] = useState<GL>(null);
   const [map, setMap] = useState<GLMap>(null);

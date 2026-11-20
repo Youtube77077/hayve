@@ -7,7 +7,7 @@ import type { MenuItem } from '../../backend/types';
 import { Badge, Button, Card, Chip, color, Group, Header, HScroll, Input, ListRow, parseEuro, Photo, radius, Screen, Section, Segmented, Sheet, SwitchRow, T, useLayout } from '../../design';
 import { Empty, EarningsCard, MetricRow, RoleGate } from '../../features/business';
 import { SimNote, StatusPill } from '../../features/common';
-import { money, time } from '../../lib/format';
+import { money, time, currencySymbol } from '../../lib/format';
 import { useAction, NONE, useLive } from '../../lib/hooks';
 
 export default function KitchenDashboard() {
@@ -212,7 +212,7 @@ function Menu({ restaurantId }: { restaurantId: string }) {
             <Input label="Name" value={edit.name} onChangeText={(name) => setEdit({ ...edit, name })} />
             <Input label="Description" multiline value={edit.description} onChangeText={(description) => setEdit({ ...edit, description })} />
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              <Input containerStyle={{ flex: 1 }} label="Price (€)" keyboardType="decimal-pad" value={price} onChangeText={setPrice} />
+              <Input containerStyle={{ flex: 1 }} label={`Price (${currencySymbol()})`} keyboardType="decimal-pad" value={price} onChangeText={setPrice} />
               <Input containerStyle={{ flex: 1 }} label="Section" value={edit.category} onChangeText={(category) => setEdit({ ...edit, category })} />
             </View>
             <T variant="subhead" color={color.textSecondary}>
@@ -254,9 +254,9 @@ function RestaurantSettings({ r }: { r: ReturnType<typeof bites.myRestaurants>[n
         <Input label="Description" multiline value={description} onChangeText={setDescription} />
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <Input containerStyle={{ flex: 1 }} label="Delivery time (min)" keyboardType="number-pad" value={eta} onChangeText={setEta} />
-          <Input containerStyle={{ flex: 1 }} label="Delivery fee (€)" keyboardType="decimal-pad" value={fee} onChangeText={setFee} />
+          <Input containerStyle={{ flex: 1 }} label={`Delivery fee (${currencySymbol()})`} keyboardType="decimal-pad" value={fee} onChangeText={setFee} />
         </View>
-        <Input label="Minimum order (€)" keyboardType="decimal-pad" value={min} onChangeText={setMin} />
+        <Input label={`Minimum order (${currencySymbol()})`} keyboardType="decimal-pad" value={min} onChangeText={setMin} />
         <Input label="Promotion banner" placeholder="e.g. 2 for 1 on pizzas" value={promo} onChangeText={setPromo} />
         <Button title="Save settings" size="lg" loading={busy} onPress={() => run(() => bites.updateRestaurant(r.id, { description, etaMin: Number(eta) || r.etaMin, deliveryFeeCents: parseEuro(fee) ?? 0, minOrderCents: parseEuro(min) ?? 0, promo: promo.trim() || undefined }), { success: 'Settings saved' })} />
       </View>

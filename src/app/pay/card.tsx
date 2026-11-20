@@ -6,7 +6,7 @@ import { card as cardApi, tap as tapApi } from '../../backend/api';
 import { MERCHANTS } from '../../backend/api/card';
 import { Appear, Button, Card, color, ConfirmSheet, Group, Header, Icon, type IconName, Input, ListRow, parseEuro, radius, Screen, Section, Segmented, Select, Sheet, SimBadge, Split, SuccessMark, SwitchRow, T, useLayout, useToast } from '../../design';
 import { HayveCardVisual } from '../../features/card';
-import { ago, money } from '../../lib/format';
+import { ago, money, currencySymbol } from '../../lib/format';
 import { useAction, useLive } from '../../lib/hooks';
 
 const isApple = Platform.OS === 'ios' || (Platform.OS === 'web' && typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent));
@@ -25,9 +25,6 @@ export default function HayveCardScreen() {
   const [sheet, setSheet] = useState<null | 'limits' | 'bank' | 'pin' | 'buy' | 'replace' | 'wallet'>(null);
   const [daily, setDaily] = useState('');
   const [monthly, setMonthly] = useState('');
-  const [holder, setHolder] = useState('');
-  const [iban, setIban] = useState('');
-  const [method, setMethod] = useState<'ideal_wero' | 'sepa_debit'>('ideal_wero');
   const [pin, setPin] = useState('');
   const [merchant, setMerchant] = useState('ah');
   const [amount, setAmount] = useState('12.40');
@@ -164,7 +161,7 @@ export default function HayveCardScreen() {
       </Section>
       <Section title="Funding">
         <Group>
-          <ListRow icon="bank-outline" title={v.bank ? `${v.bank.bank} •••• ${v.bank.ibanLast4}` : 'Link your bank'} subtitle={v.bank ? (v.bank.method === 'ideal_wero' ? 'iDEAL | Wero top-ups' : `SEPA Direct Debit · ${v.bank.mandateRef}`) : 'For automatic top-ups'} onPress={() => { setHolder(v.holder ? v.holder.replace(/\b\w/g, (x) => x) : ''); setSheet('bank'); }} />
+          <ListRow icon="bank-outline" title={v.bank ? `${v.bank.bank} •••• ${v.bank.ibanLast4}` : 'Connect your bank'} subtitle={v.bank ? `Top-ups from your bank · mandate ${v.bank.mandateRef}` : 'For automatic top-ups'} onPress={() => router.push('/pay/methods')} />
           <SwitchRow icon="refresh-outline" title="Auto top-up" subtitle={`Adds ${money(c.autoTopUp.amountCents)} at a time when your balance is too low`} value={c.autoTopUp.enabled} onChange={(on) => run(() => cardApi.setAutoTopUp({ enabled: on }))} />
         </Group>
         {c.autoTopUp.enabled && (
@@ -198,22 +195,8 @@ export default function HayveCardScreen() {
 
       <Sheet visible={sheet === 'limits'} onClose={() => setSheet(null)} title="Spending limits" footer={<Button title="Save limits" size="lg" full loading={busy} onPress={() => run(() => cardApi.setLimits({ dailyCents: parseEuro(daily) ?? 0, monthlyCents: parseEuro(monthly) ?? 0 }), { success: 'Limits saved', onDone: () => setSheet(null) })} />}>
         <View style={{ gap: 12 }}>
-          <Input label="Per day (€)" keyboardType="decimal-pad" value={daily} onChangeText={setDaily} />
-          <Input label="Per month (€)" keyboardType="decimal-pad" value={monthly} onChangeText={setMonthly} />
-        </View>
-      </Sheet>
-
-      <Sheet visible={sheet === 'bank'} onClose={() => setSheet(null)} title="Link your bank" footer={
-        <View style={{ gap: 8 }}>
-          <Button title={method === 'ideal_wero' ? 'Continue with iDEAL | Wero' : 'Sign SEPA mandate'} size="lg" full loading={busy} onPress={() => run(() => cardApi.linkBank({ holder, iban, method }), { success: 'Bank linked', onDone: () => setSheet(null) })} />
-          {v.bank && <Button title="Unlink bank" variant="ghost" full onPress={() => run(() => cardApi.unlinkBank(), { success: 'Bank unlinked', onDone: () => setSheet(null) })} />}
-        </View>
-      }>
-        <View style={{ gap: 12 }}>
-          <Segmented value={method} onChange={setMethod} options={[{ key: 'ideal_wero', label: 'iDEAL | Wero' }, { key: 'sepa_debit', label: 'SEPA Direct Debit' }]} />
-          <Input label="Account holder" value={holder} onChangeText={setHolder} />
-          <Input label="IBAN" autoCapitalize="characters" placeholder="NL91 ABNA 0417 1643 00" value={iban} onChangeText={setIban} />
-          <T variant="caption" color={color.textSecondary}>Top-ups are taken in batches to keep bank costs low. Demo: no bank is contacted.</T>
+          <Input label={`Per day (${currencySymbol()})`} keyboardType="decimal-pad" value={daily} onChangeText={setDaily} />
+          <Input label={`Per month (${currencySymbol()})`} keyboardType="decimal-pad" value={monthly} onChangeText={setMonthly} />
         </View>
       </Sheet>
 
@@ -242,7 +225,7 @@ export default function HayveCardScreen() {
         ) : (
           <View style={{ gap: 12 }}>
             <Select label="Shop" value={merchant} onChange={setMerchant} options={MERCHANTS.map((m) => ({ key: m.id, label: m.name, sub: m.category }))} />
-            <Input label="Amount (€)" keyboardType="decimal-pad" value={amount} onChangeText={setAmount} />
+            <Input label={`Amount (${currencySymbol()})`} keyboardType="decimal-pad" value={amount} onChangeText={setAmount} />
             <T variant="caption" color={color.textSecondary}>Wave Back is higher at Hayve partners and on Hayve services.</T>
           </View>
         )}

@@ -3,10 +3,10 @@ import { View } from 'react-native';
 import { wallet } from '../../backend/api';
 import { Badge, Button, color, Group, Header, IconButton, Input, ListRow, Screen, Section, Sheet, T } from '../../design';
 import { SimNote } from '../../features/common';
-import { BankPicker, CardForm, type CardResult, ConnectionChoice, SecureNote, useBankApproval } from '../../features/payments';
+import { BankPicker, CardForm, type CardResult, ConnectionChoice, SecureNote, useBankApproval, useRegion } from '../../features/payments';
 import { useAction, useLive } from '../../lib/hooks';
 
-/** Cards and banks: connect a bank (iDEAL | Wero or SEPA mandate) or add a debit/credit card. */
+/** Cards and banks: connect a bank with the local rail (ACH, pay by bank, iDEAL | Wero…) or add a debit/credit card. */
 export default function PaymentMethods() {
   const methods = useLive(() => wallet.paymentMethods()).data ?? [];
   const cards = methods.filter((m) => m.kind === 'card');
@@ -14,17 +14,19 @@ export default function PaymentMethods() {
   const [sheet, setSheet] = useState<null | 'card' | 'bank'>(null);
   const [card, setCard] = useState<CardResult | null>(null);
   const onCard = useCallback((c: CardResult | null) => setCard(c), []);
-  const [connection, setConnection] = useState<'ideal_wero' | 'sepa_debit'>('ideal_wero');
+  const reg = useRegion();
+  const [connection, setConnection] = useState<'instant' | 'manual'>('instant');
   const [bankName, setBankName] = useState<string | null>(null);
-  const [iban, setIban] = useState('');
+  const [account, setAccount] = useState('');
+  const [routing, setRouting] = useState('');
   const [holder, setHolder] = useState('');
   const { approving, approve } = useBankApproval();
   const { run, busy } = useAction();
 
   const connect = () =>
-    connection === 'ideal_wero'
+    connection === 'instant'
       ? approve(() => run(() => wallet.connectBank({ connection, bank: bankName! }), { success: `${bankName} connected`, onDone: () => setSheet(null) }))
-      : run(() => wallet.connectBank({ connection, iban, holder }), { success: 'Bank connected', onDone: () => setSheet(null) });
+      : run(() => wallet.connectBank({ connection, account, routing, holder }), { success: 'Bank connected', onDone: () => setSheet(null) });
 
   return (
     <Screen header={<Header back title="Cards and banks" fallback="/pay" />} maxWidth={640}>
@@ -36,12 +38,12 @@ export default function PaymentMethods() {
             <ListRow
               icon="bank-outline"
               title={bank.label}
-              subtitle={bank.connection === 'sepa_debit' ? 'SEPA Direct Debit mandate · payments, top-ups and withdrawals' : 'Connected with iDEAL | Wero · payments, top-ups and withdrawals'}
+              subtitle={`${bank.connection === 'manual' ? 'Account details + mandate' : `Connected · ${reg.bankRailName}`} · payments, top-ups and withdrawals`}
               chevron={false}
               right={<IconButton icon="trash-outline" label="Disconnect bank" tone="clear" onPress={() => run(() => wallet.deletePaymentMethod(bank.id), { success: 'Bank disconnected' })} />}
             />
           ) : (
-            <ListRow icon="bank-outline" title="Connect your bank" subtitle="iDEAL | Wero: approve in your bank app, no IBAN typing" onPress={() => setSheet('bank')} />
+            <ListRow icon="bank-outline" title="Connect your bank" subtitle={`${reg.bankRailName}: approve in your bank app, no account numbers to type`} onPress={() => setSheet('bank')} />
           )}
         </Group>
         {bank && <Button title="Connect a different bank" variant="ghost" size="sm" style={{ alignSelf: 'flex-start', marginTop: 6 }} onPress={() => setSheet('bank')} />}
@@ -88,27 +90,31 @@ export default function PaymentMethods() {
         title="Connect your bank"
         footer={
           <Button
-            title={approving ? 'Approve in your bank app…' : connection === 'ideal_wero' ? (bankName ? `Continue to ${bankName}` : 'Choose your bank') : 'Sign mandate'}
+            title={approving ? 'Approve in your bank app…' : connection === 'instant' ? (bankName ? `Continue to ${bankName}` : 'Choose your bank') : 'Connect account'}
             size="lg"
             full
             loading={busy || approving}
-            disabled={connection === 'ideal_wero' ? !bankName : iban.replace(/\s/g, '').length < 15}
+            disabled={connection === 'instant' ? !bankName : account.replace(/\s/g, '').length < 4 || (!!reg.account.routingLabel && routing.replace(/[\s-]/g, '').length < 5)}
             onPress={connect}
           />
         }
       >
         <View style={{ gap: 14 }}>
-          <ConnectionChoice value={connection} onChange={setConnection} />
-          {connection === 'ideal_wero' ? (
+          <ConnectionChoice region={reg} value={connection} onChange={setConnection} />
+          {connection === 'instant' ? (
             <>
-              <BankPicker value={bankName} onChange={setBankName} />
+              <T variant="footnote" color={color.textSecondary}>
+                Banks in {reg.name}. Change your country in Settings.
+              </T>
+              <BankPicker banks={reg.banks} value={bankName} onChange={setBankName} />
               <SecureNote text="You approve in your own bank app. Hayve never sees your bank login." />
             </>
           ) : (
             <>
-              <Input label="IBAN" icon="bank-outline" placeholder="NL91 ABNA 0417 1643 00" autoCapitalize="characters" value={iban} onChangeText={setIban} />
+              {reg.account.routingLabel && <Input label={reg.account.routingLabel} icon="bank-outline" placeholder={reg.account.routingPlaceholder} keyboardType="number-pad" value={routing} onChangeText={setRouting} />}
+              <Input label={reg.account.label} icon="bank-outline" placeholder={reg.account.placeholder} autoCapitalize="characters" keyboardType={reg.account.routingLabel ? 'number-pad' : 'default'} value={account} onChangeText={setAccount} />
               <Input label="Account holder" icon="person-outline" value={holder} onChangeText={setHolder} />
-              <SecureNote text="By signing you allow Hayve's payment partner to collect payments you approve from this account (SEPA Direct Debit)." />
+              <SecureNote text={reg.account.mandate} />
             </>
           )}
         </View>

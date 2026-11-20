@@ -5,7 +5,7 @@ import { Pressable, View } from 'react-native';
 import { wallet, type PublicUser } from '../backend/api';
 import type { TxView } from '../backend/ledger';
 import { Avatar, color, type IconName, Input, radius, T, tap } from '../design';
-import { ago, money } from '../lib/format';
+import { ago, money, currencySymbol } from '../lib/format';
 import { StatusPill } from './common';
 import { useLive } from '../lib/hooks';
 
@@ -122,22 +122,23 @@ export function AmountInput({ value, onChange }: { value: string; onChange: (v: 
   return (
     <View style={{ alignItems: 'center', paddingVertical: 18, gap: 4 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <T weight="800" style={{ fontSize: 44, lineHeight: 52, color: value ? color.black : color.grey500 }}>€</T>
+        <T weight="800" style={{ fontSize: 44, lineHeight: 52, color: value ? color.black : color.grey500 }}>{currencySymbol()}</T>
         <Input
           value={value}
           onChangeText={(t) => onChange(t.replace(/[^\d.,]/g, '').slice(0, 9))}
           placeholder="0.00"
           keyboardType="decimal-pad"
-          containerStyle={{ minWidth: 140 }}
-          style={{ fontSize: 44, fontFamily: 'PlusJakartaSans_800ExtraBold', textAlign: 'center', minHeight: 64 }}
-          accessibilityLabel="Amount in euros"
+          // Sized to the amount so the currency sign stays next to the number on every screen width.
+          containerStyle={{ width: Math.max(130, (value.length || 4) * 29 + 44), flexGrow: 0, flexShrink: 0 }}
+          style={{ fontSize: 44, fontFamily: 'PlusJakartaSans_800ExtraBold', textAlign: 'left', minHeight: 64 }}
+          accessibilityLabel={`Amount in ${currencySymbol()}`}
         />
       </View>
       <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
         {['5', '10', '25', '50'].map((v) => (
           <Pressable key={v} onPress={() => onChange(v)} style={{ paddingHorizontal: 16, height: 36, borderRadius: radius.pill, borderWidth: 1, borderColor: color.line, justifyContent: 'center' }}>
             <T variant="subhead" weight="700">
-              €{v}
+              {currencySymbol()}{v}
             </T>
           </Pressable>
         ))}

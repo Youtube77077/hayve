@@ -87,7 +87,7 @@ export async function searchPlaces(q: string, near: LngLat, signal?: AbortSignal
   if (!term || !hasToken()) return saved;
   try {
     type R = { features: { id: string; properties: { name: string; place_formatted?: string; full_address?: string; coordinates: { longitude: number; latitude: number } } }[] };
-    const j = await getJson<R>(`${API}/search/geocode/v6/forward?q=${encodeURIComponent(q)}&proximity=${near[0]},${near[1]}&country=nl,be,de&limit=6&language=en&access_token=${MAPBOX_TOKEN}`, signal);
+    const j = await getJson<R>(`${API}/search/geocode/v6/forward?q=${encodeURIComponent(q)}&proximity=${near[0]},${near[1]}&limit=6&language=en&access_token=${MAPBOX_TOKEN}`, signal);
     const remote = j.features.map((f) => ({ id: `mb_${f.id}`, name: f.properties.name, address: f.properties.place_formatted ?? f.properties.full_address ?? '', lng: f.properties.coordinates.longitude, lat: f.properties.coordinates.latitude, snapped: true }));
     return [...saved.slice(0, 3), ...remote];
   } catch (e) {

@@ -7,8 +7,9 @@ import { media } from '../../backend/media';
 import { addDays, Badge, Button, Card, Chip, color, Group, Header, HScroll, Input, ListRow, parseEuro, Photo, prettyDate, radius, Screen, Section, Segmented, Select, Sheet, Stepper, SwitchRow, T, todayISO, useLayout } from '../../design';
 import { Empty, EarningsCard, MetricRow, RoleGate } from '../../features/business';
 import { StatusPill } from '../../features/common';
-import { money } from '../../lib/format';
+import { money, currencySymbol } from '../../lib/format';
 import { useAction, useLive } from '../../lib/hooks';
+import { useRegion } from '../../features/payments';
 
 export default function HostDashboard() {
   const { run } = useAction();
@@ -221,7 +222,7 @@ function AvailabilitySheet({ target, onClose }: { target: { kind: 'property' | '
 }
 
 function PropertyForm({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [f, setF] = useState<PropertyInput>({ title: '', type: 'apartment', city: 'Amsterdam', country: 'Netherlands', neighbourhood: '', description: '', pricePerNightCents: 0, cleaningFeeCents: 3000, guests: 2, bedrooms: 1, beds: 1, baths: 1, amenities: ['Wi-Fi', 'Kitchen'], images: [media.stays.interior], instantBook: true });
+  const [f, setF] = useState<PropertyInput>({ title: '', type: 'apartment', city: '', country: useRegion().name, neighbourhood: '', description: '', pricePerNightCents: 0, cleaningFeeCents: 3000, guests: 2, bedrooms: 1, beds: 1, baths: 1, amenities: ['Wi-Fi', 'Kitchen'], images: [media.stays.interior], instantBook: true });
   const [price, setPrice] = useState('');
   const { run, busy } = useAction();
   const set = (p: Partial<PropertyInput>) => setF((x) => ({ ...x, ...p }));
@@ -245,7 +246,7 @@ function PropertyForm({ open, onClose }: { open: boolean; onClose: () => void })
           <Input containerStyle={{ flex: 1 }} label="Neighbourhood" value={f.neighbourhood} onChangeText={(neighbourhood) => set({ neighbourhood })} />
         </View>
         <Input label="Description" multiline value={f.description} onChangeText={(description) => set({ description })} />
-        <Input label="Price per night (€)" keyboardType="decimal-pad" value={price} onChangeText={setPrice} />
+        <Input label={`Price per night (${currencySymbol()})`} keyboardType="decimal-pad" value={price} onChangeText={setPrice} />
         <Card style={{ gap: 12 }}>
           <Stepper label="Guests" value={f.guests} min={1} max={16} onChange={(guests) => set({ guests })} />
           <Stepper label="Bedrooms" value={f.bedrooms} min={0} max={10} onChange={(bedrooms) => set({ bedrooms })} />
@@ -269,7 +270,7 @@ function PropertyForm({ open, onClose }: { open: boolean; onClose: () => void })
 }
 
 function VehicleForm({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [f, setF] = useState<VehicleInput>({ make: '', model: '', year: 2022, type: 'compact', seats: 5, transmission: 'automatic', fuel: 'petrol', pricePerDayCents: 0, location: 'Amsterdam', images: [media.cars.sedan], features: ['Bluetooth'], minAge: 21, depositCents: 30000 });
+  const [f, setF] = useState<VehicleInput>({ make: '', model: '', year: 2022, type: 'compact', seats: 5, transmission: 'automatic', fuel: 'petrol', pricePerDayCents: 0, location: '', images: [media.cars.sedan], features: ['Bluetooth'], minAge: 21, depositCents: 30000 });
   const [price, setPrice] = useState('');
   const { run, busy } = useAction();
   const set = (p: Partial<VehicleInput>) => setF((x) => ({ ...x, ...p }));
@@ -289,7 +290,7 @@ function VehicleForm({ open, onClose }: { open: boolean; onClose: () => void }) 
         </View>
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <Input containerStyle={{ flex: 1 }} label="Year" keyboardType="number-pad" value={String(f.year)} onChangeText={(t) => set({ year: Number(t) || 0 })} />
-          <Input containerStyle={{ flex: 1 }} label="Price per day (€)" keyboardType="decimal-pad" value={price} onChangeText={setPrice} />
+          <Input containerStyle={{ flex: 1 }} label={`Price per day (${currencySymbol()})`} keyboardType="decimal-pad" value={price} onChangeText={setPrice} />
         </View>
         <Select label="Type" value={f.type} onChange={(type) => set({ type })} options={bookings.VEHICLE_TYPES.map((t) => ({ key: t.id, label: t.label }))} />
         <Select label="Fuel" value={f.fuel} onChange={(fuel) => set({ fuel })} options={[{ key: 'petrol', label: 'Petrol' }, { key: 'diesel', label: 'Diesel' }, { key: 'hybrid', label: 'Hybrid' }, { key: 'electric', label: 'Electric' }]} />

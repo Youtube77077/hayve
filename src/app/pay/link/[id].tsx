@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { requests } from '../../../backend/api';
-import { Appear, Button, Card, color, ConfirmSheet, ErrorState, Group, Header, Icon, KeyValue, ListRow, ProgressBar, Screen, Section, SimBadge, SimQR, SuccessMark, T } from '../../../design';
+import { Appear, Bump, Button, Card, color, ConfirmSheet, ErrorState, Group, Header, Icon, KeyValue, ListRow, ProgressBar, Screen, Section, SimBadge, SimQR, SuccessMark, T } from '../../../design';
 import { StatusPill } from '../../../features/common';
 import { ShareRow } from '../../../features/payments';
 import { ago, money, shortDate } from '../../../lib/format';
@@ -58,9 +58,11 @@ export default function RequestDetail() {
         {r.expectedCount !== null && (
           <View style={{ alignSelf: 'stretch', gap: 6, marginTop: 12 }}>
             <ProgressBar value={progress} />
-            <T variant="footnote" color={color.textSecondary} center>
-              {r.paidCount} of {r.expectedCount} paid
-            </T>
+            <Bump value={r.paidCount} style={{ alignSelf: 'center' }}>
+              <T variant="footnote" color={color.textSecondary} center>
+                {r.paidCount} of {r.expectedCount} paid
+              </T>
+            </Bump>
           </View>
         )}
       </Card>
@@ -113,9 +115,9 @@ export default function RequestDetail() {
           </Card>
         ) : (
           <Group>
-            {r.payments.map((p) => (
+            {r.payments.map((p, i) => (
+              <Appear key={p.id} index={i}>
               <ListRow
-                key={p.id}
                 icon={p.method === 'bank' ? 'bank-outline' : p.method === 'card' ? 'card-outline' : 'wallet-outline'}
                 title={p.payerName}
                 subtitle={`${p.methodLabel} · ${shortDate(p.at)}${p.feeCents ? ` · Fees ${money(p.feeCents)}` : ''}${p.payerId ? '' : ' · no Hayve account'}`}
@@ -136,6 +138,7 @@ export default function RequestDetail() {
                   </View>
                 }
               />
+              </Appear>
             ))}
           </Group>
         )}

@@ -1,3 +1,4 @@
+import { currencySymbol } from '../../lib/format';
 import { Icon } from '../../design/icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -122,8 +123,8 @@ export default function Shop() {
           Price
         </T>
         <View style={{ flexDirection: 'row', gap: 10 }}>
-          <Input containerStyle={{ flex: 1 }} placeholder="Min €" keyboardType="decimal-pad" value={min} onChangeText={setMin} />
-          <Input containerStyle={{ flex: 1 }} placeholder="Max €" keyboardType="decimal-pad" value={max} onChangeText={setMax} />
+          <Input containerStyle={{ flex: 1 }} placeholder={`Min ${currencySymbol()}`} keyboardType="decimal-pad" value={min} onChangeText={setMin} />
+          <Input containerStyle={{ flex: 1 }} placeholder={`Max ${currencySymbol()}`} keyboardType="decimal-pad" value={max} onChangeText={setMax} />
         </View>
         <T variant="headline" style={{ marginTop: 22, marginBottom: 10 }}>
           Condition

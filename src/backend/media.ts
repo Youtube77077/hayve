@@ -98,6 +98,8 @@ export const media = {
     interior: u('1503736334956-4c8f8e92946d'),
   },
   city: {
+    newYork: u('1496442226666-8d4d0e62e6e9', 1400),
+    london: u('1513635269975-59663e0ac1ad', 1400),
     amsterdam: u('1534351590666-13e3e96b5017', 1400),
     amsterdam2: u('1512470876302-972faa2aa9a4', 1400),
   },

@@ -8,7 +8,7 @@ export type PayMethod = 'wallet' | 'card' | 'bank' | 'card_declined';
 export const PAY_METHOD_LABEL: Record<PayMethod, string> = {
   wallet: 'Hayve Pay balance',
   card: 'Debit or credit card',
-  bank: 'Bank (iDEAL | Wero)',
+  bank: 'Bank account',
   card_declined: 'Card (simulated decline)',
 };
 
@@ -240,7 +240,7 @@ export function beginPayment(input: {
       fromAccountId: input.method === 'card' ? SYSTEM.card : SYSTEM.bank,
       credits: [{ accountId: wallet, amountCents: total }],
       labelForFrom: input.method === 'card' ? 'Card' : 'Bank',
-      labelForTo: input.method === 'card' ? `${saved.card ? `${saved.card.brand ?? 'Card'} •••• ${saved.card.last4}` : 'Card'} (simulated)` : `iDEAL | Wero · ${saved.bank!.bank ?? saved.bank!.label} (simulated)`,
+      labelForTo: input.method === 'card' ? `${saved.card ? `${saved.card.brand ?? 'Card'} •••• ${saved.card.last4}` : 'Card'} (simulated)` : `${saved.bank!.label} (simulated)`,
       note: input.note,
       method: input.method,
     });

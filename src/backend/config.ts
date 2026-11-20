@@ -160,9 +160,6 @@ export const HAYVE_CARD = {
 /** Hayve Send flat shipping price for marketplace parcels. */
 export const SEND_SHIPPING_CENTS = 395;
 
-/** Dutch standard VAT, used on Hayve Store invoices. */
-export const VAT_RATE = 0.21;
-
 /** Owner accounts that receive the admin role when they register. */
 export const OWNER_ADMIN_EMAILS = ['rojyarzakholi@gmail.com'];
 

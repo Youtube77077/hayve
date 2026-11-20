@@ -1,7 +1,10 @@
 import * as Clipboard from 'expo-clipboard';
-import { useEffect, useState } from 'react';
-import { Linking, Platform, Pressable, Share, View } from 'react-native';
-import { color, Input, radius, Segmented, T, tap, useToast } from '../design';
+import { type ReactNode, useEffect, useState } from 'react';
+import { Animated, Linking, Platform, Pressable, Share, View } from 'react-native';
+import { regions, social } from '../backend/api';
+import type { Region } from '../backend/regions';
+import { Appear, color, Input, radius, Segmented, Select, T, tap, usePressScale, useToast } from '../design';
+import { useLive } from '../lib/hooks';
 import { Icon, type IconName } from '../design/icons';
 
 /* ------------------------------------------------------------- cards -- */
@@ -102,34 +105,49 @@ export function SecureNote({ text }: { text: string }) {
 
 /* ------------------------------------------------------------- banks -- */
 
-export const BANK_LIST = ['ABN AMRO', 'ING', 'Rabobank', 'bunq', 'ASN Bank', 'Knab', 'Revolut', 'SNS', 'Triodos Bank', 'N26'] as const;
+/** The signed-in person's country settings (currency, bank rail, banks…). United States when signed out. */
+export function useRegion(): Region {
+  return useLive(() => {
+    try {
+      return regions.region(social.myProfile().profile.country);
+    } catch {
+      return regions.region(regions.DEFAULT_REGION);
+    }
+  }).data ?? regions.region(regions.DEFAULT_REGION);
+}
 
-/** iDEAL | Wero: pick your bank, then approve in your bank app. */
-export function BankPicker({ value, onChange }: { value: string | null; onChange: (bank: string) => void }) {
+/** Pick your bank (people approve in their own bank app). Shows the banks of one country. */
+export function BankPicker({ banks, value, onChange }: { banks: string[]; value: string | null; onChange: (bank: string) => void }) {
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-      {BANK_LIST.map((b) => {
+      {banks.map((b, i) => {
         const on = value === b;
         return (
-          <Pressable
-            key={b}
-            accessibilityRole="radio"
-            accessibilityState={{ selected: on }}
-            onPress={() => {
-              tap();
-              onChange(b);
-            }}
-            style={({ hovered }: { pressed: boolean; hovered?: boolean }) => ({ width: '48%', flexGrow: 1, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, paddingHorizontal: 12, borderRadius: radius.md, borderWidth: on ? 1.5 : 1, borderColor: on ? color.indigo : hovered ? color.black : color.grey200 })}
-          >
-            <Icon name="bank-outline" size={18} color={on ? color.indigo : color.black} />
-            <T variant="subhead" weight="600" numberOfLines={1} style={{ flex: 1 }}>
-              {b}
-            </T>
-          </Pressable>
+          <Appear key={b} index={i} style={{ width: '48%', flexGrow: 1 }}>
+            <PressScale
+              accessibilityRole="radio"
+              accessibilityState={{ selected: on }}
+              onPress={() => {
+                tap();
+                onChange(b);
+              }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, paddingHorizontal: 12, borderRadius: radius.md, borderWidth: on ? 1.5 : 1, borderColor: on ? color.indigo : color.grey200, backgroundColor: color.white }}
+            >
+              <Icon name="bank-outline" size={18} color={on ? color.indigo : color.black} />
+              <T variant="subhead" weight="600" numberOfLines={1} style={{ flex: 1 }}>
+                {b}
+              </T>
+            </PressScale>
+          </Appear>
         );
       })}
     </View>
   );
+}
+
+/** Country selector for bank payments (anyone, anywhere can pay). */
+export function CountrySelect({ value, onChange, label = 'Country' }: { value: string; onChange: (code: string) => void; label?: string }) {
+  return <Select label={label} icon="globe-outline" value={value} onChange={onChange} options={regions.REGIONS.map((r) => ({ key: r.code, label: r.name, sub: `${r.currency} · ${r.bankRailName}` }))} />;
 }
 
 /** "Approve in your bank app" step shown while the (simulated) bank confirms. */
@@ -145,16 +163,26 @@ export function useBankApproval() {
   return { approving: state === 'approving', approve };
 }
 
-export function ConnectionChoice({ value, onChange }: { value: 'ideal_wero' | 'sepa_debit'; onChange: (v: 'ideal_wero' | 'sepa_debit') => void }) {
+export function ConnectionChoice({ region: r, value, onChange }: { region: Region; value: 'instant' | 'manual'; onChange: (v: 'instant' | 'manual') => void }) {
   return (
     <Segmented
       value={value}
       onChange={onChange}
       options={[
-        { key: 'ideal_wero', label: 'iDEAL | Wero' },
-        { key: 'sepa_debit', label: 'IBAN + mandate' },
+        { key: 'instant', label: r.bankRail === 'ideal_wero' ? 'iDEAL | Wero' : 'Log in to your bank' },
+        { key: 'manual', label: r.account.routingLabel ? 'Account number' : 'IBAN' },
       ]}
     />
+  );
+}
+
+/** A pressable that winds up (scales down) when pressed, so it feels like a real button. */
+export function PressScale({ children, style, outerStyle, onPress, to = 0.96, ...rest }: { children: ReactNode; style?: object; outerStyle?: object; onPress?: () => void; to?: number; disabled?: boolean; accessibilityRole?: 'radio' | 'button'; accessibilityState?: object; accessibilityLabel?: string }) {
+  const { scale, onPressIn, onPressOut } = usePressScale(to);
+  return (
+    <Pressable {...rest} style={outerStyle} onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut}>
+      <Animated.View style={[style, { transform: [{ scale }] }]}>{children}</Animated.View>
+    </Pressable>
   );
 }
 
@@ -193,19 +221,17 @@ export function ShareRow({ url, message }: { url: string; message: string }) {
   ];
   return (
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 4 }}>
-      {items.map((i) => (
-        <Pressable key={i.key} accessibilityRole="button" accessibilityLabel={`Share with ${i.label}`} onPress={i.onPress} style={{ flex: 1, alignItems: 'center', gap: 6 }}>
-          {({ pressed }) => (
-            <>
-              <View style={{ width: 52, height: 52, borderRadius: 26, borderWidth: 1, borderColor: color.grey200, backgroundColor: pressed ? color.grey100 : color.white, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.94 : 1 }] }}>
-                <Icon name={i.icon} size={22} />
-              </View>
-              <T variant="caption" weight="600" numberOfLines={1}>
-                {i.label}
-              </T>
-            </>
-          )}
-        </Pressable>
+      {items.map((i, n) => (
+        <Appear key={i.key} index={n} style={{ flex: 1 }}>
+          <PressScale accessibilityRole="button" accessibilityLabel={`Share with ${i.label}`} onPress={i.onPress} to={0.9} style={{ alignItems: 'center', gap: 6 }}>
+            <View style={{ width: 52, height: 52, borderRadius: 26, borderWidth: 1, borderColor: color.grey200, backgroundColor: color.white, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name={i.icon} size={22} />
+            </View>
+            <T variant="caption" weight="600" numberOfLines={1}>
+              {i.label}
+            </T>
+          </PressScale>
+        </Appear>
       ))}
     </View>
   );

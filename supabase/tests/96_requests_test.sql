@@ -44,6 +44,9 @@ reset role;
 -- Payment by the provider closes a single-use link.
 insert into public.pay_request_payments (request_id, payer_name, method, method_label, amount_cents, status) select id, 'Guest', 'bank', 'iDEAL | Wero · ING', 2500, 'paid' from public.pay_requests limit 1;
 insert into pg_temp.r select 'paid single-use link shows as paid', (select status = 'paid' from public.pay_request_public((select id from public.pay_requests limit 1)));
+insert into pg_temp.r select 'new profiles default to the United States in dollars', (select country = 'US' and currency = 'USD' from public.profiles where id = '00000000-0000-0000-0000-0000000000d1');
+insert into pg_temp.r select 'links carry a currency', (select currency = 'USD' from public.pay_requests limit 1);
+insert into pg_temp.r select 'business IDs are not limited to Dutch KVK numbers', not exists (select 1 from pg_constraint where conname = 'businesses_kvk');
 insert into pg_temp.r select 'payments table has no card number column', not exists (select 1 from information_schema.columns where table_name in ('pay_request_payments', 'payment_methods') and column_name ~ '(pan|number|cvc|cvv)');
 
 -- Ride dispatch: drivers see only rides offered to them; nobody edits fares or payouts.

@@ -1,3 +1,4 @@
+import { fmtMoney } from '../regions';
 import { HAYVE_CARD } from '../config';
 import { accountIdFor, balancesFor, createTransaction, SYSTEM } from '../ledger';
 import { assert, commit, find, getDb, HayveError, now, simHash, uid } from '../store';
@@ -26,14 +27,14 @@ export interface Merchant {
 
 /** Demo merchants for trying the card. */
 export const MERCHANTS: Merchant[] = [
-  { id: 'ah', name: 'Albert Heijn', category: 'Groceries', mcc: '5411', partner: false },
-  { id: 'ns', name: 'NS', category: 'Trains', mcc: '4112', partner: false },
-  { id: 'bol', name: 'bol', category: 'Online shop', mcc: '5999', partner: false },
-  { id: 'coffee', name: 'Coffee Company', category: 'Café', mcc: '5814', partner: false },
+  { id: 'ah', name: 'FreshMart', category: 'Groceries', mcc: '5411', partner: false },
+  { id: 'ns', name: 'City Transit', category: 'Public transport', mcc: '4111', partner: false },
+  { id: 'bol', name: 'Online store', category: 'Online shop', mcc: '5999', partner: false },
+  { id: 'coffee', name: 'Corner Coffee', category: 'Café', mcc: '5814', partner: false },
   { id: 'napoli', name: 'Napoli Forno', category: 'Hayve Business partner', mcc: '5812', partner: true },
   { id: 'groove', name: 'Groove Supply', category: 'Hayve Business partner', mcc: '5735', partner: true },
   { id: 'hayve', name: 'Hayve Ride', category: 'Hayve service', mcc: '4121', partner: true },
-  { id: 'casino', name: 'Holland Casino', category: 'Gambling', mcc: '7995', partner: false },
+  { id: 'casino', name: 'Lucky Spin Casino', category: 'Gambling', mcc: '7995', partner: false },
 ];
 
 export function cardForUser(userId: ID): HayveCard | undefined {
@@ -173,9 +174,9 @@ export function changePin(pin: string) {
 
 export function setLimits(limits: { dailyCents: number; monthlyCents: number }) {
   const card = myCard();
-  assert(Number.isInteger(limits.dailyCents) && limits.dailyCents >= 1000, 'invalid', 'Daily limit must be at least €10');
+  assert(Number.isInteger(limits.dailyCents) && limits.dailyCents >= 1000, 'invalid', `Daily limit must be at least ${fmtMoney(1000)}`);
   assert(limits.monthlyCents >= limits.dailyCents, 'invalid', 'The monthly limit must be at least the daily limit');
-  assert(limits.monthlyCents <= 2_000_000, 'invalid', 'The monthly limit can be at most €20,000');
+  assert(limits.monthlyCents <= 2_000_000, 'invalid', `The monthly limit can be at most ${fmtMoney(2000000)}`);
   card.limits = limits;
   commit();
 }
@@ -191,7 +192,7 @@ export function setAutoTopUp(auto: { enabled: boolean; amountCents?: number }) {
   const card = myCard();
   if (auto.enabled) assert(getDb().linkedBanks.some((b) => b.userId === user.id), 'invalid', 'Link a bank account first');
   const amount = auto.amountCents ?? card.autoTopUp.amountCents;
-  assert(amount >= 1000 && amount <= 50_000, 'invalid', 'Top-ups can be €10 to €500');
+  assert(amount >= 1000 && amount <= 50_000, 'invalid', `Top-ups can be ${fmtMoney(1000)} to ${fmtMoney(50000)}`);
   card.autoTopUp = { enabled: auto.enabled, amountCents: amount };
   commit();
 }
@@ -228,7 +229,7 @@ export function linkBank(input: { holder: string; iban: string; method: LinkedBa
   // The same account becomes the user's connected bank for payments and withdrawals.
   const bankName = banks[iban.slice(4, 8)] ?? 'Bank account';
   db.paymentMethods = db.paymentMethods.filter((m) => !(m.userId === user.id && m.kind === 'bank'));
-  db.paymentMethods.push({ id: uid('pm'), userId: user.id, kind: 'bank', label: `${bankName} •••• ${iban.slice(-4)}`, bank: bankName, last4: iban.slice(-4), connection: input.method, isDefault: false, createdAt: now() });
+  db.paymentMethods.push({ id: uid('pm'), userId: user.id, kind: 'bank', label: `${bankName} •••• ${iban.slice(-4)}`, bank: bankName, last4: iban.slice(-4), connection: input.method === 'sepa_debit' ? 'manual' : 'instant', rail: 'sepa', isDefault: false, createdAt: now() });
   audit(user.id, 'bank.link', iban.slice(-4));
   commit();
 }
@@ -263,7 +264,7 @@ export function cardTopUpIfNeeded(userId: ID, amountCents: number) {
     credits: [{ accountId: acc, amountCents: total }],
     labelForFrom: 'Auto top-up',
     labelForTo: `Auto top-up · ${bank.bank} •••• ${bank.ibanLast4}`,
-    note: batches > 1 ? `${batches} × €${(card.autoTopUp.amountCents / 100).toFixed(0)}` : undefined,
+    note: batches > 1 ? `${batches} × ${fmtMoney(card.autoTopUp.amountCents)}` : undefined,
     method: 'bank',
   });
   return total;
@@ -280,7 +281,7 @@ export function simulatePurchase(input: { merchantId: string; amountCents: numbe
   assert(m, 'not_found', 'Unknown shop');
   assert(Number.isInteger(input.amountCents) && input.amountCents > 0, 'invalid', 'Enter an amount');
   const decline = (reason: string) => {
-    notify(user.id, 'security', 'Card payment declined', `${m.name} · €${(input.amountCents / 100).toFixed(2)} · ${reason}`, '/pay/card');
+    notify(user.id, 'security', 'Card payment declined', `${m.name} · ${fmtMoney(input.amountCents)} · ${reason}`, '/pay/card');
     commit();
     return new HayveError('payment_failed', reason);
   };
@@ -305,7 +306,7 @@ export function simulatePurchase(input: { merchantId: string; amountCents: numbe
   const wb = creditWaveBack(user.id, m.partner ? 'card_partner' : 'card_other', input.amountCents, { paymentTxId: tx.id, note: m.name, merchant: m.name });
   tx.waveBackCents = wb;
   // Push notification for every card payment.
-  notify(user.id, 'payment', `€${(input.amountCents / 100).toFixed(2)} at ${m.name}`, wb ? `+€${(wb / 100).toFixed(2)} Wave Back` : 'Hayve Card payment', `/pay/tx/${tx.id}`);
+  notify(user.id, 'payment', `${fmtMoney(input.amountCents)} at ${m.name}`, wb ? `+${fmtMoney(wb)} Wave Back` : 'Hayve Card payment', `/pay/tx/${tx.id}`);
   commit();
   return { txId: tx.id, waveBackCents: wb, toppedUpCents: toppedUp, merchant: m.name };
 }

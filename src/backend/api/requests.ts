@@ -1,3 +1,4 @@
+import { fmtMoney, region } from '../regions';
 import { accountIdFor, balancesFor, captureHold, createTransaction, refundTransaction, SYSTEM, voidHold } from '../ledger';
 import { assert, commit, find, getDb, HayveError, now, uid } from '../store';
 import type { ID, PayRequest, PayRequestKind, PayRequestMethod, PayRequestPayment, PayRequestRef } from '../types';
@@ -20,8 +21,6 @@ export type PayRequestStatus = 'pending' | 'paid' | 'expired' | 'cancelled';
 
 export const EXPIRY_CHOICES = [1, 7, 14, 30] as const;
 
-/** Banks offered for iDEAL | Wero (the payer is sent to their own bank app to approve). */
-export const BANKS = ['ABN AMRO', 'ING', 'Rabobank', 'bunq', 'ASN Bank', 'Knab', 'Revolut', 'SNS', 'Triodos Bank', 'N26'] as const;
 
 function statusOf(r: PayRequest): PayRequestStatus {
   if (r.cancelledAt) return 'cancelled';
@@ -119,7 +118,7 @@ export function create(input: CreateRequestInput) {
     const people = input.people ?? 0;
     const total = input.splitTotalCents ?? 0;
     assert(Number.isInteger(people) && people >= 2 && people <= s.maxSplitPeople, 'invalid', `Split between 2 and ${s.maxSplitPeople} people`);
-    assert(Number.isInteger(total) && total >= people * 100 && total <= MAX_CENTS, 'invalid', 'Each person must pay at least €1.00');
+    assert(Number.isInteger(total) && total >= people * 100 && total <= MAX_CENTS, 'invalid', `Each person must pay at least ${fmtMoney(100)}`);
     amountCents = Math.round(total / people);
     const names = (input.names ?? []).map((n) => n.trim().slice(0, 40));
     split = {
@@ -127,8 +126,8 @@ export function create(input: CreateRequestInput) {
       shares: [{ id: 's0', name: displayName(user.id), you: true }, ...Array.from({ length: people - 1 }, (_, i) => ({ id: `s${i + 1}`, name: names[i] || `Person ${i + 2}` }))],
     };
   }
-  assert(Number.isInteger(amountCents) && amountCents >= 100, 'invalid', 'Minimum amount is €1.00');
-  assert(amountCents <= MAX_CENTS, 'invalid', 'Maximum amount is €10,000.00');
+  assert(Number.isInteger(amountCents) && amountCents >= 100, 'invalid', `Minimum amount is ${fmtMoney(100)}`);
+  assert(amountCents <= MAX_CENTS, 'invalid', `Maximum amount is ${fmtMoney(1000000)}`);
 
   let business: PayRequest['business'];
   if (input.kind === 'business') {
@@ -140,6 +139,7 @@ export function create(input: CreateRequestInput) {
   }
 
   const req: PayRequest = {
+    currency: region(profileOf(user.id).country).currency,
     // Unguessable: the link itself is the permission to pay.
     id: `${uid('rq')}${Math.random().toString(36).slice(2, 8)}`,
     requesterId: user.id,
@@ -240,6 +240,8 @@ export function publicView(id: ID) {
     kind: r.kind,
     title: r.title,
     amountCents: r.amountCents,
+    currency: r.currency ?? 'USD',
+    country: profileOf(r.requesterId).country,
     status: statusOf(r),
     expiresAt: r.expiresAt,
     requester: { displayName: p.displayName, firstName: p.displayName.split(' ')[0], avatar: p.avatarThumb ?? p.avatar },
@@ -259,8 +261,9 @@ export interface PayInput {
   payerName?: string;
   /** For splits: which person is paying. */
   shareId?: string;
-  /** iDEAL | Wero: the payer's bank. */
+  /** Pay by bank: the payer's bank and country (their local rail: ACH, pay by bank, iDEAL | Wero…). */
   bank?: string;
+  country?: string;
   /** Card payments: brand and last four only, returned by the payment partner's secure form. */
   card?: { brand: string; last4: string };
 }
@@ -285,8 +288,9 @@ export function pay(id: ID, input: PayInput) {
 
   let methodLabel: string;
   if (input.method === 'bank') {
-    assert(input.bank && (BANKS as readonly string[]).includes(input.bank), 'invalid', 'Choose your bank');
-    methodLabel = `iDEAL | Wero · ${input.bank}`;
+    const reg = region(input.country ?? profileOf(r.requesterId).country);
+    assert(input.bank && reg.banks.includes(input.bank), 'invalid', 'Choose your bank');
+    methodLabel = `${reg.bankRailName} · ${input.bank}`;
   } else if (input.method === 'card') {
     assert(input.card && /^\d{4}$/.test(input.card.last4), 'invalid', 'Enter your card details');
     methodLabel = `${input.card.brand} •••• ${input.card.last4}`;
@@ -327,7 +331,7 @@ export function pay(id: ID, input: PayInput) {
   };
   r.payments.push(payment);
   if (share) share.paidAt = now();
-  const money = `€${(amountCents / 100).toFixed(2)}`;
+  const money = `${fmtMoney(amountCents)}`;
   notify(r.requesterId, 'payment', r.kind === 'deposit' ? 'Deposit authorised' : `${payerName} paid ${money}`, r.kind === 'deposit' ? `${payerName} · ${money} held for ${r.title}` : r.title, `/pay/link/${r.id}`);
   commit();
   return { paymentId: payment.id, txId: tx.id, signedIn: !!payerId };
@@ -360,7 +364,7 @@ export function releaseDeposit(id: ID, paymentId: ID) {
   const p = find(r.payments, (x) => x.id === paymentId && x.status === 'held', 'Deposit');
   voidHold(p.txId);
   p.status = 'released';
-  if (p.payerId) notify(p.payerId, 'refund', 'Deposit released', `€${(p.amountCents / 100).toFixed(2)} for ${r.title} was released.`);
+  if (p.payerId) notify(p.payerId, 'refund', 'Deposit released', `${fmtMoney(p.amountCents)} for ${r.title} was released.`);
   commit();
 }
 
@@ -370,7 +374,7 @@ export function captureDeposit(id: ID, paymentId: ID) {
   const p = find(r.payments, (x) => x.id === paymentId && x.status === 'held', 'Deposit');
   captureHold(p.txId);
   p.status = 'captured';
-  if (p.payerId) notify(p.payerId, 'payment', 'Deposit claimed', `${displayName(r.requesterId)} kept the €${(p.amountCents / 100).toFixed(2)} deposit for ${r.title}.`);
+  if (p.payerId) notify(p.payerId, 'payment', 'Deposit claimed', `${displayName(r.requesterId)} kept the ${fmtMoney(p.amountCents)} deposit for ${r.title}.`);
   commit();
 }
 
@@ -383,6 +387,6 @@ export function refund(id: ID, paymentId: ID) {
   p.status = 'refunded';
   const share = r.split?.shares.find((s) => s.id === p.shareId);
   if (share) share.paidAt = undefined;
-  if (p.payerId) notify(p.payerId, 'refund', 'Refund received', `${displayName(r.requesterId)} refunded €${(p.amountCents / 100).toFixed(2)} for ${r.title}.`);
+  if (p.payerId) notify(p.payerId, 'refund', 'Refund received', `${displayName(r.requesterId)} refunded ${fmtMoney(p.amountCents)} for ${r.title}.`);
   commit();
 }

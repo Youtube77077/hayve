@@ -8,7 +8,7 @@ Every map in Hayve goes through one component, `HayveMap` (`src/features/map`), 
 | iOS / Android with a Mapbox token | Mapbox Maps SDK (`@rnmapbox/maps`) |
 | iPhone / iPad without a token | **Apple Maps** (`react-native-maps`, "muted standard" style), free and no key |
 | Web, fallback only | MapLibre GL + MapTiler (`EXPO_PUBLIC_MAPTILER_KEY`) |
-| No key configured | Built-in vector preview of Amsterdam (real coordinates, same colours). Not a tile server, not an image. |
+| No key configured | Built-in vector preview (a street grid anywhere, real coordinates, same colours). Not a tile server, not an image. |
 
 Search and reverse geocoding use the Mapbox Geocoding API v6. Routes use Mapbox Directions (`driving-traffic`). On iPhone without a token, a small native module (`modules/hayve-apple-maps`) uses Apple's MKDirections (real road routes and ETAs), CLGeocoder (nearest address) and MKLocalSearch (place search), all free. On the web without any key, Ride uses offline estimates so the flow still works.
 

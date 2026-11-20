@@ -1,12 +1,13 @@
+import { CURRENCY_SYMBOL, type CurrencyCode, formatMoney, getDisplayCurrency } from '../backend/regions';
 /** Formatting helpers (EUR, dates, relative time). */
+/** Money in the signed-in person's currency ($, £, €…), from integer cents. */
 export function money(cents: number, opts: { sign?: boolean; compact?: boolean } = {}) {
-  const neg = cents < 0;
-  const abs = Math.abs(cents) / 100;
-  let body: string;
-  if (opts.compact && abs >= 1000) body = `${(abs / 1000).toFixed(abs >= 10000 ? 0 : 1)}k`;
-  else body = abs.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  const sign = neg ? '−' : opts.sign ? '+' : '';
-  return `${sign}€${body}`;
+  return formatMoney(cents, getDisplayCurrency(), opts);
+}
+
+/** Money in a specific currency (for example a payment link in the requester's currency). */
+export function moneyIn(cents: number, currency: CurrencyCode) {
+  return formatMoney(cents, currency);
 }
 
 export function shortDate(ts: number) {
@@ -43,3 +44,8 @@ export function greeting() {
 }
 
 export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/** The signed-in person's currency symbol ($, £, €, CA$, A$). */
+export function currencySymbol() {
+  return CURRENCY_SYMBOL[getDisplayCurrency()];
+}

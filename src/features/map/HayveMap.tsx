@@ -3,7 +3,7 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState }
 import { Platform, Pressable, View } from 'react-native';
 import AppleMapView, { Marker, Polyline, type Region } from 'react-native-maps';
 import { MAPBOX_STYLE_URL, MAPBOX_TOKEN, mapProvider } from './config';
-import { AMSTERDAM, bounds, type LngLat } from './geo';
+import { DEFAULT_CENTER, bounds, type LngLat } from './geo';
 import { CarGlyph, MarkerView, useGlide, UserDot } from './markers';
 import { PreviewMap } from './PreviewMap';
 import { ROUTE_STYLE, routeParts, useRouteReveal } from './route';
@@ -26,7 +26,7 @@ export const HayveMap = forwardRef<HayveMapHandle, HayveMapProps>(function Hayve
 
 /* ------------------------------------------------------------- Mapbox -- */
 
-const NativeMapbox = forwardRef<HayveMapHandle, HayveMapProps>(function NativeMapbox({ center = AMSTERDAM, zoom = 13, markers = [], cars = [], route, routeProgress = 0, fit, padding = NO_PADDING, userLocation, interactive = true, onMove, onIdle, style, accessibilityLabel }, ref) {
+const NativeMapbox = forwardRef<HayveMapHandle, HayveMapProps>(function NativeMapbox({ center = DEFAULT_CENTER, zoom = 13, markers = [], cars = [], route, routeProgress = 0, fit, padding = NO_PADDING, userLocation, interactive = true, onMove, onIdle, style, accessibilityLabel }, ref) {
   const camera = useRef<Camera>(null);
   const userMoving = useRef(false);
   const reveal = useRouteReveal(route);
@@ -126,7 +126,7 @@ const ll = ([lng, lat]: LngLat) => ({ latitude: lat, longitude: lng });
  * palette; points of interest, buildings and traffic are switched off. The padded centre maths
  * keeps the fixed pickup pin accurate above the bottom sheet.
  */
-const AppleMap = forwardRef<HayveMapHandle, HayveMapProps>(function AppleMap({ center = AMSTERDAM, zoom = 13, markers = [], cars = [], route, routeProgress = 0, fit, padding = NO_PADDING, userLocation, interactive = true, onMove, onIdle, style, accessibilityLabel }, ref) {
+const AppleMap = forwardRef<HayveMapHandle, HayveMapProps>(function AppleMap({ center = DEFAULT_CENTER, zoom = 13, markers = [], cars = [], route, routeProgress = 0, fit, padding = NO_PADDING, userLocation, interactive = true, onMove, onIdle, style, accessibilityLabel }, ref) {
   const map = useRef<AppleMapView>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const region = useRef<Region | null>(null);

@@ -13,8 +13,8 @@ export function useUserLocation(fallback: LngLat) {
         if (!perm.granted) return;
         const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         const c: LngLat = [pos.coords.longitude, pos.coords.latitude];
-        // The preview only covers the Amsterdam area: keep the demo location when far away.
-        if (!cancelled && haversineM(c, fallback) < 40_000) setLoc({ coord: c, real: true });
+        // Works anywhere in the world: use the real position whenever we have it.
+        if (!cancelled) setLoc({ coord: c, real: true });
       } catch {
         /* keep fallback */
       }
@@ -22,7 +22,12 @@ export function useUserLocation(fallback: LngLat) {
     return () => {
       cancelled = true;
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
+  // Until the device shares its position, follow the start point (home or your country's city).
+  const fk = `${fallback[0]},${fallback[1]}`;
+  useEffect(() => {
+    setLoc((l) => (l.real ? l : { coord: fallback, real: false }));
+  }, [fk]); // eslint-disable-line react-hooks/exhaustive-deps
   return loc;
 }
 

@@ -86,7 +86,7 @@ export default function PublicProfile() {
             {(store?.city ?? profile.user.city) ? <Meta icon="location-outline" text={store?.city ?? profile.user.city} /> : null}
             <Meta icon="calendar-outline" text={`Member since ${memberSince(profile.memberSince)}`} />
             <Meta icon="bag-check-outline" text={`${profile.soldCount} sold`} />
-            {store?.kvk ? <Meta icon="briefcase-outline" text={`KVK ${store.kvk}`} /> : null}
+            {store?.kvk ? <Meta icon="briefcase-outline" text={`${store.idLabel} ${store.kvk}`} /> : null}
           </View>
 
           <Section title="Listings" subtitle={profile.listings.length ? `${profile.listings.length} active` : undefined}>

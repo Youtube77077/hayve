@@ -1,3 +1,4 @@
+import { DEFAULT_REGION, region, setDisplayCurrency } from '../regions';
 import { OWNER_ADMIN_EMAILS, SIM_CODE } from '../config';
 import { ensureAccount } from '../ledger';
 import { defaultProfile } from '../seed';
@@ -23,8 +24,15 @@ export function onSessionChange(fn: () => void) {
   };
 }
 
+/** Money is shown in the signed-in person's currency (from their country). */
+function syncCurrency() {
+  const p = currentUserId ? getDb().profiles.find((x) => x.userId === currentUserId) : null;
+  setDisplayCurrency(p ? region(p.country).currency : region(DEFAULT_REGION).currency);
+}
+
 function setSession(id: ID | null) {
   currentUserId = id;
+  syncCurrency();
   const storage = getStorage();
   if (storage) {
     if (id) void storage.setItem(SESSION_KEY, id);
@@ -36,6 +44,12 @@ function setSession(id: ID | null) {
 export function restoreSession(id: ID | null) {
   const db = getDb();
   currentUserId = id && db.users.some((u) => u.id === id && !u.deletedAt) ? id : null;
+  syncCurrency();
+}
+
+/** Re-reads the currency after the person changes their country. */
+export function refreshCurrency() {
+  syncCurrency();
 }
 
 /** The authenticated caller. Every protected API function starts here. */
@@ -85,6 +99,8 @@ export function signUp(input: {
   displayName: string;
   username: string;
   accountType?: 'individual' | 'business';
+  /** ISO country code; defaults to the United States. */
+  country?: string;
 }) {
   const db = getDb();
   const email = input.email.trim().toLowerCase();
@@ -106,7 +122,8 @@ export function signUp(input: {
     createdAt: now(),
   };
   db.users.push(user);
-  db.profiles.push({ ...defaultProfile(user.id, username, input.displayName.trim()), accountType: input.accountType ?? 'individual' });
+  const reg = region(input.country ?? DEFAULT_REGION);
+  db.profiles.push({ ...defaultProfile(user.id, username, input.displayName.trim()), accountType: input.accountType ?? 'individual', country: reg.code, currency: reg.currency, city: reg.city.name });
   ensureAccount(user.id);
   db.notifications.push({
     id: uid('n'),

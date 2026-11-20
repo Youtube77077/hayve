@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
-import { session } from '../../backend/api';
+import { regions, session } from '../../backend/api';
+import { CountrySelect } from '../../features/payments';
 import { Button, color, Header, HayveLogo, Input, Screen, Segmented, T } from '../../design';
 import { useAction } from '../../lib/hooks';
 
@@ -11,11 +12,13 @@ export default function SignUp() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [accountType, setType] = useState<'individual' | 'business'>('individual');
+  // Country from the device language settings (en-US → United States), changeable here and in Settings.
+  const [country, setCountry] = useState(() => regions.regionFromLocale(Intl.DateTimeFormat().resolvedOptions().locale));
   const [error, setError] = useState<string | null>(null);
   const { run, busy } = useAction();
 
   const submit = () =>
-    run(() => session.signUp({ email, password, displayName, username, accountType }), {
+    run(() => session.signUp({ email, password, displayName, username, accountType, country }), {
       success: 'Welcome to Hayve 🎉',
       onDone: () => router.replace(accountType === 'business' ? '/business' : '/'),
       onError: (e) => setError(e.message),
@@ -39,7 +42,8 @@ export default function SignUp() {
           value={accountType}
           onChange={setType}
         />
-        <Input label="Full name" icon="person-outline" value={displayName} onChangeText={setName} autoComplete="name" textContentType="name" placeholder="Alex de Vries" />
+        <Input label="Full name" icon="person-outline" value={displayName} onChangeText={setName} autoComplete="name" textContentType="name" placeholder="Alex Morgan" />
+        <CountrySelect label="Country" value={country} onChange={setCountry} />
         <Input
           label="Username"
           icon="at-outline"

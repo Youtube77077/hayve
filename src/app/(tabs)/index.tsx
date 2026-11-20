@@ -5,7 +5,7 @@ import { Pressable, TextInput, View } from 'react-native';
 import { bites, bookings, ride, shop, social, wallet } from '../../backend/api';
 import { Appear, color, Emoji, font, useHotkey, HScroll, Icon, type IconName, Photo, radius, Rating, Screen, Section, Split, T, tap, useLayout } from '../../design';
 import { ServiceShortcuts, StatusPill } from '../../features/common';
-import { ago, money } from '../../lib/format';
+import { ago, money, currencySymbol } from '../../lib/format';
 import { useLive } from '../../lib/hooks';
 
 const HIDE_KEY = 'hayve.hideBalance';
@@ -68,7 +68,7 @@ export default function Home() {
             <Pressable onPress={() => router.push('/pay')} accessibilityRole="link" accessibilityLabel={hidden ? 'Hayve Pay balance hidden. Open Hayve Pay' : `Hayve Pay balance ${money(w?.available ?? 0)}. Open Hayve Pay`} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 14, paddingRight: 6, height: '100%' }}>
               <Icon name="wallet-outline" size={17} />
               <T variant="subhead" weight="700" color={color.indigo}>
-                {hidden ? '€ •••••' : money(w?.available ?? 0)}
+                {hidden ? `${currencySymbol()} •••••` : money(w?.available ?? 0)}
               </T>
             </Pressable>
             <Pressable onPress={toggleHidden} accessibilityRole="button" accessibilityLabel={hidden ? 'Show balance' : 'Hide balance'} hitSlop={6} style={{ paddingLeft: 6, paddingRight: 12, height: '100%', justifyContent: 'center' }}>

@@ -23,7 +23,7 @@ export default function InvoiceScreen() {
               {inv.seller.address}
             </T>
             <T variant="footnote" color={color.grey500}>
-              KVK {inv.seller.kvk} · VAT {inv.seller.vat}
+              {inv.seller.idLabel} {inv.seller.kvk}{inv.seller.vat ? ` · ${inv.seller.taxLabel} ${inv.seller.vat}` : ''}
             </T>
           </View>
           <HayveLogo height={18} />
@@ -67,7 +67,7 @@ export default function InvoiceScreen() {
               </T>
             </View>
             <T variant="caption" color={color.grey500}>
-              {money(l.netCents)} excl. VAT + {money(l.vatCents)} VAT
+              {money(l.netCents)} excl. {inv.seller.taxLabel} + {money(l.vatCents)} {inv.seller.taxLabel}
             </T>
           </View>
         ))}

@@ -5,7 +5,7 @@ import { admin, session } from '../../backend/api';
 import type { FeeTier, PayRequestSettings, RideSettings, TapToPaySettings, WaveBackSettings } from '../../backend/config';
 import { Avatar, Badge, Button, Card, Chip, color, EmptyState, Group, Header, HScroll, Icon, Input, ListRow, Photo, radius, Screen, Section, Sheet, T, useLayout, VerifiedMark } from '../../design';
 import { StatusPill } from '../../features/common';
-import { ago, money, shortDate } from '../../lib/format';
+import { ago, money, shortDate, currencySymbol } from '../../lib/format';
 import { useAction, useLive } from '../../lib/hooks';
 
 type Tab = 'overview' | 'verifications' | 'users' | 'reports' | 'content' | 'settings' | 'audit';
@@ -140,8 +140,8 @@ function Verifications() {
           </View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
             {[
-              ['KVK', b.registrationNumber],
-              ['VAT', b.vatNumber],
+              ['Registration', `${b.registrationNumber} (${b.country ?? 'NL'})`],
+              ['Tax ID', b.vatNumber || '—'],
               ['Address', `${b.address.line1}, ${b.address.postcode} ${b.address.city}`],
               ['Owner', `${b.owner.displayName} · ${b.ownerEmail}`],
               ['Owner ID check', b.ownerIdChecked ? 'Completed' : 'Missing'],
@@ -325,7 +325,7 @@ function Settings() {
         </T>
         {t.map((row, i) => (
           <View key={i} style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end' }}>
-            <Input containerStyle={{ flex: 1 }} label={i === 0 ? 'Up to (€), empty = and above' : undefined} keyboardType="decimal-pad" value={row.upTo} onChangeText={(v) => setTiers(t.map((x, j) => (j === i ? { ...x, upTo: v } : x)))} />
+            <Input containerStyle={{ flex: 1 }} label={i === 0 ? `Up to (${currencySymbol()}), empty = and above` : undefined} keyboardType="decimal-pad" value={row.upTo} onChangeText={(v) => setTiers(t.map((x, j) => (j === i ? { ...x, upTo: v } : x)))} />
             <Input containerStyle={{ width: 110 }} label={i === 0 ? 'Rate (%)' : undefined} keyboardType="decimal-pad" value={row.rate} onChangeText={(v) => setTiers(t.map((x, j) => (j === i ? { ...x, rate: v } : x)))} />
           </View>
         ))}
@@ -352,12 +352,12 @@ function Settings() {
         {(
           [
             ['shopRate', 'Shop & Store rate (%)'],
-            ['shopMaxPerPurchaseCents', 'Shop max per purchase (€)'],
+            ['shopMaxPerPurchaseCents', `Shop max per purchase (${currencySymbol()})`],
             ['servicesRate', 'Ride, Bites, Drive, Stay rate (%)'],
             ['newUserRate', 'New member rate (%)'],
             ['newUserDays', 'New member period (days)'],
-            ['newUserMaxTotalCents', 'New member max total (€)'],
-            ['monthlyMaxCents', 'Max per user per month, all sources (€)'],
+            ['newUserMaxTotalCents', `New member max total (${currencySymbol()})`],
+            ['monthlyMaxCents', `Max per user per month, all sources (${currencySymbol()})`],
             ['tapHayveRate', 'Tap to Pay, payer uses Hayve balance or Card (%)'],
             ['tapCardRate', 'Tap to Pay, payer uses another card (%)'],
             ['cardPartnerRate', 'Hayve Card at partners and Hayve services (%)'],
@@ -415,8 +415,8 @@ function TapSettings({ s }: { s: TapToPaySettings }) {
       {(
         [
           ['receiverFeeRate', 'Receiver fee (%)'],
-          ['privateMonthlyLimitCents', 'Monthly limit for personal accounts (€)'],
-          ['maxPaymentCents', 'Largest single payment (€)'],
+          ['privateMonthlyLimitCents', `Monthly limit for personal accounts (${currencySymbol()})`],
+          ['maxPaymentCents', `Largest single payment (${currencySymbol()})`],
           ['refundWindowDays', 'Refund window (days)'],
           ['claimWindowHours', 'Wave Back QR claim window (hours)'],
         ] as [keyof typeof init, string][]
@@ -456,7 +456,7 @@ function RideAndRequestSettings({ ride, req }: { ride: RideSettings; req: PayReq
       {field('commission', 'Ride commission (%)')}
       {field('offerSeconds', 'Seconds a driver has to answer')}
       {field('feeRate', 'Business request fee (%)')}
-      {field('feeFixed', 'Business request fixed fee (€)')}
+      {field('feeFixed', `Business request fixed fee (${currencySymbol()})`)}
       {field('maxExpiry', 'Longest a link can stay open (days)')}
       <Button
         title="Save"

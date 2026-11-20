@@ -5,6 +5,7 @@
 - Read data with `useLive(() => api.x.y())`; mutate with `const { run } = useAction(); run(() => api.x.z(), { success: '…' })`.
 - Design: `src/design`. Colours ONLY indigo #4F46E5, black #0E0E10, white, greys #F4F4F6/#E5E6EA/#6B6E78. No gradients, no coloured tiles or icons, no tinted backgrounds. Lucide outline icons via `Icon` (indigo only for active/selected). Plus Jakarta Sans via `font()`. 8px grid, 12–16px radius. Logo/wordmarks: `src/design/logo.tsx`, `src/features/nav/Wordmarks.tsx` ("Hayve" always bold).
 - Emoji: at most one per screen (home greeting, small confirmations) via `<Emoji>` (native on Apple, Fluent elsewhere).
+- International, US first: never hard-code a country, city, currency or bank. Country → currency/bank rail/banks/IDs/tax in `src/backend/regions.ts`; format money with `money()` (UI) or `fmtMoney()` (backend), never a literal €/$. Ride places are quick picks per city (`places.ts`); Ride works anywhere.
 - Money is integer cents through the ledger (`src/backend/ledger.ts`). Never store balances. Label simulated money with `<SimBadge />` ("Demo").
 - Fees and Wave Back values live in `src/backend/config.ts` (admin overrides in `db.settings`). Buyers see one "Fees" line, never a percentage. Never say cashback/points/credits.
 - Hayve Send exists only inside the Shop checkout and order page; not in nav or Home.

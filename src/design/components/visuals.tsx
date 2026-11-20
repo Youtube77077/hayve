@@ -1,6 +1,7 @@
 import { Icon } from '../icons';
-import { useMemo, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Easing, ScrollView, View } from 'react-native';
+import { useReducedMotion } from '../motion';
 import Svg, { G, Rect } from 'react-native-svg';
 import { color, radius } from '../tokens';
 import type { IconName } from '../icons';
@@ -106,10 +107,18 @@ export function Timeline({ steps, current }: { steps: { key: string; label: stri
 
 /* ---------------------------------------------------------- ProgressBar -- */
 
+/** Fills smoothly when the value changes (eases out, no jump); instant with reduced motion. */
 export function ProgressBar({ value, tone = color.primary }: { value: number; tone?: string }) {
+  const v = Math.max(0, Math.min(1, value));
+  const reduced = useReducedMotion();
+  const anim = useRef(new Animated.Value(v)).current;
+  useEffect(() => {
+    if (reduced) anim.setValue(v);
+    else Animated.timing(anim, { toValue: v, duration: 420, easing: Easing.bezier(0.22, 1, 0.36, 1), useNativeDriver: false }).start();
+  }, [v, reduced, anim]);
   return (
     <View style={{ height: 8, borderRadius: 4, backgroundColor: color.surfaceSunken, overflow: 'hidden' }}>
-      <View style={{ width: `${Math.max(0, Math.min(1, value)) * 100}%`, height: '100%', backgroundColor: tone, borderRadius: 4 }} />
+      <Animated.View style={{ width: anim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }), height: '100%', backgroundColor: tone, borderRadius: 4 }} />
     </View>
   );
 }

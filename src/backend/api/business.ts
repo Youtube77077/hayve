@@ -1,3 +1,5 @@
+import { type Region, region } from '../regions';
+import { fmtMoney } from '../regions';
 import { accountIdFor, balancesFor, refundTransaction, SYSTEM, viewTransaction } from '../ledger';
 import { assert, commit, find, getDb, HayveError, now, uid } from '../store';
 import type { Business, ID, Role, Transaction } from '../types';
@@ -72,26 +74,30 @@ export interface BusinessInput {
   registrationNumber: string;
   vatNumber: string;
   address: { line1: string; city: string; postcode: string; country: string };
+  /** Country of registration (ISO code). Defaults to the owner's country. */
+  countryCode?: string;
   website?: string;
   description?: string;
   /** The owner completed the identity check (simulated document + selfie scan). */
   ownerIdChecked: boolean;
 }
 
-function validateBusiness(input: BusinessInput) {
+function validateBusiness(input: BusinessInput, reg: Region) {
   assert(input.legalName.trim().length >= 2, 'invalid', 'Enter the legal company name');
   assert(input.tradingName.trim().length >= 2, 'invalid', 'Enter your store name');
-  assert(/^\d{8}$/.test(input.registrationNumber.trim()), 'invalid', 'Enter the 8-digit Chamber of Commerce (KVK) number');
-  assert(/^[A-Z]{2}[0-9A-Z]{8,12}$/i.test(input.vatNumber.replace(/[\s.]/g, '')), 'invalid', 'Enter a valid VAT number, e.g. NL123456789B01');
+  assert(reg.businessId.pattern.test(input.registrationNumber.trim()), 'invalid', `Enter your ${reg.businessId.label} (${reg.businessId.hint.toLowerCase()})`);
+  const tax = input.vatNumber.replace(/[\s.]/g, '');
+  assert(reg.taxId.optional ? !tax || /^[A-Z0-9-]{5,16}$/i.test(tax) : /^[A-Z0-9-]{5,16}$/i.test(tax), 'invalid', `Enter a valid ${reg.taxId.label.replace(' (optional)', '')}`);
   assert(input.address.line1.trim().length >= 4 && input.address.city.trim().length >= 2 && input.address.postcode.trim().length >= 4, 'invalid', 'Enter the full business address');
   assert(input.ownerIdChecked, 'invalid', "Verify the owner's ID before submitting");
 }
 
 /** Applies for a Hayve Store business account. A Hayve admin reviews it. */
 export function registerBusiness(input: BusinessInput) {
+  const reg = region(input.countryCode ?? getDb().profiles.find((p) => p.userId === me().id)?.country);
   const user = me();
   const db = getDb();
-  validateBusiness(input);
+  validateBusiness(input, reg);
   const existing = db.businesses.find((b) => b.ownerId === user.id);
   assert(!existing || existing.status === 'rejected', 'conflict', existing?.status === 'verified' ? 'Your business is already verified' : 'Your application is already under review');
   const fields = {
@@ -100,7 +106,8 @@ export function registerBusiness(input: BusinessInput) {
     category: input.category.trim() || 'Retail',
     registrationNumber: input.registrationNumber.trim(),
     vatNumber: input.vatNumber.replace(/[\s.]/g, '').toUpperCase(),
-    address: { line1: input.address.line1.trim(), city: input.address.city.trim(), postcode: input.address.postcode.trim().toUpperCase(), country: input.address.country.trim() || 'Netherlands' },
+    country: reg.code,
+    address: { line1: input.address.line1.trim(), city: input.address.city.trim(), postcode: input.address.postcode.trim().toUpperCase(), country: input.address.country.trim() || reg.name },
     website: input.website?.trim() ?? '',
     description: input.description?.trim() ?? '',
     ownerIdChecked: true,
@@ -140,7 +147,7 @@ export function updateStoreProfile(patch: { description?: string; logo?: string;
 export function storeFor(userId: ID) {
   const b = getDb().businesses.find((x) => x.ownerId === userId && x.status === 'verified');
   if (!b) return null;
-  return { name: b.tradingName, legalName: b.legalName, description: b.description, logo: b.logo, banner: b.banner, website: b.website, city: b.address.city, kvk: b.registrationNumber, since: b.reviewedAt ?? b.createdAt };
+  return { name: b.tradingName, legalName: b.legalName, description: b.description, logo: b.logo, banner: b.banner, website: b.website, city: b.address.city, kvk: b.registrationNumber, idLabel: region(b.country ?? 'NL').businessId.label, since: b.reviewedAt ?? b.createdAt };
 }
 
 export function setPayoutSchedule(schedule: Business['payoutSchedule']) {
@@ -162,7 +169,7 @@ export function createPaymentLink(title: string, amountCents: number) {
   const b = find(db.businesses, (x) => x.ownerId === user.id, 'Business');
   assert(b.status === 'verified', 'forbidden', 'Payment links are available once your business is verified');
   assert(title.trim().length >= 2, 'invalid', 'Give the link a name');
-  assert(Number.isInteger(amountCents) && amountCents >= 100, 'invalid', 'Minimum amount is €1.00');
+  assert(Number.isInteger(amountCents) && amountCents >= 100, 'invalid', `Minimum amount is ${fmtMoney(100)}`);
   const link = { id: uid('pl'), businessId: b.id, title: title.trim(), amountCents, active: true, payments: 0, createdAt: now() };
   db.paymentLinks.push(link);
   commit();
@@ -213,7 +220,7 @@ export function payCheckout(linkId: ID, method: PayMethod) {
     });
     completePayment(tx);
     link.payments += 1;
-    notify(b.ownerId, 'business', 'Payment received', `€${(link.amountCents / 100).toFixed(2)} · ${link.title}`, '/business/merchant');
+    notify(b.ownerId, 'business', 'Payment received', `${fmtMoney(link.amountCents)} · ${link.title}`, '/business/merchant');
     commit();
     return tx.id;
   } catch (e) {
@@ -243,6 +250,6 @@ export function refundMerchantPayment(txId: ID) {
   assert(available >= credited, 'insufficient_funds', 'Not enough balance to refund this payment');
   refundTransaction(txId, 'Refunded by merchant');
   const payer = db.accounts.find((a) => a.id === tx.fromAccountId)?.ownerId;
-  if (payer) notify(payer, 'refund', 'Refund received', `${displayName(user.id)} refunded €${(tx.amountCents / 100).toFixed(2)}.`, `/pay/tx/${tx.id}`);
+  if (payer) notify(payer, 'refund', 'Refund received', `${displayName(user.id)} refunded ${fmtMoney(tx.amountCents)}.`, `/pay/tx/${tx.id}`);
   commit();
 }

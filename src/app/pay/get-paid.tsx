@@ -69,7 +69,7 @@ export default function GetPaid() {
   const charge = () => {
     if (cents < 50) {
       shake.shake();
-      setError('Enter at least €0.50');
+      setError(`Enter at least ${money(50)}`);
       return;
     }
     run(() => tapApi.createCharge(cents, note), {

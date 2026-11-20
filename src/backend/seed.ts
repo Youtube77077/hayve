@@ -16,7 +16,7 @@ import type {
   User,
 } from './types';
 
-export const DB_VERSION = 8;
+export const DB_VERSION = 9;
 export const DEMO_PASSWORD = 'hayve123';
 
 export const DEMO_ACCOUNTS = [
@@ -96,13 +96,14 @@ export function defaultProfile(userId: string, username: string, displayName: st
     username,
     displayName,
     bio: '',
-    city: 'Amsterdam',
+    city: 'New York',
+    country: 'US',
     accountType: 'individual',
     isPublic: true,
     wishlistVisibility: 'public',
     wishlistToken: Math.random().toString(36).slice(2, 12),
     language: 'en',
-    currency: 'EUR',
+    currency: 'USD',
     notificationPrefs: allPrefs(),
     twoFactor: false,
   };
@@ -119,20 +120,20 @@ export function createSeedDatabase(): Database {
   /* ---------------------------------------------------------- people -- */
   type Person = [id: string, email: string, username: string, name: string, roles: Role[], avatar: string, bio: string, extra?: Partial<Profile>];
   const people: Person[] = [
-    ['u_sam', 'sam@hayve.app', 'samrivera', 'Sam Rivera', ['customer', 'seller'], media.avatars.sam, 'Designer in Amsterdam. Selling what I no longer use, buying what I love.'],
-    ['u_noor', 'noor@hayve.app', 'noor', 'Noor Haddad', ['customer'], media.avatars.noor, 'Coffee, film cameras and long walks along the Amstel. My wishlist is public.'],
-    ['u_lucas', 'lucas@hayve.app', 'lucasv', 'Lucas Vermeer', ['customer', 'seller'], media.avatars.lucas, 'Vinyl, audio and vintage tech. Ships within 48h.'],
-    ['u_ines', 'ines@hayve.app', 'ines.vintage', 'Inès Laurent', ['customer', 'seller'], media.avatars.ines, 'Curated vintage fashion from Paris & Amsterdam.'],
-    ['u_marco', 'marco@hayve.app', 'marco.kitchen', 'Marco Rossi', ['customer', 'kitchen'], media.avatars.marco, 'Chef-owner. Napoli Forno & Green Ritual.', { accountType: 'business' }],
-    ['u_mila', 'mila@hayve.app', 'mila.stays', 'Mila Jansen', ['customer', 'host'], media.avatars.mila, 'Superhost. Canal homes and cars for city escapes.'],
-    ['u_daan', 'daan@hayve.app', 'daan', 'Daan de Boer', ['customer', 'driver'], media.avatars.daan, 'Hayve Driver since 2025.'],
-    ['u_yara', 'yara@hayve.app', 'yara', 'Yara Bakker', ['customer', 'courier'], media.avatars.yara, 'E-bike courier, Amsterdam centre.'],
-    ['u_fatima', 'fatima@hayve.app', 'fatima.drives', 'Fatima El Amrani', ['customer', 'driver'], '', 'Hayve Driver, electric only.'],
-    ['u_ruben', 'ruben@hayve.app', 'ruben.v', 'Ruben Visser', ['customer', 'driver'], '', 'Hayve Driver, Comfort.'],
-    ['u_kemal', 'kemal@hayve.app', 'kemal', 'Kemal Yilmaz', ['customer', 'driver'], '', 'Hayve Driver, XL and airport runs.'],
-    ['u_sophie', 'sophie@hayve.app', 'sophiedw', 'Sophie de Wit', ['customer', 'driver'], '', 'Hayve Driver, evenings.'],
-    ['u_eva', 'eva@hayve.app', 'evasmit', 'Eva Smit', ['customer', 'seller'], media.avatars.eva, 'Home & interiors lover.'],
-    ['u_jonas', 'jonas@hayve.app', 'jonas', 'Jonas Kramer', ['customer'], media.avatars.jonas, 'Private account.', { isPublic: false, wishlistVisibility: 'private' }],
+    ['u_sam', 'sam@hayve.app', 'samrivera', 'Sam Rivera', ['customer', 'seller'], media.avatars.sam, 'Designer in Brooklyn. Selling what I no longer use, buying what I love.', { country: 'US', city: 'New York', currency: 'USD' }],
+    ['u_noor', 'noor@hayve.app', 'noor', 'Noor Haddad', ['customer'], media.avatars.noor, 'Coffee, film cameras and long walks along the Thames. My wishlist is public.', { country: 'GB', city: 'London', currency: 'GBP' }],
+    ['u_lucas', 'lucas@hayve.app', 'lucasv', 'Lucas Vermeer', ['customer', 'seller'], media.avatars.lucas, 'Vinyl, audio and vintage tech. Ships within 48h.', { country: 'NL', city: 'Amsterdam', currency: 'EUR' }],
+    ['u_ines', 'ines@hayve.app', 'ines.vintage', 'Inès Laurent', ['customer', 'seller'], media.avatars.ines, 'Curated vintage fashion from Paris.', { country: 'FR', city: 'Paris', currency: 'EUR' }],
+    ['u_marco', 'marco@hayve.app', 'marco.kitchen', 'Marco Rossi', ['customer', 'kitchen'], media.avatars.marco, 'Chef-owner. Napoli Forno & Green Ritual.', { accountType: 'business', country: 'US', city: 'New York', currency: 'USD' }],
+    ['u_mila', 'mila@hayve.app', 'mila.stays', 'Mila Jansen', ['customer', 'host'], media.avatars.mila, 'Superhost. City homes and cars for weekend escapes.', { country: 'US', city: 'New York', currency: 'USD' }],
+    ['u_daan', 'daan@hayve.app', 'daan', 'Daan de Boer', ['customer', 'driver'], media.avatars.daan, 'Hayve Driver since 2025.', { country: 'US', city: 'New York', currency: 'USD' }],
+    ['u_yara', 'yara@hayve.app', 'yara', 'Yara Bakker', ['customer', 'courier'], media.avatars.yara, 'E-bike courier, Manhattan.', { country: 'US', city: 'New York', currency: 'USD' }],
+    ['u_fatima', 'fatima@hayve.app', 'fatima.drives', 'Fatima El Amrani', ['customer', 'driver'], '', 'Hayve Driver, electric only.', { country: 'US', city: 'New York', currency: 'USD' }],
+    ['u_ruben', 'ruben@hayve.app', 'ruben.v', 'Ruben Visser', ['customer', 'driver'], '', 'Hayve Driver, Comfort.', { country: 'US', city: 'New York', currency: 'USD' }],
+    ['u_kemal', 'kemal@hayve.app', 'kemal', 'Kemal Yilmaz', ['customer', 'driver'], '', 'Hayve Driver, XL and airport runs.', { country: 'US', city: 'New York', currency: 'USD' }],
+    ['u_sophie', 'sophie@hayve.app', 'sophiedw', 'Sophie de Wit', ['customer', 'driver'], '', 'Hayve Driver, evenings.', { country: 'US', city: 'New York', currency: 'USD' }],
+    ['u_eva', 'eva@hayve.app', 'evasmit', 'Eva Smit', ['customer', 'seller'], media.avatars.eva, 'Home & interiors lover.', { country: 'IE', city: 'Dublin', currency: 'EUR' }],
+    ['u_jonas', 'jonas@hayve.app', 'jonas', 'Jonas Kramer', ['customer'], media.avatars.jonas, 'Private account.', { isPublic: false, wishlistVisibility: 'private', country: 'DE', city: 'Berlin', currency: 'EUR' }],
   ];
   for (const [id, email, username, name, roles, avatar, bio, extra] of people) {
     const user: User = { id, email, passwordHash: simHash(DEMO_PASSWORD), roles, emailVerified: true, createdAt: ago(400 - db.users.length * 20) };
@@ -141,23 +142,24 @@ export function createSeedDatabase(): Database {
     ensureAccount(id);
   }
 
-  const addr = (id: string, userId: string, fullName: string, line1: string, postcode: string) =>
-    db.addresses.push({ id, userId, label: 'Home', fullName, line1, city: 'Amsterdam', postcode, country: 'Netherlands', isDefault: true });
-  addr('ad_sam', 'u_sam', 'Sam Rivera', 'Cornelis Dirkszoonlaan 51', '1061 AB');
-  addr('ad_noor', 'u_noor', 'Noor Haddad', 'Prinsengracht 412-2', '1016 JA');
-  addr('ad_lucas', 'u_lucas', 'Lucas Vermeer', 'Ferdinand Bolstraat 88', '1072 LN');
-  addr('ad_ines', 'u_ines', 'Inès Laurent', 'Haarlemmerdijk 21', '1013 KA');
-  addr('ad_eva', 'u_eva', 'Eva Smit', 'Javastraat 140', '1095 CJ');
-  addr('ad_jonas', 'u_jonas', 'Jonas Kramer', 'Overtoom 300', '1054 JB');
-  db.addresses.push({ id: 'ad_sam_work', userId: 'u_sam', label: 'Studio', fullName: 'Sam Rivera', line1: 'Reijnier Vinkeleskade 62', city: 'Amsterdam', postcode: '1071 SZ', country: 'Netherlands', isDefault: false });
+  const addr = (id: string, userId: string, fullName: string, line1: string, city: string, postcode: string, country: string) =>
+    db.addresses.push({ id, userId, label: 'Home', fullName, line1, city, postcode, country, isDefault: true });
+  addr('ad_sam', 'u_sam', 'Sam Rivera', '245 Bedford Ave, Apt 3B', 'Brooklyn, NY', '11211', 'United States');
+  addr('ad_noor', 'u_noor', 'Noor Haddad', '18 Columbia Road', 'London', 'E2 7NN', 'United Kingdom');
+  addr('ad_lucas', 'u_lucas', 'Lucas Vermeer', 'Ferdinand Bolstraat 88', 'Amsterdam', '1072 LN', 'Netherlands');
+  addr('ad_ines', 'u_ines', 'Inès Laurent', '21 Rue de Bretagne', 'Paris', '75003', 'France');
+  addr('ad_eva', 'u_eva', 'Eva Smit', '14 Camden Street Lower', 'Dublin', 'D02 XY12', 'Ireland');
+  addr('ad_jonas', 'u_jonas', 'Jonas Kramer', 'Kastanienallee 30', 'Berlin', '10435', 'Germany');
+  db.addresses.push({ id: 'ad_sam_work', userId: 'u_sam', label: 'Studio', fullName: 'Sam Rivera', line1: '55 Washington St, Suite 400', city: 'Brooklyn, NY', postcode: '11201', country: 'United States', isDefault: false });
 
   db.paymentMethods.push(
     { id: 'pm_sam_card', userId: 'u_sam', kind: 'card', label: 'Visa', brand: 'Visa', last4: '4242', funding: 'debit', expiry: '08/28', isDefault: true, createdAt: ago(200) },
-    { id: 'pm_sam_bank', userId: 'u_sam', kind: 'bank', label: 'ABN AMRO •••• 4300', last4: '4300', bank: 'ABN AMRO', connection: 'ideal_wero', isDefault: false, createdAt: ago(200) },
+    { id: 'pm_sam_bank', userId: 'u_sam', kind: 'bank', label: 'Chase •••• 4300', last4: '4300', bank: 'Chase', connection: 'instant', rail: 'ach', isDefault: false, createdAt: ago(200) },
     { id: 'pm_noor_card', userId: 'u_noor', kind: 'card', label: 'Mastercard', brand: 'Mastercard', last4: '5100', funding: 'credit', expiry: '11/27', isDefault: true, createdAt: ago(120) },
   );
 
   /* -------------------------------------------------------- products -- */
+  const SELLER_CITY: Record<string, string> = { u_sam: 'Brooklyn, New York', u_lucas: 'Amsterdam', u_ines: 'Paris', u_eva: 'Dublin', u_noor: 'London' };
   const pr = (
     id: string,
     sellerId: string,
@@ -180,7 +182,7 @@ export function createSeedDatabase(): Database {
       images,
       quantity: 1,
       status: 'active',
-      location: 'Amsterdam',
+      location: SELLER_CITY[sellerId] ?? 'New York',
       createdAt: ago(Math.floor(Math.random() * 30), Math.floor(Math.random() * 20)),
       ...extra,
     });
@@ -200,7 +202,7 @@ export function createSeedDatabase(): Database {
   pr('p_tee', 'u_ines', 'Heavyweight organic tee (3-pack)', 30, 'fashion', 'new_with_tags', [P.tshirt], 'White, size L. Unopened pack.', { brand: 'Arket', size: 'L', quantity: 4 });
   pr('p_watch', 'u_eva', 'Minimal automatic watch', 260, 'accessories', 'very_good', [P.watch], 'Sapphire crystal, 38mm, serviced in 2025. Box and papers.', { brand: 'Junghans' });
   pr('p_smartwatch', 'u_eva', 'Smartwatch with sport band', 160, 'electronics', 'good', [P.smartwatch], 'Battery health 92%. Charger included.', { brand: 'Apple' });
-  pr('p_sofa', 'u_eva', 'Velvet 3-seater sofa, emerald', 420, 'home', 'very_good', [P.sofa], 'Pickup in Amsterdam Oost or Hayve Send XL delivery. Pet-free, smoke-free home.', { brand: 'Made.com' });
+  pr('p_sofa', 'u_eva', 'Velvet 3-seater sofa, emerald', 420, 'home', 'very_good', [P.sofa], 'Pickup in Dublin 2 or Hayve Send XL delivery. Pet-free, smoke-free home.', { brand: 'Made.com' });
   pr('p_chair', 'u_eva', 'Mid-century lounge chair', 180, 'home', 'good', [P.chair], 'Teak frame, reupholstered seat.', { brand: 'Vintage' });
   pr('p_lamp', 'u_eva', 'Brass table lamp', 45, 'home', 'very_good', [P.lamp], 'Warm, dimmable, E27 bulb included.', { brand: 'HAY' });
   pr('p_plant', 'u_eva', 'Monstera in ceramic pot', 25, 'home', 'very_good', [P.plant], 'Healthy 80cm Monstera with 9 leaves. Pickup only.', { quantity: 2 });
@@ -290,7 +292,7 @@ export function createSeedDatabase(): Database {
       sellerId: 'u_lucas',
       buyerId: 'u_sam',
       recipientId: 'u_sam',
-      shipTo: { fullName: 'Sam Rivera', line1: 'Cornelis Dirkszoonlaan 51', city: 'Amsterdam', postcode: '1061 AB', country: 'Netherlands' },
+      shipTo: { fullName: 'Sam Rivera', line1: '245 Bedford Ave, Apt 3B', city: 'Brooklyn, NY', postcode: '11211', country: 'United States' },
       delivery: 'ship',
       shipment: { carrier: 'Hayve Send', trackingCode: 'HX-8KQ2PZ', labelCreatedAt: ago(8, 2), events: [{ status: 'label_created', at: ago(8, 2) }, { status: 'in_transit', at: ago(8) }, { status: 'delivered', at: ago(6) }] },
       priceCents: price,
@@ -318,20 +320,21 @@ export function createSeedDatabase(): Database {
     online: true,
     rating: 4.92,
     trips: 1284,
-    location: { lng: 4.9045, lat: 52.3731, at: t0 },
+    demo: true,
+    location: { lng: -73.9681, lat: 40.7128, at: t0 },
   });
   // More drivers around the centre so dispatch can rank them by distance and pickup time.
   db.drivers.push(
-    { userId: 'u_fatima', vehicle: { make: 'Tesla', model: 'Model 3', color: 'White', plate: 'J-118-XR', category: 'green' }, licenseNumber: 'NL-6620194', online: true, rating: 4.95, trips: 2210, location: { lng: 4.8897, lat: 52.3702, at: t0 } },
-    { userId: 'u_ruben', vehicle: { make: 'Mercedes-Benz', model: 'E-Class', color: 'Black', plate: 'S-904-NK', category: 'comfort' }, licenseNumber: 'NL-7712055', online: true, rating: 4.9, trips: 980, location: { lng: 4.8834, lat: 52.3584, at: t0 } },
-    { userId: 'u_kemal', vehicle: { make: 'Volkswagen', model: 'Touran', color: 'Silver', plate: 'V-227-TB', category: 'xl' }, licenseNumber: 'NL-5530981', online: true, rating: 4.87, trips: 1730, location: { lng: 4.9234, lat: 52.3588, at: t0 } },
-    { userId: 'u_sophie', vehicle: { make: 'Kia', model: 'Niro EV', color: 'Blue', plate: 'K-561-PD', category: 'green' }, licenseNumber: 'NL-8841207', online: true, rating: 4.93, trips: 640, location: { lng: 4.9412, lat: 52.3664, at: t0 } },
+    { userId: 'u_fatima', vehicle: { make: 'Tesla', model: 'Model 3', color: 'White', plate: 'J-118-XR', category: 'green' }, licenseNumber: 'NL-6620194', online: true, rating: 4.95, trips: 2210, location: { lng: -73.9442, lat: 40.7081, at: t0 }, demo: true },
+    { userId: 'u_ruben', vehicle: { make: 'Mercedes-Benz', model: 'E-Class', color: 'Black', plate: 'S-904-NK', category: 'comfort' }, licenseNumber: 'NL-7712055', online: true, rating: 4.9, trips: 980, location: { lng: -73.9903, lat: 40.7195, at: t0 }, demo: true },
+    { userId: 'u_kemal', vehicle: { make: 'Volkswagen', model: 'Touran', color: 'Silver', plate: 'V-227-TB', category: 'xl' }, licenseNumber: 'NL-5530981', online: true, rating: 4.87, trips: 1730, location: { lng: -73.9396, lat: 40.7306, at: t0 }, demo: true },
+    { userId: 'u_sophie', vehicle: { make: 'Kia', model: 'Niro EV', color: 'Blue', plate: 'K-561-PD', category: 'green' }, licenseNumber: 'NL-8841207', online: true, rating: 4.93, trips: 640, location: { lng: -73.9776, lat: 40.6895, at: t0 }, demo: true },
   );
   db.couriers.push({ userId: 'u_yara', vehicle: 'e-bike', online: true, rating: 4.97, jobs: 860 });
 
-  const rideAt = (id: string, p: number, d: number, eur: number, days: number) => {
-    const pickup = PLACES[p];
-    const dropoff = PLACES[d];
+  const rideAt = (id: string, p: string, d: string, eur: number, days: number) => {
+    const pickup = PLACES.find((x) => x.id === p)!;
+    const dropoff = PLACES.find((x) => x.id === d)!;
     const tx = createTransaction({
       type: 'ride',
       fromAccountId: accountIdFor('u_sam'),
@@ -364,21 +367,21 @@ export function createSeedDatabase(): Database {
       timeline: [{ status: 'completed', at: ago(days) }],
     });
   };
-  rideAt('r_seed_1', 13, 0, 18.4, 3);
-  rideAt('r_seed_2', 0, 12, 41.9, 12);
+  rideAt('r_seed_1', 'home', 'grand_central', 18.4, 3);
+  rideAt('r_seed_2', 'grand_central', 'jfk', 41.9, 12);
 
   /* ------------------------------------------------------- restaurants -- */
   const F = media.food;
   const rest = (r: Omit<Restaurant, 'createdAt' | 'ownerId'> & { ownerId?: string }) =>
     db.restaurants.push({ ownerId: 'u_marco', createdAt: ago(100), ...r });
-  rest({ id: 'rs_napoli', name: 'Napoli Forno', cuisine: 'Pizza · Italian', description: 'Wood-fired Neapolitan pizza with 48-hour dough.', image: F.pizza, logoColor: '#E4572E', rating: 4.7, ratingCount: 1240, deliveryFeeCents: 199, minOrderCents: 1200, etaMin: 25, priceLevel: 2, tags: ['Pizza', 'Italian', 'Vegetarian'], address: 'Ferdinand Bolstraat 12', isOpen: true, isGrocery: false, promo: '2 for 1 Margherita' });
-  rest({ id: 'rs_green', name: 'Green Ritual', cuisine: 'Bowls · Healthy', description: 'Seasonal bowls, salads and cold-pressed juice.', image: F.bowl, logoColor: '#3E8E41', rating: 4.8, ratingCount: 860, deliveryFeeCents: 149, minOrderCents: 1000, etaMin: 20, priceLevel: 2, tags: ['Healthy', 'Vegan', 'Salads'], address: 'Utrechtsestraat 44', isOpen: true, isGrocery: false });
-  rest({ id: 'rs_smash', name: 'Smash & Co', cuisine: 'Burgers · American', description: 'Double smash burgers, crinkle fries, thick shakes.', image: F.burger, logoColor: '#1B1B1B', rating: 4.5, ratingCount: 2210, deliveryFeeCents: 199, minOrderCents: 1200, etaMin: 30, priceLevel: 2, tags: ['Burgers', 'Fries'], address: 'Overtoom 141', isOpen: true, isGrocery: false, promo: 'Free fries over €20', ownerId: 'u_lucas' });
-  rest({ id: 'rs_baan', name: 'Baan Thai Kitchen', cuisine: 'Thai', description: 'Family recipes from Chiang Mai. Spice levels on request.', image: F.thai, logoColor: '#C2185B', rating: 4.9, ratingCount: 512, deliveryFeeCents: 200, minOrderCents: 1500, etaMin: 35, priceLevel: 2, tags: ['Thai', 'Noodles', 'Spicy'], address: 'Albert Cuypstraat 70', isOpen: true, isGrocery: false, ownerId: 'u_eva' });
-  rest({ id: 'rs_sora', name: 'Sora Sushi', cuisine: 'Sushi · Japanese', description: 'Omakase-inspired sushi sets and poke.', image: F.sushi, logoColor: '#263238', rating: 4.6, ratingCount: 940, deliveryFeeCents: 299, minOrderCents: 2000, etaMin: 40, priceLevel: 3, tags: ['Sushi', 'Japanese', 'Poke'], address: 'Van Baerlestraat 9', isOpen: true, isGrocery: false, ownerId: 'u_eva' });
-  rest({ id: 'rs_spice', name: 'Spice Route', cuisine: 'Indian · Curry', description: 'Tandoor, biryani and slow-cooked curries.', image: F.curry, logoColor: '#F57C00', rating: 4.4, ratingCount: 670, deliveryFeeCents: 149, minOrderCents: 1500, etaMin: 35, priceLevel: 1, tags: ['Indian', 'Curry', 'Vegetarian'], address: 'Javastraat 55', isOpen: false, isGrocery: false, ownerId: 'u_eva' });
-  rest({ id: 'rs_bakkerij', name: 'Bakkerij Noord', cuisine: 'Bakery · Breakfast', description: 'Sourdough, croissants and specialty coffee.', image: F.bakery, logoColor: '#8D6E63', rating: 4.8, ratingCount: 430, deliveryFeeCents: 99, minOrderCents: 800, etaMin: 15, priceLevel: 1, tags: ['Bakery', 'Breakfast', 'Coffee'], address: 'Buiksloterweg 3', isOpen: true, isGrocery: false });
-  rest({ id: 'rs_market', name: 'Hayve Market', cuisine: 'Groceries · 15 min', description: 'Fresh groceries and essentials delivered in minutes.', image: F.groceries, logoColor: '#3A1FD1', rating: 4.7, ratingCount: 3100, deliveryFeeCents: 0, minOrderCents: 1000, etaMin: 15, priceLevel: 1, tags: ['Groceries', 'Essentials'], address: 'Hayve hub, Amsterdam Oost', isOpen: true, isGrocery: true, promo: 'Free delivery' });
+  rest({ id: 'rs_napoli', name: 'Napoli Forno', cuisine: 'Pizza · Italian', description: 'Wood-fired Neapolitan pizza with 48-hour dough.', image: F.pizza, logoColor: '#E4572E', rating: 4.7, ratingCount: 1240, deliveryFeeCents: 199, minOrderCents: 1200, etaMin: 25, priceLevel: 2, tags: ['Pizza', 'Italian', 'Vegetarian'], address: '212 Bedford Ave, Brooklyn', isOpen: true, isGrocery: false, promo: '2 for 1 Margherita' });
+  rest({ id: 'rs_green', name: 'Green Ritual', cuisine: 'Bowls · Healthy', description: 'Seasonal bowls, salads and cold-pressed juice.', image: F.bowl, logoColor: '#3E8E41', rating: 4.8, ratingCount: 860, deliveryFeeCents: 149, minOrderCents: 1000, etaMin: 20, priceLevel: 2, tags: ['Healthy', 'Vegan', 'Salads'], address: '88 N 6th St, Brooklyn', isOpen: true, isGrocery: false });
+  rest({ id: 'rs_smash', name: 'Smash & Co', cuisine: 'Burgers · American', description: 'Double smash burgers, crinkle fries, thick shakes.', image: F.burger, logoColor: '#1B1B1B', rating: 4.5, ratingCount: 2210, deliveryFeeCents: 199, minOrderCents: 1200, etaMin: 30, priceLevel: 2, tags: ['Burgers', 'Fries'], address: '301 Grand St, Brooklyn', isOpen: true, isGrocery: false, promo: 'Free fries over €20', ownerId: 'u_lucas' });
+  rest({ id: 'rs_baan', name: 'Baan Thai Kitchen', cuisine: 'Thai', description: 'Family recipes from Chiang Mai. Spice levels on request.', image: F.thai, logoColor: '#C2185B', rating: 4.9, ratingCount: 512, deliveryFeeCents: 200, minOrderCents: 1500, etaMin: 35, priceLevel: 2, tags: ['Thai', 'Noodles', 'Spicy'], address: '145 Ludlow St, New York', isOpen: true, isGrocery: false, ownerId: 'u_eva' });
+  rest({ id: 'rs_sora', name: 'Sora Sushi', cuisine: 'Sushi · Japanese', description: 'Omakase-inspired sushi sets and poke.', image: F.sushi, logoColor: '#263238', rating: 4.6, ratingCount: 940, deliveryFeeCents: 299, minOrderCents: 2000, etaMin: 40, priceLevel: 3, tags: ['Sushi', 'Japanese', 'Poke'], address: '61 Greenpoint Ave, Brooklyn', isOpen: true, isGrocery: false, ownerId: 'u_eva' });
+  rest({ id: 'rs_spice', name: 'Spice Route', cuisine: 'Indian · Curry', description: 'Tandoor, biryani and slow-cooked curries.', image: F.curry, logoColor: '#F57C00', rating: 4.4, ratingCount: 670, deliveryFeeCents: 149, minOrderCents: 1500, etaMin: 35, priceLevel: 1, tags: ['Indian', 'Curry', 'Vegetarian'], address: '402 Graham Ave, Brooklyn', isOpen: false, isGrocery: false, ownerId: 'u_eva' });
+  rest({ id: 'rs_bakkerij', name: 'North Bakery', cuisine: 'Bakery · Breakfast', description: 'Sourdough, croissants and specialty coffee.', image: F.bakery, logoColor: '#8D6E63', rating: 4.8, ratingCount: 430, deliveryFeeCents: 99, minOrderCents: 800, etaMin: 15, priceLevel: 1, tags: ['Bakery', 'Breakfast', 'Coffee'], address: '19 Driggs Ave, Brooklyn', isOpen: true, isGrocery: false });
+  rest({ id: 'rs_market', name: 'Hayve Market', cuisine: 'Groceries · 15 min', description: 'Fresh groceries and essentials delivered in minutes.', image: F.groceries, logoColor: '#3A1FD1', rating: 4.7, ratingCount: 3100, deliveryFeeCents: 0, minOrderCents: 1000, etaMin: 15, priceLevel: 1, tags: ['Groceries', 'Essentials'], address: 'Hayve hub, Williamsburg', isOpen: true, isGrocery: true, promo: 'Free delivery' });
 
   let mi = 0;
   const item = (restaurantId: string, category: string, name: string, eur: number, description: string, extra: Partial<MenuItem> = {}) =>
@@ -446,7 +449,7 @@ export function createSeedDatabase(): Database {
       deliveryFeeCents: 199,
       serviceFeeCents: 149,
       totalCents: 2848,
-      address: 'Cornelis Dirkszoonlaan 51',
+      address: '245 Bedford Ave, Apt 3B, Brooklyn',
       note: '',
       status: 'delivered',
       paymentTxId: tx.id,
@@ -461,14 +464,14 @@ export function createSeedDatabase(): Database {
   const veh = (v: Omit<RentalVehicle, 'createdAt' | 'blockedDates' | 'listed' | 'hostId'> & { hostId?: string }) =>
     db.vehicles.push({ hostId: 'u_mila', createdAt: ago(60), blockedDates: [], listed: true, ...v });
   const req = (minAge: number, licenseYears: number, deposit: number) => ({ minAge, licenseYears, depositCents: deposit * 100 });
-  veh({ id: 'v_tesla3', make: 'Tesla', model: 'Model 3 Long Range', year: 2024, type: 'electric', seats: 5, doors: 4, transmission: 'automatic', fuel: 'electric', rangeKm: 600, pricePerDayCents: 8900, images: [C.tesla, C.interior], location: 'Amsterdam Zuid', features: ['Autopilot', 'Heated seats', 'Supercharging included', 'Apple CarPlay'], requirements: req(23, 2, 500), rating: 4.9, trips: 212 });
-  veh({ id: 'v_golf', make: 'Volkswagen', model: 'Golf 1.5 eTSI', year: 2023, type: 'compact', seats: 5, doors: 5, transmission: 'automatic', fuel: 'petrol', pricePerDayCents: 4900, images: [C.compact, C.interior], location: 'Amsterdam Centraal', features: ['Bluetooth', 'Parking sensors', 'Cruise control'], requirements: req(21, 1, 300), rating: 4.8, trips: 340 });
-  veh({ id: 'v_rav4', make: 'Toyota', model: 'RAV4 Hybrid AWD', year: 2023, type: 'suv', seats: 5, doors: 5, transmission: 'automatic', fuel: 'hybrid', pricePerDayCents: 7400, images: [C.suv, C.interior], location: 'Schiphol Airport', features: ['AWD', 'Roof rails', 'Large boot', 'Child seat on request'], requirements: req(23, 2, 400), rating: 4.7, trips: 156 });
-  veh({ id: 'v_ev6', make: 'Kia', model: 'EV6 GT-Line', year: 2024, type: 'electric', seats: 5, doors: 5, transmission: 'automatic', fuel: 'electric', rangeKm: 520, pricePerDayCents: 7900, images: [C.electric, C.interior], location: 'Amsterdam Oost', features: ['800V fast charging', 'Head-up display', 'Panoramic roof'], requirements: req(23, 2, 500), rating: 4.9, trips: 88 });
-  veh({ id: 'v_bmw3', make: 'BMW', model: '330e Touring', year: 2022, type: 'sedan', seats: 5, doors: 5, transmission: 'automatic', fuel: 'hybrid', pricePerDayCents: 8400, images: [C.bmw, C.interior], location: 'Amsterdam Zuid', features: ['Plug-in hybrid', 'Navigation', 'Leather'], requirements: req(25, 3, 600), rating: 4.8, trips: 120, hostId: 'u_lucas' });
-  veh({ id: 'v_mustang', make: 'Ford', model: 'Mustang Convertible', year: 2021, type: 'luxury', seats: 4, doors: 2, transmission: 'automatic', fuel: 'petrol', pricePerDayCents: 15900, images: [C.mustang], location: 'Amsterdam Centraal', features: ['Convertible', 'V8', 'Premium audio'], requirements: req(25, 5, 1500), rating: 4.9, trips: 41 });
-  veh({ id: 'v_van', make: 'Mercedes-Benz', model: 'Vito Tourer (9 seats)', year: 2022, type: 'van', seats: 9, doors: 4, transmission: 'manual', fuel: 'diesel', pricePerDayCents: 11900, images: [C.van], location: 'Amsterdam Noord', features: ['9 seats', 'Tow bar', 'Dual climate'], requirements: req(25, 3, 800), rating: 4.6, trips: 64 });
-  veh({ id: 'v_porsche', make: 'Porsche', model: '911 Carrera', year: 2020, type: 'luxury', seats: 4, doors: 2, transmission: 'automatic', fuel: 'petrol', pricePerDayCents: 34900, images: [C.porsche], location: 'Amsterdam Zuid', features: ['Sport Chrono', 'Bose audio'], requirements: req(30, 8, 3000), rating: 5, trips: 19 });
+  veh({ id: 'v_tesla3', make: 'Tesla', model: 'Model 3 Long Range', year: 2024, type: 'electric', seats: 5, doors: 4, transmission: 'automatic', fuel: 'electric', rangeKm: 600, pricePerDayCents: 8900, images: [C.tesla, C.interior], location: "Manhattan, New York", features: ['Autopilot', 'Heated seats', 'Supercharging included', 'Apple CarPlay'], requirements: req(23, 2, 500), rating: 4.9, trips: 212 });
+  veh({ id: 'v_golf', make: 'Volkswagen', model: 'Golf 1.5 eTSI', year: 2023, type: 'compact', seats: 5, doors: 5, transmission: 'automatic', fuel: 'petrol', pricePerDayCents: 4900, images: [C.compact, C.interior], location: "Brooklyn, New York", features: ['Bluetooth', 'Parking sensors', 'Cruise control'], requirements: req(21, 1, 300), rating: 4.8, trips: 340 });
+  veh({ id: 'v_rav4', make: 'Toyota', model: 'RAV4 Hybrid AWD', year: 2023, type: 'suv', seats: 5, doors: 5, transmission: 'automatic', fuel: 'hybrid', pricePerDayCents: 7400, images: [C.suv, C.interior], location: "JFK Airport", features: ['AWD', 'Roof rails', 'Large boot', 'Child seat on request'], requirements: req(23, 2, 400), rating: 4.7, trips: 156 });
+  veh({ id: 'v_ev6', make: 'Kia', model: 'EV6 GT-Line', year: 2024, type: 'electric', seats: 5, doors: 5, transmission: 'automatic', fuel: 'electric', rangeKm: 520, pricePerDayCents: 7900, images: [C.electric, C.interior], location: "LAX Airport", features: ['800V fast charging', 'Head-up display', 'Panoramic roof'], requirements: req(23, 2, 500), rating: 4.9, trips: 88 });
+  veh({ id: 'v_bmw3', make: 'BMW', model: '330e Touring', year: 2022, type: 'sedan', seats: 5, doors: 5, transmission: 'automatic', fuel: 'hybrid', pricePerDayCents: 8400, images: [C.bmw, C.interior], location: "King's Cross, London", features: ['Plug-in hybrid', 'Navigation', 'Leather'], requirements: req(25, 3, 600), rating: 4.8, trips: 120, hostId: 'u_lucas' });
+  veh({ id: 'v_mustang', make: 'Ford', model: 'Mustang Convertible', year: 2021, type: 'luxury', seats: 4, doors: 2, transmission: 'automatic', fuel: 'petrol', pricePerDayCents: 15900, images: [C.mustang], location: "Santa Monica, Los Angeles", features: ['Convertible', 'V8', 'Premium audio'], requirements: req(25, 5, 1500), rating: 4.9, trips: 41 });
+  veh({ id: 'v_van', make: 'Mercedes-Benz', model: 'Vito Tourer (9 seats)', year: 2022, type: 'van', seats: 9, doors: 4, transmission: 'manual', fuel: 'diesel', pricePerDayCents: 11900, images: [C.van], location: "Dublin Airport", features: ['9 seats', 'Tow bar', 'Dual climate'], requirements: req(25, 3, 800), rating: 4.6, trips: 64 });
+  veh({ id: 'v_porsche', make: 'Porsche', model: '911 Carrera', year: 2020, type: 'luxury', seats: 4, doors: 2, transmission: 'automatic', fuel: 'petrol', pricePerDayCents: 34900, images: [C.porsche], location: "Amsterdam Centraal", features: ['Sport Chrono', 'Bose audio'], requirements: req(30, 8, 3000), rating: 5, trips: 19 });
 
   /* -------------------------------------------------------- properties -- */
   const S = media.stays;
@@ -476,9 +479,9 @@ export function createSeedDatabase(): Database {
     db.properties.push({ hostId: 'u_mila', createdAt: ago(90), blockedDates: [], listed: true, ...p });
   prop({ id: 'st_canal', title: 'Canal house apartment with garden', type: 'apartment', city: 'Amsterdam', country: 'Netherlands', neighbourhood: 'Grachtengordel', description: 'A bright two-bedroom apartment in a 17th-century canal house. Original beams, a private garden and a five-minute walk to the Nine Streets. Fast Wi-Fi and a dedicated workspace.', pricePerNightCents: 24500, cleaningFeeCents: 6000, guests: 4, bedrooms: 2, beds: 2, baths: 1, amenities: ['Wi-Fi', 'Kitchen', 'Garden', 'Washer', 'Workspace', 'Heating'], images: [S.canal, S.living, S.bedroom, S.kitchen], rating: 4.96, reviewCount: 214, instantBook: true });
   prop({ id: 'st_jordaan', title: 'Sunny studio in the Jordaan', type: 'studio', city: 'Amsterdam', country: 'Netherlands', neighbourhood: 'Jordaan', description: 'Compact, design-led studio above a florist. Queen bed, rain shower and a sunny window seat overlooking the Westerkerk.', pricePerNightCents: 13900, cleaningFeeCents: 3500, guests: 2, bedrooms: 1, beds: 1, baths: 1, amenities: ['Wi-Fi', 'Kitchenette', 'Heating', 'Coffee maker'], images: [S.apartment, S.bedroom, S.bathroom], rating: 4.88, reviewCount: 389, instantBook: true });
-  prop({ id: 'st_pijp', title: 'Private room near Albert Cuyp', type: 'room', city: 'Amsterdam', country: 'Netherlands', neighbourhood: 'De Pijp', description: 'A calm private room in a shared flat with a friendly host. Steps from the market, cafés and the Noord-Zuid metro.', pricePerNightCents: 7900, cleaningFeeCents: 1500, guests: 1, bedrooms: 1, beds: 1, baths: 1, amenities: ['Wi-Fi', 'Shared kitchen', 'Heating'], images: [S.bedroom, S.interior], rating: 4.79, reviewCount: 122, instantBook: false, hostId: 'u_eva' });
-  prop({ id: 'st_loft', title: 'Industrial loft at NDSM Wharf', type: 'apartment', city: 'Amsterdam', country: 'Netherlands', neighbourhood: 'Noord', description: 'Double-height loft in a converted shipyard warehouse with river views, free ferry to Centraal.', pricePerNightCents: 19900, cleaningFeeCents: 5000, guests: 3, bedrooms: 1, beds: 2, baths: 1, amenities: ['Wi-Fi', 'Kitchen', 'Free parking', 'Washer', 'River view'], images: [S.loft, S.living, S.kitchen], rating: 4.91, reviewCount: 97, instantBook: true });
-  prop({ id: 'st_beach', title: 'Dune-side beach house, Zandvoort', type: 'house', city: 'Zandvoort', country: 'Netherlands', neighbourhood: 'Zandvoort aan Zee', description: 'Three-bedroom family house 200m from the beach. Garden, BBQ and bikes included. 30 minutes from Amsterdam.', pricePerNightCents: 31000, cleaningFeeCents: 9000, guests: 6, bedrooms: 3, beds: 4, baths: 2, amenities: ['Wi-Fi', 'Kitchen', 'Garden', 'BBQ', 'Free parking', 'Bikes', 'Washer'], images: [S.beach, S.house, S.living], rating: 4.93, reviewCount: 66, instantBook: false });
+  prop({ id: 'st_pijp', title: 'Private room in Williamsburg', type: 'room', city: 'New York', country: 'United States', neighbourhood: 'Williamsburg, Brooklyn', description: 'A calm private room in a shared loft with a friendly host. Steps from cafés, the waterfront and the L train.', pricePerNightCents: 7900, cleaningFeeCents: 1500, guests: 1, bedrooms: 1, beds: 1, baths: 1, amenities: ['Wi-Fi', 'Shared kitchen', 'Heating'], images: [S.bedroom, S.interior], rating: 4.79, reviewCount: 122, instantBook: false, hostId: 'u_eva' });
+  prop({ id: 'st_loft', title: 'Warehouse loft in Shoreditch', type: 'apartment', city: 'London', country: 'United Kingdom', neighbourhood: 'Shoreditch', description: 'Double-height loft in a converted Victorian warehouse, five minutes from the Overground.', pricePerNightCents: 19900, cleaningFeeCents: 5000, guests: 3, bedrooms: 1, beds: 2, baths: 1, amenities: ['Wi-Fi', 'Kitchen', 'Free parking', 'Washer', 'River view'], images: [S.loft, S.living, S.kitchen], rating: 4.91, reviewCount: 97, instantBook: true });
+  prop({ id: 'st_beach', title: 'Beach house in Malibu', type: 'house', city: 'Los Angeles', country: 'United States', neighbourhood: 'Malibu', description: 'Three-bedroom family house 200 ft from the beach. Deck, BBQ and bikes included. 40 minutes from Santa Monica.', pricePerNightCents: 31000, cleaningFeeCents: 9000, guests: 6, bedrooms: 3, beds: 4, baths: 2, amenities: ['Wi-Fi', 'Kitchen', 'Garden', 'BBQ', 'Free parking', 'Bikes', 'Washer'], images: [S.beach, S.house, S.living], rating: 4.93, reviewCount: 66, instantBook: false });
   prop({ id: 'st_lisbon', title: 'Azulejo holiday home in Alfama', type: 'holiday_home', city: 'Lisbon', country: 'Portugal', neighbourhood: 'Alfama', description: 'Traditional tiled home with a roof terrace over the Tagus. Tram 28 at the door.', pricePerNightCents: 16500, cleaningFeeCents: 4500, guests: 4, bedrooms: 2, beds: 3, baths: 1, amenities: ['Wi-Fi', 'Kitchen', 'Terrace', 'Air conditioning'], images: [S.lisbon, S.interior, S.bedroom], rating: 4.85, reviewCount: 158, instantBook: true });
   prop({ id: 'st_paris', title: 'Haussmann apartment, Le Marais', type: 'apartment', city: 'Paris', country: 'France', neighbourhood: 'Le Marais', description: 'Elegant fourth-floor flat with balcony, herringbone floors and marble fireplace.', pricePerNightCents: 28900, cleaningFeeCents: 7000, guests: 4, bedrooms: 2, beds: 2, baths: 2, amenities: ['Wi-Fi', 'Kitchen', 'Elevator', 'Balcony', 'Washer'], images: [S.paris, S.living, S.bedroom], rating: 4.9, reviewCount: 203, instantBook: true, hostId: 'u_ines' });
   prop({ id: 'st_villa', title: 'Modern villa with pool, Costa Brava', type: 'house', city: 'Barcelona', country: 'Spain', neighbourhood: 'Begur', description: 'Architect-designed villa with infinity pool and sea views. Ideal for families and groups.', pricePerNightCents: 52000, cleaningFeeCents: 15000, guests: 8, bedrooms: 4, beds: 5, baths: 3, amenities: ['Wi-Fi', 'Pool', 'Kitchen', 'Air conditioning', 'Free parking', 'Sea view', 'BBQ'], images: [S.villa, S.house2, S.living, S.barcelona], rating: 4.97, reviewCount: 48, instantBook: false });
@@ -496,7 +499,7 @@ export function createSeedDatabase(): Database {
   rv('property', 'st_beach', 'u_eva', 5, 'Kids loved it. Beach is right there.', 120);
   rv('vehicle', 'v_tesla3', 'u_sam', 5, 'Spotless car, easy handover.', 45);
   rv('vehicle', 'v_golf', 'u_noor', 5, 'Great little car for a day trip.', 33);
-  rv('restaurant', 'rs_napoli', 'u_sam', 5, 'Best Margherita in Amsterdam.', 2);
+  rv('restaurant', 'rs_napoli', 'u_sam', 5, 'Best Margherita in the city.', 2);
   rv('restaurant', 'rs_baan', 'u_noor', 5, 'Proper Thai heat. Love it.', 9);
   rv('driver', 'u_daan', 'u_sam', 5, 'Friendly and smooth driving.', 3);
 
@@ -527,6 +530,7 @@ export function createSeedDatabase(): Database {
       id: 'biz_groove',
       ownerId: 'u_lucas',
       legalName: 'Groove Supply B.V.',
+      country: 'NL',
       tradingName: 'Groove Supply',
       category: 'Audio & vinyl',
       registrationNumber: '81234567',
@@ -546,12 +550,13 @@ export function createSeedDatabase(): Database {
     {
       id: 'biz_casa',
       ownerId: 'u_eva',
-      legalName: 'Casa Eva Interiors V.O.F.',
+      legalName: 'Casa Eva Interiors Ltd',
       tradingName: 'Casa Eva',
       category: 'Home & interiors',
-      registrationNumber: '90456123',
-      vatNumber: 'NL004561230B01',
-      address: { line1: 'Javastraat 140', city: 'Amsterdam', postcode: '1095 CJ', country: 'Netherlands' },
+      country: 'IE',
+      registrationNumber: '654321',
+      vatNumber: 'IE6543210T',
+      address: { line1: '14 Camden Street Lower', city: 'Dublin', postcode: 'D02 XY12', country: 'Ireland' },
       website: '',
       description: 'Pre-loved furniture and handmade homeware.',
       ownerIdChecked: true,

@@ -5,6 +5,7 @@ import { session, social } from '../../backend/api';
 import type { NotificationKind } from '../../backend/types';
 import { Button, color, Group, Header, Input, ListRow, Notice, Screen, Section, Select, Sheet, Split, SwitchRow, T } from '../../design';
 import { useAction, useLive } from '../../lib/hooks';
+import { CountrySelect } from '../../features/payments';
 
 const NOTIF: { kind: NotificationKind; label: string }[] = [
   { kind: 'order', label: 'Orders & purchases' },
@@ -87,9 +88,10 @@ export default function Settings() {
                     { key: 'nl', label: 'Nederlands' },
                     { key: 'fr', label: 'Français' },
                     { key: 'de', label: 'Deutsch' },
+                    { key: 'es', label: 'Español' },
                   ]}
                 />
-                <Select label="Currency" value={'EUR'} onChange={() => {}} options={[{ key: 'EUR', label: 'Euro (EUR)', sub: 'More currencies coming soon' }]} />
+                <CountrySelect label="Country and currency" value={p.country} onChange={(country) => run(() => social.updateProfile({ country }), { success: 'Country updated. Prices, banks and IDs now follow it.' })} />
               </View>
             </Section>
           </View>

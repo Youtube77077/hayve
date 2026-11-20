@@ -1,3 +1,4 @@
+import { fmtMoney } from '../regions';
 import { accountIdFor, createTransaction, refundTransaction, releaseTransaction, SYSTEM } from '../ledger';
 import { assert, commit, find, getDb, HayveError, now, uid } from '../store';
 import type { ID, TapPayerMethod, TapPayment } from '../types';
@@ -89,8 +90,8 @@ export function createCharge(amountCents: number, note = ''): ID {
   const db = getDb();
   const st = status();
   assert(st.identityVerified, 'forbidden', 'Verify your identity before your first Tap to Pay payment');
-  assert(Number.isInteger(amountCents) && amountCents >= 50, 'invalid', 'Enter an amount of at least €0.50');
-  assert(amountCents <= st.maxPaymentCents, 'invalid', `The most you can take in one tap is €${(st.maxPaymentCents / 100).toFixed(0)}`);
+  assert(Number.isInteger(amountCents) && amountCents >= 50, 'invalid', `Enter an amount of at least ${fmtMoney(50)}`);
+  assert(amountCents <= st.maxPaymentCents, 'invalid', `The most you can take in one tap is ${fmtMoney(st.maxPaymentCents)}`);
   if (st.monthlyLimitCents != null && st.monthReceivedCents + amountCents > st.monthlyLimitCents) {
     throw new HayveError('forbidden', 'This would go over your monthly limit for personal accounts. Switch to a business account (Hayve Store) to receive more.');
   }
@@ -208,8 +209,8 @@ export function simulateTap(id: ID, tap: SimulatedTap) {
     // Wallets (Apple Pay / Google Pay) may use another card number: offer the QR claim instead.
     t.waveBackClaimable = true;
   }
-  if (t.payerUserId && t.waveBackCents) notify(t.payerUserId, 'payment', 'Wave Back added', `€${(t.waveBackCents / 100).toFixed(2)} for paying ${displayName(user.id)}`, '/pay');
-  notify(user.id, 'payment', 'Payment received', `€${(t.amountCents / 100).toFixed(2)} by ${tx.labelForTo}`, `/pay/tap/${t.id}`);
+  if (t.payerUserId && t.waveBackCents) notify(t.payerUserId, 'payment', 'Wave Back added', `${fmtMoney(t.waveBackCents)} for paying ${displayName(user.id)}`, '/pay');
+  notify(user.id, 'payment', 'Payment received', `${fmtMoney(t.amountCents)} by ${tx.labelForTo}`, `/pay/tap/${t.id}`);
   commit();
   return view(t);
 }
@@ -263,7 +264,7 @@ export function refund(id: ID) {
   t.status = 'refunded';
   t.refundedAt = now();
   audit(user.id, 'tap.refund', t.id);
-  if (t.payerUserId) notify(t.payerUserId, 'refund', 'Payment refunded', `${displayName(user.id)} refunded €${(t.amountCents / 100).toFixed(2)}`, '/pay');
+  if (t.payerUserId) notify(t.payerUserId, 'refund', 'Payment refunded', `${displayName(user.id)} refunded ${fmtMoney(t.amountCents)}`, '/pay');
   commit();
 }
 
@@ -276,7 +277,7 @@ export function sendReceipt(id: ID, to: { username?: string; email?: string }) {
   if (to.username) {
     const p = db.profiles.find((x) => x.username === to.username!.toLowerCase().replace(/^@/, ''));
     assert(p, 'not_found', 'No Hayve user with that username');
-    notify(p.userId, 'payment', `Receipt from ${displayName(user.id)}`, `€${(t.amountCents / 100).toFixed(2)}${t.note ? ` · ${t.note}` : ''}`, `/claim/${t.receiptToken}`);
+    notify(p.userId, 'payment', `Receipt from ${displayName(user.id)}`, `${fmtMoney(t.amountCents)}${t.note ? ` · ${t.note}` : ''}`, `/claim/${t.receiptToken}`);
   } else {
     assert(to.email && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to.email), 'invalid', 'Enter a valid email address');
   }

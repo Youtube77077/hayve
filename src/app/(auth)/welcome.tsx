@@ -31,7 +31,7 @@ export default function Welcome() {
         <View style={{ flexDirection: isWide ? 'row' : 'column', gap: isWide ? 48 : 24, alignItems: isWide ? 'center' : 'stretch', marginTop: isWide ? 48 : 24 }}>
           <View style={{ flex: 1, maxWidth: 560 }}>
             <T variant="subhead" weight="700" color={color.indigo} style={{ marginBottom: 16 }}>
-              Now in Amsterdam
+              In the US, Canada, the UK, Ireland and across Europe
             </T>
             <T weight="800" style={{ fontSize: headline, lineHeight: headline * 1.08, letterSpacing: -1.4 }}>
               One account for everything you need.
@@ -45,7 +45,7 @@ export default function Welcome() {
             </View>
           </View>
           <View style={{ flex: isWide ? 1 : undefined }}>
-            <Photo uri={media.city.amsterdam} style={{ width: '100%', aspectRatio: isWide ? 1.1 : 1.5 }} rounded={radius.lg} icon="location-outline" />
+            <Photo uri={media.city.newYork} style={{ width: '100%', aspectRatio: isWide ? 1.1 : 1.5 }} rounded={radius.lg} icon="location-outline" />
           </View>
         </View>
 

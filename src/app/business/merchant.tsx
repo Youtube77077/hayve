@@ -2,13 +2,14 @@ import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, Share, View } from 'react-native';
-import { business, shop } from '../../backend/api';
+import { regions, business, shop } from '../../backend/api';
 import { media } from '../../backend/media';
 import { Badge, Button, Card, Chip, color, EmptyState, Group, Header, HScroll, Icon, Input, ListRow, Notice, parseEuro, Photo, radius, Screen, Section, Segmented, Sheet, SimQR, Stepper, T, useLayout, useToast, VerifiedMark } from '../../design';
 import { EarningsCard } from '../../features/business';
 import { StatusPill } from '../../features/common';
-import { ago, money, shortDate } from '../../lib/format';
+import { ago, money, shortDate, currencySymbol } from '../../lib/format';
 import { useAction, useLive } from '../../lib/hooks';
+import { useRegion } from '../../features/payments';
 
 /** Hayve Store: verified business accounts. */
 export default function StoreDashboard() {
@@ -22,6 +23,7 @@ export default function StoreDashboard() {
 /* --------------------------------------------------------- application -- */
 
 function Apply({ previous }: { previous: ReturnType<typeof business.myBusiness> }) {
+  const reg = useRegion();
   const [f, setF] = useState({
     legalName: previous?.legalName ?? '',
     tradingName: previous?.tradingName ?? '',
@@ -30,7 +32,7 @@ function Apply({ previous }: { previous: ReturnType<typeof business.myBusiness> 
     vatNumber: previous?.vatNumber ?? '',
     line1: previous?.address.line1 ?? '',
     postcode: previous?.address.postcode ?? '',
-    city: previous?.address.city ?? 'Amsterdam',
+    city: previous?.address.city ?? '',
     website: previous?.website ?? '',
     description: previous?.description ?? '',
   });
@@ -46,12 +48,12 @@ function Apply({ previous }: { previous: ReturnType<typeof business.myBusiness> 
     }, 1200);
   };
   return (
-    <Screen header={<Header back title="Hayve Store" fallback="/business" />} maxWidth={640} keyboard footer={<Button title="Submit for verification" size="lg" full loading={busy} onPress={() => run(() => business.registerBusiness({ ...f, address: { line1: f.line1, postcode: f.postcode, city: f.city, country: 'Netherlands' }, ownerIdChecked: idChecked }), { success: 'Application submitted' })} />}>
+    <Screen header={<Header back title="Hayve Store" fallback="/business" />} maxWidth={640} keyboard footer={<Button title="Submit for verification" size="lg" full loading={busy} onPress={() => run(() => business.registerBusiness({ ...f, countryCode: reg.code, address: { line1: f.line1, postcode: f.postcode, city: f.city, country: reg.name }, ownerIdChecked: idChecked }), { success: 'Application submitted' })} />}>
       <T variant="title2" style={{ marginTop: 8 }}>
         Open a verified Hayve Store
       </T>
       <T color={color.grey500} style={{ marginTop: 6 }}>
-        For registered businesses. Verified stores get a check mark, a "From verified business" label on every listing, a store page, bulk uploads, stock management and VAT invoices.
+        For registered businesses. Verified stores get a check mark, a "From verified business" label on every listing, a store page, bulk uploads, stock management and tax invoices.
       </T>
       {previous?.status === 'rejected' && (
         <View style={{ marginTop: 16 }}>
@@ -60,11 +62,14 @@ function Apply({ previous }: { previous: ReturnType<typeof business.myBusiness> 
       )}
       <Section title="Company">
         <View style={{ gap: 12 }}>
-          <Input label="Legal company name" placeholder="Studio Noord B.V." value={f.legalName} onChangeText={set('legalName')} />
-          <Input label="Store name" placeholder="Studio Noord" value={f.tradingName} onChangeText={set('tradingName')} />
+          <T variant="footnote" color={color.grey500}>
+            Registering in {reg.name}. Change your country in Settings.
+          </T>
+          <Input label="Legal company name" placeholder="Studio North LLC" value={f.legalName} onChangeText={set('legalName')} />
+          <Input label="Store name" placeholder="Studio North" value={f.tradingName} onChangeText={set('tradingName')} />
           <View style={{ flexDirection: 'row', gap: 12 }}>
-            <Input containerStyle={{ flex: 1 }} label="KVK number" placeholder="12345678" keyboardType="number-pad" maxLength={8} value={f.registrationNumber} onChangeText={set('registrationNumber')} />
-            <Input containerStyle={{ flex: 1 }} label="VAT number" placeholder="NL123456789B01" autoCapitalize="characters" value={f.vatNumber} onChangeText={set('vatNumber')} />
+            <Input containerStyle={{ flex: 1 }} label={reg.businessId.label} hint={reg.businessId.hint} placeholder={reg.businessId.placeholder} autoCapitalize="characters" value={f.registrationNumber} onChangeText={set('registrationNumber')} />
+            <Input containerStyle={{ flex: 1 }} label={reg.taxId.label} placeholder={reg.taxId.placeholder} autoCapitalize="characters" value={f.vatNumber} onChangeText={set('vatNumber')} />
           </View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {['Retail', 'Fashion', 'Electronics', 'Home & interiors', 'Food & drink', 'Other'].map((c) => (
@@ -77,7 +82,7 @@ function Apply({ previous }: { previous: ReturnType<typeof business.myBusiness> 
         <View style={{ gap: 12 }}>
           <Input label="Street and number" value={f.line1} onChangeText={set('line1')} />
           <View style={{ flexDirection: 'row', gap: 12 }}>
-            <Input containerStyle={{ flex: 1 }} label="Postcode" value={f.postcode} onChangeText={set('postcode')} />
+            <Input containerStyle={{ flex: 1 }} label={reg.postcodeLabel} value={f.postcode} onChangeText={set('postcode')} />
             <Input containerStyle={{ flex: 1.4 }} label="City" value={f.city} onChangeText={set('city')} />
           </View>
           <Input label="Website (optional)" autoCapitalize="none" keyboardType="url" value={f.website} onChangeText={set('website')} />
@@ -100,6 +105,7 @@ function Apply({ previous }: { previous: ReturnType<typeof business.myBusiness> 
 }
 
 function Pending({ biz }: { biz: NonNullable<ReturnType<typeof business.myBusiness>> }) {
+  const bizReg = regions.region(biz.country ?? 'NL');
   return (
     <Screen header={<Header back title="Hayve Store" fallback="/business" />} maxWidth={560}>
       <View style={{ alignItems: 'center', gap: 12, marginTop: 32 }}>
@@ -110,14 +116,14 @@ function Pending({ biz }: { biz: NonNullable<ReturnType<typeof business.myBusine
           Application under review
         </T>
         <T color={color.grey500} center>
-          We're checking {biz.tradingName}'s KVK, VAT and ID details. This usually takes one business day.
+          We're checking {biz.tradingName}'s registration, tax and ID details. This usually takes one business day.
         </T>
         <StatusPill status="pending" />
       </View>
       <Card style={{ marginTop: 24, gap: 8 }}>
         <ListRow title="Legal name" value={biz.legalName} chevron={false} />
-        <ListRow title="KVK" value={biz.registrationNumber} chevron={false} />
-        <ListRow title="VAT" value={biz.vatNumber} chevron={false} />
+        <ListRow title={bizReg.businessId.label} value={biz.registrationNumber} chevron={false} />
+        <ListRow title={bizReg.taxName} value={biz.vatNumber || '—'} chevron={false} />
         <ListRow title="Submitted" value={shortDate(biz.submittedAt)} chevron={false} />
       </Card>
     </Screen>
@@ -130,6 +136,7 @@ type Tab = 'overview' | 'products' | 'invoices' | 'store' | 'paid';
 
 function Dashboard() {
   const biz = useLive(() => business.myBusiness()).data!;
+  const bizReg = regions.region(biz.country ?? 'NL');
   const [tab, setTab] = useState<Tab>('overview');
   return (
     <Screen header={<Header back title={biz.tradingName} subtitle="Hayve Store" fallback="/business" right={<Button title="View store" size="sm" variant="outline" onPress={() => router.push(`/u/${shop.myListings()[0]?.seller.username ?? ''}`)} />} />}>
@@ -139,7 +146,7 @@ function Dashboard() {
           Verified business
         </T>
         <T variant="subhead" color={color.grey500}>
-          · KVK {biz.registrationNumber}
+          · {bizReg.businessId.label} {biz.registrationNumber}
         </T>
       </View>
       <HScroll gap={8}>
@@ -369,7 +376,7 @@ function PaymentLinks() {
       <Sheet visible={open} onClose={() => setOpen(false)} title="New payment link" footer={<Button title="Create link" size="lg" full loading={busy} onPress={() => run(() => business.createPaymentLink(title, parseEuro(amount) ?? 0), { success: 'Payment link created', onDone: (id) => { setOpen(false); setTitle(''); setAmount(''); setQr(id); } })} />}>
         <View style={{ gap: 12 }}>
           <Input label="What is it for?" placeholder="e.g. Repair deposit" value={title} onChangeText={setTitle} />
-          <Input label="Amount (€)" keyboardType="decimal-pad" value={amount} onChangeText={setAmount} />
+          <Input label={`Amount (${currencySymbol()})`} keyboardType="decimal-pad" value={amount} onChangeText={setAmount} />
         </View>
       </Sheet>
       <Sheet visible={!!qr} onClose={() => setQr(null)} title="Scan to pay">

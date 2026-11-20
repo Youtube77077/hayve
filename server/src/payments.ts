@@ -11,7 +11,8 @@ import { ApiError, bad, forbidden, notFound } from './errors.js';
  *  - Tap to Pay: Stripe Terminal "Tap to Pay on iPhone/Android". The app gets a connection token,
  *    the API creates a card_present PaymentIntent with the receiver fee as application fee, and only
  *    the signed webhook (payment_intent.succeeded) marks the payment as paid.
- *  - Payment request links: iDEAL | Wero or card PaymentIntents for people without a Hayve account;
+ *  - Payment request links: card / Apple Pay / Google Pay or local pay-by-bank PaymentIntents
+ *    (ACH, pay by bank, iDEAL | Wero, SEPA…) for people without a Hayve account;
  *    the signed webhook records the payment against the request.
  *  - Hayve Card: Stripe Issuing (virtual + physical Visa). Card details are shown with an ephemeral
  *    key through Stripe's secure elements; authorisations are approved by `decideAuthorization`.
@@ -20,6 +21,24 @@ import { ApiError, bad, forbidden, notFound } from './errors.js';
  */
 
 const STRIPE = 'https://api.stripe.com/v1';
+
+/** Currency and local pay-by-bank method per country (mirrors src/backend/regions.ts). */
+const COUNTRY: Record<string, { currency: string; bank: string; bankName: string }> = {
+  US: { currency: 'usd', bank: 'us_bank_account', bankName: 'Bank account (ACH)' },
+  CA: { currency: 'cad', bank: 'acss_debit', bankName: 'Pre-authorized debit' },
+  GB: { currency: 'gbp', bank: 'pay_by_bank', bankName: 'Pay by bank' },
+  AU: { currency: 'aud', bank: 'au_becs_debit', bankName: 'BECS Direct Debit' },
+  NL: { currency: 'eur', bank: 'ideal', bankName: 'iDEAL | Wero' },
+  BE: { currency: 'eur', bank: 'bancontact', bankName: 'Bancontact' },
+  IE: { currency: 'eur', bank: 'sepa_debit', bankName: 'SEPA Direct Debit' },
+  DE: { currency: 'eur', bank: 'sepa_debit', bankName: 'SEPA Direct Debit' },
+  FR: { currency: 'eur', bank: 'sepa_debit', bankName: 'SEPA Direct Debit' },
+  ES: { currency: 'eur', bank: 'sepa_debit', bankName: 'SEPA Direct Debit' },
+  IT: { currency: 'eur', bank: 'sepa_debit', bankName: 'SEPA Direct Debit' },
+  PT: { currency: 'eur', bank: 'sepa_debit', bankName: 'SEPA Direct Debit' },
+};
+export const countryInfo = (code?: string | null) => COUNTRY[code ?? 'US'] ?? COUNTRY.US;
+const BANK_LABEL = Object.fromEntries(Object.values(COUNTRY).map((c) => [c.bank, c.bankName]));
 
 function form(obj: Record<string, string | number | boolean | undefined>) {
   const p = new URLSearchParams();
@@ -127,9 +146,10 @@ export function paymentRoutes(app: FastifyInstance, db: Db, c: Config) {
       if (Number(month.rows[0].n) + body.amountCents > (settings.privateMonthlyLimitCents ?? 250000)) throw forbidden('Over the monthly limit for personal accounts. Switch to a business account to receive more.');
     }
     const row = await asUser(db, req.actor, async (tx) => (await tx.query('insert into public.tap_payments (receiver_id, amount_cents, fee_cents, note) values ($1, $2, public.tap_receiver_fee($2), $3) returning id, fee_cents', [id, body.amountCents, body.note])).rows[0]);
+    const receiverCountry = (await db.query('select country from public.profiles where id = $1', [id])).rows[0]?.country;
     const pi = await stripe<{ id: string; client_secret: string }>(c, 'POST', '/payment_intents', {
       amount: body.amountCents,
-      currency: 'eur',
+      currency: countryInfo(receiverCountry).currency,
       'payment_method_types[]': 'card_present',
       capture_method: 'automatic',
       'metadata[tap_id]': row.id,
@@ -178,25 +198,27 @@ export function paymentRoutes(app: FastifyInstance, db: Db, c: Config) {
 
   /**
    * Payment request links: anyone with the link can pay, with or without a Hayve account.
-   * Creates a PaymentIntent for iDEAL | Wero or a card (Stripe's own secure form collects the card).
+   * Creates a PaymentIntent in the requester's currency for a card (incl. Apple Pay / Google Pay) or the
+   * payer's local pay-by-bank method (ACH, pay by bank, iDEAL | Wero, Bancontact, SEPA…).
+   * Stripe's own secure form collects the card or bank details.
    * Deposits are authorised only (manual capture) until the requester releases or claims them.
    * Business requests carry the small Hayve fee as the application fee; the payer never pays extra.
    */
   app.post('/requests/:id/checkout', async (req) => {
     need();
     const { id } = z.object({ id: z.string().min(16).max(64) }).parse(req.params);
-    const body = z.object({ method: z.enum(['ideal', 'card']), payerName: z.string().trim().min(2).max(60), shareId: z.string().max(10).optional() }).parse(req.body);
+    const body = z.object({ method: z.enum(['bank', 'card']), country: z.string().length(2).optional(), payerName: z.string().trim().min(2).max(60), shareId: z.string().max(10).optional() }).parse(req.body);
     const r = (await db.query('select * from public.pay_request_public($1)', [id])).rows[0];
     if (!r) throw notFound('Payment request not found');
     if (r.status !== 'pending') throw bad(r.status === 'expired' ? 'This payment link has expired' : r.status === 'paid' ? 'This request has already been paid' : 'This request was cancelled');
-    const full = (await db.query('select requester_id, kind from public.pay_requests where id = $1', [id])).rows[0];
+    const full = (await db.query('select r.requester_id, r.kind, r.currency, p.country from public.pay_requests r join public.profiles p on p.id = r.requester_id where r.id = $1', [id])).rows[0];
     if (req.actor.userId && req.actor.userId === full.requester_id) throw bad("You can't pay your own request");
     if (r.shares && !(r.shares as { id: string; paid: boolean }[]).some((s) => s.id === body.shareId && !s.paid)) throw bad('Choose who you are');
     const fee = full.kind === 'business' ? (await db.query('select public.request_business_fee($1) f', [r.amount_cents])).rows[0].f : 0;
     const pi = await stripe<{ id: string; client_secret: string }>(c, 'POST', '/payment_intents', {
       amount: r.amount_cents,
-      currency: 'eur',
-      'payment_method_types[]': body.method,
+      currency: (full.currency ?? countryInfo(full.country).currency).toLowerCase(),
+      'payment_method_types[]': body.method === 'card' ? 'card' : countryInfo(body.country ?? full.country).bank,
       capture_method: full.kind === 'deposit' ? 'manual' : 'automatic',
       application_fee_amount: fee || undefined,
       description: r.title,
@@ -227,10 +249,13 @@ export function paymentRoutes(app: FastifyInstance, db: Db, c: Config) {
       await asSystem(db, (tx) => tx.query("update public.tap_payments set status = 'failed', failure_reason = $2 where id = $1 and status = 'awaiting_tap'", [o.metadata.tap_id, o.last_payment_error?.message ?? 'declined']));
     } else if ((event.type === 'payment_intent.succeeded' || event.type === 'payment_intent.amount_capturable_updated') && o.metadata?.request_id) {
       const m = o.metadata;
-      const method = o.payment_method_types?.[0] === 'ideal' ? 'bank' : 'card';
-      const card = o.latest_charge?.payment_method_details?.card ?? {};
-      const ideal = o.latest_charge?.payment_method_details?.ideal ?? {};
-      const label = method === 'bank' ? `iDEAL | Wero${ideal.bank ? ` · ${ideal.bank}` : ''}` : `${card.brand ?? 'Card'} •••• ${card.last4 ?? ''}`.trim();
+      const type = o.payment_method_types?.[0] ?? 'card';
+      const method = type === 'card' ? 'card' : 'bank';
+      const details = o.latest_charge?.payment_method_details ?? {};
+      const card = details.card ?? {};
+      const bankName = details[type]?.bank ?? details[type]?.bank_name;
+      const wallet = card.wallet?.type === 'apple_pay' ? 'Apple Pay' : card.wallet?.type === 'google_pay' ? 'Google Pay' : null;
+      const label = method === 'bank' ? `${BANK_LABEL[type] ?? 'Bank'}${bankName ? ` · ${bankName}` : ''}` : `${wallet ?? card.brand ?? 'Card'} •••• ${card.last4 ?? ''}`.trim();
       const held = event.type === 'payment_intent.amount_capturable_updated';
       await asSystem(db, async (tx) => {
         await tx.query(

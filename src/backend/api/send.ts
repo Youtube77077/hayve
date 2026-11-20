@@ -1,3 +1,4 @@
+import { fmtMoney } from '../regions';
 import { accountIdFor, createTransaction, SYSTEM } from '../ledger';
 import { assert, commit, find, getDb, HayveError, now, reference, uid } from '../store';
 import type { CourierProfile, Delivery, DeliveryStatus, ID, ParcelSize } from '../types';
@@ -83,7 +84,7 @@ export function bookDelivery(input: DeliveryInput) {
     timeline: [{ status: 'booked', at: now() }],
   };
   db.deliveries.push(d);
-  for (const c of db.couriers.filter((x) => x.online && x.userId !== user.id)) notify(c.userId, 'delivery', 'New delivery request', `${size.label} parcel · €${(price * 0.75 / 100).toFixed(2)} earnings`, '/business/courier');
+  for (const c of db.couriers.filter((x) => x.online && x.userId !== user.id)) notify(c.userId, 'delivery', 'New delivery request', `${size.label} parcel · ${fmtMoney(price * 0.75)} earnings`, '/business/courier');
   commit();
   return id;
 }

@@ -13,6 +13,8 @@ Hayve is a consumer super app and business ecosystem: marketplace shopping, paym
 | **Hayve Drive** | Car rentals from local hosts | Hayve Host |
 | **Hayve Stay** | Apartments, rooms and holiday homes | Hayve Host |
 
+**International, US first.** Every account has a country (United States by default, also Canada, the UK, Ireland, the Netherlands, Germany, France, Belgium, Spain, Italy, Portugal and Australia). The country sets the currency ($, CA$, £, €, A$), how people pay by bank (ACH in the US, pay by bank in the UK, SEPA in the euro area, iDEAL | Wero only in the Netherlands), the banks offered, business IDs (EIN, Companies House number, CRO, KVK, SIREN…) and tax on invoices. Ride works anywhere. See `src/backend/regions.ts`.
+
 **Hayve Send** (shipping) only appears inside the Shop checkout as "Ship with Hayve Send", with labels and tracking on the order page. There is also an **admin panel** for verifications, users, moderation, fees and Wave Back settings, with an audit log.
 
 > **Preview build.** Money, cards, payouts, rides, rentals, stays and deliveries are **simulated** and labelled **Demo**. No real money or services are involved. See [docs/PAYMENTS.md](docs/PAYMENTS.md).

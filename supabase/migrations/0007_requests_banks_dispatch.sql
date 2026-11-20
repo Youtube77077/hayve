@@ -1,16 +1,34 @@
--- Payment requests and links (pay without a Hayve account), connected banks and cards,
--- Hayve Ride dispatch (one driver at a time) and the driver commission.
+-- International accounts (country → currency, bank rail, IDs), payment requests and links
+-- (pay without a Hayve account), connected banks and cards, Hayve Ride dispatch (one driver at a
+-- time) and the driver commission.
 -- Card numbers are never stored: only brand, last 4, expiry and debit/credit from the payment partner.
 
 alter type public.tx_type add value if not exists 'request_payment';
+
+-- ------------------------------------------------------- International --
+-- Hayve is US-first and international: every profile and business has a country (ISO 3166-1).
+alter table public.profiles add column country text not null default 'US' check (country ~ '^[A-Z]{2}$');
+alter table public.profiles alter column currency set default 'USD';
+alter table public.profiles add constraint profiles_currency check (currency in ('USD', 'CAD', 'GBP', 'EUR', 'AUD'));
+-- businesses.country already exists (0004); new businesses default to the United States.
+alter table public.businesses alter column country set default 'US';
+-- Business IDs depend on the country (EIN, Companies House, CRO, KVK, SIREN…): checked by the API.
+alter table public.businesses drop constraint if exists businesses_kvk;
+alter table public.businesses drop constraint if exists businesses_vat;
+alter table public.businesses add constraint businesses_registration_number check (char_length(registration_number) between 4 and 20);
 
 -- --------------------------------------------------- Cards and banks --
 alter table public.payment_methods
   add column funding text check (funding in ('debit', 'credit')),
   add column expiry text check (expiry is null or expiry ~ '^(0[1-9]|1[0-2])/[0-9]{2}$'),
   add column bank text,
-  add column connection text check (connection in ('ideal_wero', 'sepa_debit'));
-alter table public.payment_methods add constraint payment_methods_bank_fields check (kind = 'bank' or (bank is null and connection is null));
+  -- instant: approved in the bank app (Open Banking / Financial Connections); manual: account details + mandate.
+  add column connection text check (connection in ('instant', 'manual')),
+  add column rail text check (rail in ('ach', 'eft', 'faster_payments', 'sepa', 'ideal_wero', 'wero', 'becs'));
+alter table public.payment_methods add constraint payment_methods_bank_fields check (kind = 'bank' or (bank is null and connection is null and rail is null));
+alter table public.linked_banks drop constraint if exists linked_banks_method_check;
+alter table public.linked_banks add constraint linked_banks_method_check check (method in ('ideal_wero', 'sepa_debit', 'instant', 'manual'));
+alter table public.linked_banks add column rail text;
 
 -- -------------------------------------------------------------- Settings --
 alter table public.app_settings
@@ -36,6 +54,7 @@ create table public.pay_requests (
   kind text not null check (kind in ('personal', 'split', 'business', 'deposit')),
   title text not null check (char_length(title) between 2 and 80),
   amount_cents integer not null check (amount_cents between 100 and 1000000),
+  currency text not null default 'USD' check (currency in ('USD', 'CAD', 'GBP', 'EUR', 'AUD')),
   reusable boolean not null default false,
   expires_at timestamptz not null,
   cancelled_at timestamptz,
@@ -65,8 +84,8 @@ create or replace function private.guard_pay_request()
 returns trigger language plpgsql as $$
 begin
   if current_user in ('authenticated', 'anon') then
-    if (new.requester_id, new.kind, new.title, new.amount_cents, new.reusable, new.expires_at, new.business, new.ref, new.created_at)
-       is distinct from (old.requester_id, old.kind, old.title, old.amount_cents, old.reusable, old.expires_at, old.business, old.ref, old.created_at) then
+    if (new.requester_id, new.kind, new.title, new.amount_cents, new.currency, new.reusable, new.expires_at, new.business, new.ref, new.created_at)
+       is distinct from (old.requester_id, old.kind, old.title, old.amount_cents, old.currency, old.reusable, old.expires_at, old.business, old.ref, old.created_at) then
       raise exception 'A request cannot be changed once shared. Cancel it and create a new one.' using errcode = '42501';
     end if;
     if old.cancelled_at is not null and new.cancelled_at is distinct from old.cancelled_at then
@@ -103,9 +122,9 @@ create policy request_payments_read on public.pay_request_payments for select us
 
 -- What anyone with the link sees. Never who else paid or how.
 create or replace function public.pay_request_public(token text)
-returns table (id text, kind text, title text, amount_cents integer, status text, expires_at timestamptz, requester_name text, business jsonb, ref_label text, shares jsonb)
+returns table (id text, kind text, title text, amount_cents integer, currency text, status text, expires_at timestamptz, requester_name text, business jsonb, ref_label text, shares jsonb)
 language sql stable security definer set search_path = public as $$
-  select r.id, r.kind, r.title, r.amount_cents,
+  select r.id, r.kind, r.title, r.amount_cents, r.currency,
     case
       when r.cancelled_at is not null then 'cancelled'
       when not r.reusable and (

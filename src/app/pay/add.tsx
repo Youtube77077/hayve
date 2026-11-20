@@ -31,7 +31,7 @@ export default function AddMoney() {
       <AmountInput value={amount} onChange={setAmount} />
       {!from && <Button title={source === 'card' ? 'Add a debit or credit card' : 'Connect your bank'} icon="add" variant="secondary" full onPress={() => router.push('/pay/methods')} style={{ marginBottom: 12 }} />}
       <Card>
-        <KeyValue label="From" value={from ? (source === 'card' ? `${from.brand ?? 'Card'} •••• ${from.last4}` : `${from.label} · iDEAL | Wero`) : 'Not connected'} />
+        <KeyValue label="From" value={from ? (source === 'card' ? `${from.brand ?? 'Card'} •••• ${from.last4}` : from.label) : 'Not connected'} />
         <KeyValue label="Arrives" value="Instantly" />
         <KeyValue label="Fee" value="Free" />
         <KeyValue label="New balance" value={money((w?.available ?? 0) + cents)} strong />

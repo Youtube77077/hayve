@@ -46,8 +46,10 @@ export interface Profile {
   /** public: on the profile · link: only with the share link · private: owner only. */
   wishlistVisibility: 'public' | 'link' | 'private';
   wishlistToken: string;
-  language: 'en' | 'nl' | 'fr' | 'de';
-  currency: 'EUR';
+  language: 'en' | 'nl' | 'fr' | 'de' | 'es';
+  /** Country (ISO 3166 alpha-2). Sets currency, bank options, IDs and tax (see regions.ts). */
+  country: string;
+  currency: import('./regions').CurrencyCode;
   notificationPrefs: Record<NotificationKind, boolean>;
   twoFactor: boolean;
   /** Identity check through the payment partner (needed for Tap to Pay and the Hayve Card). */
@@ -267,9 +269,10 @@ export interface PaymentMethod {
   funding?: 'debit' | 'credit';
   /** Cards: expiry shown as MM/YY. */
   expiry?: string;
-  /** Banks: the bank's name and how it was connected (iDEAL | Wero consent or a SEPA mandate). */
+  /** Banks: the bank's name, how it was connected (approved in the bank app, or account details + mandate) and the local rail. */
   bank?: string;
-  connection?: 'ideal_wero' | 'sepa_debit';
+  connection?: 'instant' | 'manual';
+  rail?: import('./regions').BankRail;
   isDefault: boolean;
   createdAt?: number;
 }
@@ -314,6 +317,8 @@ export interface PayRequest {
   title: string;
   /** Amount per payment (per person for splits). */
   amountCents: Cents;
+  /** The requester's currency. */
+  currency?: import('./regions').CurrencyCode;
   /** Reusable links accept many payments; single-use links close after the first. */
   reusable: boolean;
   expiresAt: number;
@@ -365,6 +370,8 @@ export interface Ride {
 export interface DriverProfile {
   userId: ID;
   vehicle: { make: string; model: string; color: string; plate: string; category: RideCategory };
+  /** Simulated demo driver: appears near any pickup in the world in this build. */
+  demo?: boolean;
   /** Last GPS position shared by the driver's phone (lng, lat) and when. */
   location?: { lng: number; lat: number; heading?: number; at: number };
   licenseNumber: string;
@@ -628,6 +635,8 @@ export interface Review {
 export interface Business {
   id: ID;
   ownerId: ID;
+  /** Country of registration (sets the ID format and tax). */
+  country?: string;
   legalName: string;
   tradingName: string;
   category: string;
@@ -723,7 +732,8 @@ export interface LinkedBank {
   holder: string;
   ibanLast4: string;
   bank: string;
-  method: 'ideal_wero' | 'sepa_debit';
+  method: 'ideal_wero' | 'sepa_debit' | 'instant' | 'manual';
+  rail?: import('./regions').BankRail;
   mandateRef: string;
   linkedAt: number;
 }

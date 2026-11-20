@@ -1,10 +1,11 @@
+import { REGIONS } from '../regions';
 import { BIO_MAX_CHARS } from '../config';
 import { accountIdFor, viewTransaction } from '../ledger';
 import { assert, commit, find, getDb, HayveError, now, uid } from '../store';
 import type { Address, ID, NotificationKind, Profile, Report, Thread } from '../types';
 import { audit, displayName, notify, publicUser, type PublicUser } from './common';
 import { ratingFor, toCard } from './shop';
-import { getSessionUserId, me } from './session';
+import { getSessionUserId, me, refreshCurrency } from './session';
 
 /* ------------------------------------------------------------ Profiles -- */
 
@@ -15,7 +16,7 @@ export function myProfile() {
   return { user: { id: user.id, email: user.email, roles: user.roles, emailVerified: user.emailVerified, createdAt: user.createdAt }, profile };
 }
 
-export function updateProfile(patch: Partial<Pick<Profile, 'displayName' | 'username' | 'bio' | 'city' | 'isPublic' | 'wishlistVisibility' | 'language' | 'accountType'>>) {
+export function updateProfile(patch: Partial<Pick<Profile, 'displayName' | 'username' | 'bio' | 'city' | 'isPublic' | 'wishlistVisibility' | 'language' | 'accountType' | 'country'>>) {
   const user = me();
   const db = getDb();
   const p = find(db.profiles, (x) => x.userId === user.id, 'Profile');
@@ -33,8 +34,16 @@ export function updateProfile(patch: Partial<Pick<Profile, 'displayName' | 'user
     patch.bio = patch.bio.replace(/[\u0000-\u0008\u000B-\u001F]/g, '').trim();
     assert(patch.bio.length <= BIO_MAX_CHARS, 'invalid', `Bio can be up to ${BIO_MAX_CHARS} characters`);
   }
+  let countryChanged = false;
+  if (patch.country != null) {
+    const r = REGIONS.find((x) => x.code === patch.country);
+    assert(r, 'invalid', 'Choose a supported country');
+    countryChanged = r.code !== p.country;
+    p.currency = r.currency;
+  }
   Object.assign(p, patch);
   commit();
+  if (countryChanged) refreshCurrency();
 }
 
 export function setNotificationPref(kind: NotificationKind, on: boolean) {

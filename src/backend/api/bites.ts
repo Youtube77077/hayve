@@ -1,3 +1,4 @@
+import { fmtMoney } from '../regions';
 import { accountIdFor, createTransaction, SYSTEM } from '../ledger';
 import { assert, commit, find, getDb, HayveError, now, reference, uid } from '../store';
 import type { FoodOrder, FoodOrderLine, FoodOrderStatus, ID, MenuItem, Restaurant } from '../types';
@@ -105,7 +106,7 @@ export function placeFoodOrder(input: { restaurantId: ID; lines: CartLine[]; add
     }
   }
   const priced = priceCart(r.id, input.lines);
-  assert(priced.meetsMinimum, 'invalid', `Minimum order is €${(r.minOrderCents / 100).toFixed(2)}`);
+  assert(priced.meetsMinimum, 'invalid', `Minimum order is ${fmtMoney(r.minOrderCents)}`);
   const id = uid('fo');
   const restaurantShare = Math.round(priced.subtotalCents * 0.85);
   const tx = beginPayment({
@@ -141,7 +142,7 @@ export function placeFoodOrder(input: { restaurantId: ID; lines: CartLine[]; add
     timeline: [{ status: 'placed', at: now() }],
   };
   db.foodOrders.push(order);
-  notify(r.ownerId, 'order', 'New order', `${order.reference} · ${priced.lines.reduce((s, l) => s + l.qty, 0)} items · €${(priced.totalCents / 100).toFixed(2)}`, '/business/kitchen');
+  notify(r.ownerId, 'order', 'New order', `${order.reference} · ${priced.lines.reduce((s, l) => s + l.qty, 0)} items · ${fmtMoney(priced.totalCents)}`, '/business/kitchen');
   commit();
   return id;
 }
@@ -310,7 +311,7 @@ export function upsertMenuItem(restaurantId: ID, input: Partial<MenuItem> & { na
   ownRestaurant(restaurantId);
   const db = getDb();
   assert(input.name.trim().length >= 2, 'invalid', 'Enter an item name');
-  assert(Number.isInteger(input.priceCents) && input.priceCents >= 50, 'invalid', 'Price must be at least €0.50');
+  assert(Number.isInteger(input.priceCents) && input.priceCents >= 50, 'invalid', `Price must be at least ${fmtMoney(50)}`);
   assert(input.category.trim().length >= 2, 'invalid', 'Enter a menu section');
   if (input.id) {
     const item = find(db.menuItems, (m) => m.id === input.id && m.restaurantId === restaurantId, 'Menu item');

@@ -1,3 +1,4 @@
+import { money } from '../../lib/format';
 import { Icon } from '../../design/icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -42,7 +43,7 @@ export default function Stay() {
     <Screen header={<TabHeader service="stay" subtitle="Homes, rooms and holiday places" />}>
       <View style={{ backgroundColor: color.surface, borderRadius: radius.xl, padding: 8, borderWidth: 1, borderColor: color.line, flexDirection: isWide ? 'row' : 'column', gap: 6 }}>
         <View style={{ flex: isWide ? 1.4 : undefined }}>
-          <Input icon="search" placeholder="Where to? Amsterdam, Lisbon…" value={destination} onChangeText={setDestination} containerStyle={{ flex: 1 }} />
+          <Input icon="search" placeholder="Where to? New York, London, Paris…" value={destination} onChangeText={setDestination} containerStyle={{ flex: 1 }} />
         </View>
         <View style={{ flexDirection: 'row', gap: 6, flex: isWide ? 2 : undefined }}>
           <Pressable onPress={() => setDatesOpen(true)} style={{ flex: 1, borderRadius: radius.md, backgroundColor: color.surfaceSunken, padding: 10 }}>
@@ -129,7 +130,7 @@ export default function Stay() {
         </T>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {[undefined, 10000, 15000, 25000, 40000].map((v) => (
-            <Chip key={String(v)} label={v ? `Up to €${v / 100}` : 'Any'} selected={maxPrice === v} onPress={() => setMaxPrice(v)} />
+            <Chip key={String(v)} label={v ? `Up to ${money(v)}` : 'Any'} selected={maxPrice === v} onPress={() => setMaxPrice(v)} />
           ))}
         </View>
         <T variant="headline" style={{ marginTop: 20, marginBottom: 10 }}>
