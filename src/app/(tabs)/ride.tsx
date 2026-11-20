@@ -512,7 +512,8 @@ function SheetContent(p: {
             </View>
           )}
           <T variant="caption" color={color.textSecondary} style={{ marginTop: 12 }}>
-            Fares include all fees. Demo: no real ride is booked.
+            {p.selected?.fees.length ? `Price includes ${p.selected.fees.map((f) => `${f.label} ${money(f.cents)}`).join(' · ')}. ` : 'Price includes all fees. '}
+            Waiting after {3} free minutes and cancelling more than 2 minutes after a driver accepts can cost extra. Demo: no real ride is booked.
           </T>
         </ScrollView>
         <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 16, borderTopWidth: 1, borderTopColor: color.grey200, backgroundColor: color.white }}>

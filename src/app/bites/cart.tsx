@@ -98,7 +98,14 @@ export default function Basket() {
               <Card>
                 <KeyValue label="Subtotal" value={money(priced.subtotalCents)} />
                 <KeyValue label="Delivery fee" value={priced.deliveryFeeCents ? money(priced.deliveryFeeCents) : 'Free'} />
-                <KeyValue label="Fees" value={money(priced.serviceFeeCents)} />
+                {priced.fees.map((f) => (
+                  <KeyValue key={f.label} label={f.label} value={money(f.cents)} />
+                ))}
+                {priced.addToAvoidSmallOrderCents > 0 && (
+                  <T variant="caption" color={color.textSecondary} style={{ marginTop: 4 }}>
+                    Add {money(priced.addToAvoidSmallOrderCents)} more to skip the small order fee.
+                  </T>
+                )}
                 <Divider style={{ marginVertical: 8 }} />
                 <KeyValue label="Total" value={money(priced.totalCents)} strong />
               </Card>

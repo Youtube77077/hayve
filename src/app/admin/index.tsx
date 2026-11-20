@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
+import { RevenuePanel } from '../../features/admin/RevenuePanel';
 import { Pressable, View } from 'react-native';
 import { admin, session } from '../../backend/api';
 import type { FeeTier, PayRequestSettings, RideSettings, WaveBackSettings } from '../../backend/config';
@@ -8,9 +9,10 @@ import { StatusPill } from '../../features/common';
 import { ago, money, shortDate } from '../../lib/format';
 import { useAction, useLive } from '../../lib/hooks';
 
-type Tab = 'overview' | 'verifications' | 'users' | 'reports' | 'content' | 'settings' | 'audit';
+type Tab = 'overview' | 'revenue' | 'verifications' | 'users' | 'reports' | 'content' | 'settings' | 'audit';
 const TABS: [Tab, string][] = [
   ['overview', 'Overview'],
+  ['revenue', 'Revenue & pricing'],
   ['verifications', 'Verifications'],
   ['users', 'Users'],
   ['reports', 'Reports'],
@@ -61,6 +63,7 @@ function Panel() {
       </HScroll>
       <View style={{ marginTop: 20 }}>
         {tab === 'overview' && <Overview />}
+        {tab === 'revenue' && <RevenuePanel />}
         {tab === 'verifications' && <Verifications />}
         {tab === 'users' && <Users />}
         {tab === 'reports' && <Reports />}
