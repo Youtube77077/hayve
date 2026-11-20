@@ -4,7 +4,7 @@ import { assert, commit, find, getDb, HayveError, now, reference, uid } from '..
 import type { FoodOrder, FoodOrderLine, FoodOrderStatus, ID, MenuItem, Restaurant } from '../types';
 import { abortPayment, audit, beginPayment, completePayment, displayName, notify, type PayMethod, previewWaveBack } from './common';
 import { getSessionUserId, me, requireRole } from './session';
-import { disclosed, priceFor, pricingState, recordPrice } from './revenue';
+import { disclosed, priceFor, pricingState, recordPrice, withExtras } from './revenue';
 
 /** Hayve Bites (customers) and Hayve Kitchen (restaurants). */
 
@@ -175,7 +175,7 @@ export function placeFoodOrder(input: { restaurantId: ID; lines: CartLine[]; add
     // Wave Back applies to the food, never to delivery or service fees.
     waveBack: { category: 'services', baseCents: priced.subtotalCents },
   });
-  recordPrice('bites', id, priced.breakdown, { orderCents: priced.subtotalCents });
+  recordPrice('bites', id, withExtras(priced.breakdown, [{ ruleId: 'restaurant_delivery', label: 'Delivery fee', cents: priced.deliveryFeeCents, to: 'courier', reason: "restaurant's delivery fee, paid to the courier" }]), { orderCents: priced.subtotalCents });
   const order: FoodOrder = {
     id,
     reference: reference('HB'),

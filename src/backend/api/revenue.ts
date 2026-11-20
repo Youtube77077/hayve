@@ -89,6 +89,42 @@ export function priceFor(service: PricedService, baseCents: number, input: Conte
   return priceTransaction(baseCents, contextFor(service, input), st.rules, st.guards, st.experiments);
 }
 
+export interface ExtraLine {
+  ruleId: string;
+  label: string;
+  cents: number;
+  /** Who the money is for. Only the supplier's share counts toward the supplier payout; none of it is Hayve revenue. */
+  to: 'supplier' | 'courier' | 'insurer' | 'tax';
+  reason: string;
+}
+
+/**
+ * Completes an engine breakdown with the parts of the customer total the engine doesn't price
+ * (cleaning fee, restaurant delivery, insurance, taxes) so the audit record matches what was charged.
+ * `commissionCents` replaces the engine commission when the service takes it on a wider base.
+ */
+export function withExtras(b: PriceBreakdown, extras: ExtraLine[], commissionCents?: number): PriceBreakdown {
+  const lines = extras.filter((x) => x.cents > 0);
+  const engineCommission = b.supplierLines.reduce((a, l) => a + l.cents, 0);
+  const commissionDelta = commissionCents != null && b.supplierLines.length ? commissionCents - engineCommission : 0;
+  if (!lines.length && !commissionDelta) return b;
+  const g = pricingState().guards;
+  const total = b.customerTotalCents + lines.reduce((a, x) => a + x.cents, 0);
+  const processing = Math.round(total * g.processingRate + g.processingFixedCents);
+  const hayve = b.hayveRevenueCents + commissionDelta;
+  return {
+    ...b,
+    customerLines: [...b.customerLines, ...lines.map((x) => ({ ruleId: x.ruleId, label: x.label, component: x.to === 'tax' ? ('tax' as const) : ('pass_through' as const), payer: 'customer' as const, cents: x.cents }))],
+    supplierLines: commissionDelta ? b.supplierLines.map((l, i) => (i === 0 ? { ...l, cents: l.cents + commissionDelta } : l)) : b.supplierLines,
+    customerTotalCents: total,
+    supplierPayoutCents: b.supplierPayoutCents + lines.filter((x) => x.to === 'supplier').reduce((a, x) => a + x.cents, 0) - commissionDelta,
+    hayveRevenueCents: hayve,
+    processingCostCents: processing,
+    netRevenueCents: hayve - processing,
+    trace: [...b.trace, ...lines.map((x) => ({ ruleId: x.ruleId, matched: true, reason: x.reason }))],
+  };
+}
+
 /** Stores the price of a charged transaction so it can always be explained and audited. */
 export function recordPrice(service: PricedService, refId: ID, breakdown: PriceBreakdown, input: ContextInput = {}) {
   const db = getDb();

@@ -1,0 +1,263 @@
+<meta charset="utf-8">
+<title>Hayve Fee Breakdown</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a receipt-style reading column. Base price first, then every line on top, then who got it. */
+:root {
+  --bg: #FFFFFF; --surface: #F4F4F6; --line: #E5E6EA; --fg: #0E0E10; --muted: #6B6E78;
+  --accent: #4F46E5; --accent-soft: #E0E0FB; --bar2: #0E0E10; --bar3: #B9BBC3;
+  --display: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0E0E10; --surface: #17171B; --line: #2A2B31; --fg: #F4F4F6; --muted: #9A9DA6;
+  --accent: #8B85F7; --accent-soft: #24234A; --bar2: #F4F4F6; --bar3: #4A4C55; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0E0E10; --surface: #17171B; --line: #2A2B31; --fg: #F4F4F6; --muted: #9A9DA6;
+  --accent: #8B85F7; --accent-soft: #24234A; --bar2: #F4F4F6; --bar3: #4A4C55; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font-family: var(--display); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 32px 64px }
+main { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 56px }
+h1, h2, h3 { text-wrap: balance; margin: 0; letter-spacing: -0.01em }
+h1 { font-size: clamp(28px, 4.6vw, 42px); font-weight: 800; line-height: 1.12 }
+h2 { font-size: 24px; font-weight: 800 }
+h3 { font-size: 16px; font-weight: 700 }
+p { margin: 0; max-width: 70ch }
+.muted { color: var(--muted) }
+.eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
+.num { font-variant-numeric: tabular-nums }
+section, header { display: flex; flex-direction: column; gap: 18px }
+.head { display: flex; flex-direction: column; gap: 6px }
+.wordmark { font-weight: 800; font-size: 18px }
+.receipt { border: 1px solid var(--line); border-radius: 16px; padding: 20px 22px; display: flex; flex-direction: column; gap: 2px; max-width: 640px; font-variant-numeric: tabular-nums }
+.receipt .r { display: flex; justify-content: space-between; gap: 16px; padding-block: 7px; border-bottom: 1px dashed var(--line) }
+.receipt .r span:last-child { font-weight: 700; white-space: nowrap }
+.receipt .r.sub { padding-left: 16px; color: var(--muted) }
+.receipt .r.sub span:last-child { font-weight: 500 }
+.receipt .r.total { border-bottom: 0; font-size: 17px; font-weight: 800 }
+.receipt .r.hl span:last-child { color: var(--accent) }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px }
+.panel { border: 1px solid var(--line); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0 }
+.chart svg { display: block; overflow: visible; max-width: 100% }
+.chart text { fill: var(--fg); font-family: var(--display); font-size: 12px }
+.chart .lbl { fill: var(--muted) }
+.chart .grid { stroke: var(--line); stroke-width: 1 }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--muted) }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px }
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 16px }
+table { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; background: var(--surface); white-space: nowrap }
+td.r, th.r { text-align: right; white-space: nowrap }
+tr:last-child td { border-bottom: 0 }
+td .sub { display: block; color: var(--muted); font-size: 13px }
+.pill { display: inline-flex; align-items: center; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--surface); color: var(--fg); white-space: nowrap }
+.pill.ok { background: var(--accent-soft); color: var(--accent) }
+.checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px }
+.check { border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px }
+.check b { font-size: 15px }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px }
+.card { background: var(--surface); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 8px; min-width: 0 }
+.card .lines { display: flex; flex-direction: column; gap: 3px; font-size: 13px; font-variant-numeric: tabular-nums }
+.card .lines div { display: flex; justify-content: space-between; gap: 10px }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center }
+input[type=search], select { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-width: 0 }
+input[type=search] { flex: 1 1 220px }
+button.btn { font: inherit; font-weight: 700; color: var(--accent); background: none; border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; cursor: pointer }
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+#tip { position: fixed; pointer-events: none; background: var(--fg); color: var(--bg); padding: 6px 10px; border-radius: 8px; font-size: 13px; font-weight: 600; opacity: 0; transition: opacity .1s; z-index: 20; max-width: 280px }
+@media (prefers-reduced-motion: reduce) { #tip { transition: none } }
+</style>
+
+<main>
+  <header>
+    <div class="wordmark">Hayve</div>
+    <h1>What 1,000 people paid on top of the base price, why, and who got it</h1>
+    <p class="muted">The base price is what the seller, restaurant, host or car owner asks, or the metered ride fare. Everything on top comes from a pricing rule and is shown as its own line before the customer pays. This page adds up every line from the 1,000-person simulation and explains why it applied. The simulated week ran Monday to Sunday with rush hours, weekend nights and five example events (a concert, a match, a festival, a hockey game and a marathon). Amounts in US dollars, simulated.</p>
+  </header>
+
+  <section>
+    <div class="head"><div class="eyebrow">The whole week in one receipt</div><h2>Where every dollar went</h2></div>
+    <div class="receipt" id="receipt"></div>
+  </section>
+
+  <section>
+    <div class="head"><div class="eyebrow">Line by line</div><h2>Every charge on top of the base price</h2>
+      <p class="muted">Each rule, how often it applied, how much it added, when it applies, and the reason. Hover the bars for exact numbers.</p></div>
+    <div class="panel"><div class="chart" id="c-rules"></div></div>
+    <div class="tablewrap"><table id="t-rules"><thead><tr><th>Charge</th><th>Amount</th><th>Applies when</th><th class="r">Times</th><th class="r">Of orders</th><th class="r">Total</th><th>Goes to</th></tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <section>
+    <div class="head"><div class="eyebrow">Why the same ride costs more at some times</div><h2>Busy times, airports, late nights and events</h2>
+      <p class="muted" id="ride-intro"></p></div>
+    <div class="grid2">
+      <div class="panel"><h3>Average extra per ride by hour</h3><p class="muted">Busy-time price, airport, late-night and event fees (booking fee left out, it's on every ride).</p><div class="chart" id="c-hour"></div></div>
+      <div class="panel"><h3>Rides with a busy-time price, by day</h3><div class="legend"><span><i style="background:var(--accent)"></i>Busy-time price</span><span><i style="background:var(--bar3)"></i>Normal price</span></div><div class="chart" id="c-day"></div></div>
+    </div>
+    <div class="tablewrap"><table id="t-events"><thead><tr><th>Event</th><th>When</th><th class="r">Rides nearby</th><th class="r">Event fees</th></tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <section>
+    <div class="head"><div class="eyebrow">The other side</div><h2>What sellers, restaurants, drivers and hosts received</h2>
+      <p class="muted">Hayve's commission comes out of the base price, so it never raises what the customer pays. Shop sellers pay nothing and keep their full asking price.</p></div>
+    <div class="tablewrap"><table id="t-suppliers"><thead><tr><th>Service</th><th class="r">Orders</th><th class="r">Base prices</th><th class="r">Hayve commission</th><th class="r">Rate</th><th class="r">They received</th></tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <section>
+    <div class="head"><div class="eyebrow">Biggest markups</div><h2>The orders that cost the most above base, and why</h2>
+      <p class="muted">By fees as a share of the base price. Shipping is shown separately below because on cheap items it can be bigger than the item itself.</p></div>
+    <div class="cards" id="markups"></div>
+    <h3>Shipping on cheap items</h3>
+    <div class="cards" id="shipping"></div>
+  </section>
+
+  <section>
+    <div class="head"><div class="eyebrow">Per person</div><h2>How much each person paid on top</h2></div>
+    <div class="grid2">
+      <div class="panel"><h3>People by total paid on top of base prices</h3><div class="chart" id="c-people"></div></div>
+      <div class="panel"><h3>Orders by fees as a share of the base price</h3><p class="muted">Excludes delivery and shipping.</p><div class="chart" id="c-share"></div></div>
+    </div>
+    <div class="tablewrap"><table id="t-people"><thead><tr><th>Person</th><th class="r">Orders</th><th class="r">Base prices</th><th class="r">Paid on top</th><th>Mostly because of</th></tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <section>
+    <div class="head"><div class="eyebrow">Fair-pricing checks</div><h2>Limits held</h2></div>
+    <div class="checks" id="checks"></div>
+  </section>
+
+  <section>
+    <div class="head"><div class="eyebrow">Every order</div><h2>All orders, line by line</h2></div>
+    <div class="controls">
+      <label for="q" hidden>Search</label><input id="q" type="search" placeholder="Search a person, city, item or fee">
+      <label for="fsv" hidden>Service</label><select id="fsv"><option value="">All services</option></select>
+      <label for="ffee" hidden>Charge</label><select id="ffee"><option value="">Any charge</option></select>
+      <label for="fs" hidden>Sort</label><select id="fs"><option value="top">Most paid on top</option><option value="share">Highest share above base</option><option value="time">Order</option></select>
+      <span class="muted num" id="count"></span>
+    </div>
+    <div class="tablewrap"><table id="t-orders"><thead><tr><th>Who</th><th>What</th><th class="r">Base</th><th>On top, and why</th><th class="r">Total</th><th class="r">To Hayve</th></tr></thead><tbody><tr><td colspan="6" class="muted">Loading orders…</td></tr></tbody></table></div>
+    <button class="btn" id="more" type="button" hidden>Show 50 more</button>
+  </section>
+</main>
+<div id="tip" role="status" aria-live="polite"></div>
+
+<script>
+const S = /*SUMMARY*/null;
+const $ = (s) => document.querySelector(s);
+const usd = (c, d = 2) => '$' + (c / 100).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+const fmt = (n) => n.toLocaleString('en-US');
+const pct = (x, d = 0) => (x * 100).toFixed(d) + '%';
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const tip = $('#tip');
+document.addEventListener('pointermove', (e) => { const t = e.target.closest('[data-tip]'); if (!t) { tip.style.opacity = 0; return; } tip.textContent = t.dataset.tip; tip.style.opacity = 1; tip.style.left = Math.min(e.clientX + 12, innerWidth - 290) + 'px'; tip.style.top = (e.clientY + 14) + 'px'; });
+const CHARTS = [];
+const widthOf = (el) => Math.max(300, Math.round(el.clientWidth || 560));
+function hbars(el, rows, opts = {}) {
+  if (!el._reg) { el._reg = true; CHARTS.push(() => hbars(el, rows, opts)); }
+  const { value = (r) => r.n, label = (r) => fmt(value(r)), tipText, left = 190 } = opts;
+  const W = widthOf(el), rowH = 30, right = 90, m = Math.max(...rows.map(value)), H = rows.length * rowH + 4;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img">`;
+  rows.forEach((r, i) => { const y = i * rowH + 6, w = Math.max(2, (value(r) / m) * (W - left - right));
+    svg += `<text x="${left - 10}" y="${y + 13}" text-anchor="end">${esc(r.key.length > 28 ? r.key.slice(0, 27) + '…' : r.key)}</text><rect x="${left}" y="${y}" width="${w}" height="18" rx="4" fill="var(--accent)" data-tip="${esc(tipText ? tipText(r) : r.key + ': ' + label(r))}"></rect><text x="${left + w + 6}" y="${y + 13}" class="lbl num">${label(r)}</text>`; });
+  el.innerHTML = svg + '</svg>';
+}
+function vbars(el, rows, opts = {}) {
+  if (!el._reg) { el._reg = true; CHARTS.push(() => vbars(el, rows, opts)); }
+  const { value = (r) => r.n, label = (r) => fmt(value(r)), tipText, stack } = opts;
+  const W = widthOf(el), H = 220, top = 20, bottom = 28, left = 6, n = rows.length, bw = (W - left * 2) / n;
+  const total = (r) => (stack ? stack.reduce((a, s) => a + r[s.key], 0) : value(r));
+  const m = Math.max(...rows.map(total)) || 1;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img"><line class="grid" x1="0" x2="${W}" y1="${H - bottom}" y2="${H - bottom}"></line>`;
+  rows.forEach((r, i) => {
+    const x = left + i * bw + 2, w = Math.max(2, bw - 4); let y = H - bottom;
+    for (const s of stack ?? [{ key: '_v', color: '--accent' }]) {
+      const v = stack ? r[s.key] : value(r); const h = (v / m) * (H - top - bottom);
+      if (h > 0) svg += `<rect x="${x}" y="${y - h}" width="${w}" height="${Math.max(h - (stack ? 2 : 0), 0.5)}" rx="3" fill="var(${s.color})" data-tip="${esc(tipText ? tipText(r, s) : r.key + ': ' + label(r))}"></rect>`;
+      y -= h;
+    }
+    if (n <= 12 && total(r)) svg += `<text x="${x + w / 2}" y="${y - 6}" text-anchor="middle" class="lbl num">${label(r)}</text>`;
+    if (n <= 12 || i % 3 === 0) svg += `<text x="${x + w / 2}" y="${H - 8}" text-anchor="middle" class="lbl">${esc(r.key)}</text>`;
+  });
+  el.innerHTML = svg + '</svg>';
+}
+let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => CHARTS.forEach((f) => f()), 150); });
+
+// Receipt
+const R = S.receipt;
+const hayveKept = S.hayveCents - R.shipping;
+$('#receipt').innerHTML = [
+  ['r', `Base prices (${fmt(S.orders)} orders by ${fmt(S.n)} people)`, usd(S.baseCents, 0)],
+  ['r', 'Everything on top of the base price', usd(S.onTopCents + S.extrasCents, 0)],
+  ['r sub', 'Service, booking and buyer fees (every order)', usd(R.everyOrder, 0)],
+  ['r sub', 'Busy-time, airport, late-night, event and small-order fees', usd(R.situational, 0)],
+  ['r sub', 'Taxes on stays (to the tax authority)', usd(R.taxes, 0)],
+  ['r sub', 'Cleaning fees (to hosts)', usd(R.cleaning, 0)],
+  ['r sub', 'Trip insurance (to the insurer)', usd(R.insurance, 0)],
+  ['r sub', 'Shipping (Hayve Send, pays the carrier)', usd(R.shipping, 0)],
+  ['r sub', 'Restaurant delivery fees (to couriers)', usd(R.delivery, 0)],
+  ['r sub', 'Waiting time and late cancellations (to drivers)', usd(R.driverExtras, 0)],
+  ['r total', 'Customers paid', usd(S.paidCents, 0)],
+  ['r', 'Hayve commission, taken out of the base price (not added on top)', usd(S.commissionCents, 0)],
+  ['r hl', 'Hayve kept: its own fees on top + commission', usd(hayveKept, 0)],
+  ['r', 'Sellers, restaurants, drivers, hosts and couriers received', usd(R.supplierPayout + R.delivery + R.driverExtras, 0)],
+  ['r', 'Passed on: taxes, insurance and shipping carriers', usd(R.taxes + R.insurance + R.shipping, 0)],
+].map(([c, a, b]) => `<div class="${c}"><span>${esc(a)}</span><span>${b}</span></div>`).join('');
+
+// Rules
+hbars($('#c-rules'), [...S.rules.map((r) => ({ key: `${r.service.replace('Hayve ', '')}: ${r.label}`, cents: r.cents, n: r.n })), ...S.extraGroups.map((g) => ({ key: `Ride: ${g.name}`, cents: g.cents, n: g.n }))].sort((a, b) => b.cents - a.cents), { value: (r) => r.cents, label: (r) => usd(r.cents, 0), tipText: (r) => `${r.key}: ${usd(r.cents)} over ${fmt(r.n)} orders (${usd(r.cents / r.n)} each)` });
+$('#t-rules tbody').innerHTML = S.rules.map((r) => `<tr><td><b>${esc(r.name)}</b><span class="sub">${esc(r.service)} · shown as "${esc(r.label)}"</span><span class="sub">${esc(r.why)}</span></td><td>${esc(r.amount)}</td><td>${esc(r.when)}</td><td class="r">${fmt(r.n)}</td><td class="r">${pct(r.share)}</td><td class="r"><b>${usd(r.cents, 0)}</b><span class="sub">${usd(r.cents / r.n)} avg</span></td><td>${esc(r.to)}</td></tr>`).join('') +
+  S.extraGroups.map((g) => `<tr><td><b>${esc(g.name)}</b><span class="sub">Hayve Ride</span><span class="sub">${esc(g.why)}.</span></td><td>${g.name.startsWith('Waiting') ? '$0.35/min after 3 free minutes' : '$5.00'}</td><td>${g.name.startsWith('Waiting') ? 'driver waits more than 3 minutes at pickup' : 'cancelled more than 2 minutes after a driver accepted'}</td><td class="r">${fmt(g.n)}</td><td class="r">—</td><td class="r"><b>${usd(g.cents, 0)}</b></td><td>The driver</td></tr>`).join('');
+
+// Rides
+const B = S.busy;
+$('#ride-intro').textContent = `${fmt(B.n)} of ${fmt(B.rides)} rides (${pct(B.n / B.rides)}) had a busy-time price, adding ${usd(B.cents, 0)} in total. It applies when there are at least 1.5 ride requests per free driver nearby: weekday rush hours, Friday and Saturday nights and events. It is a fixed ${S.checks.demandApplied}× the fare, below the hard limit of ${S.checks.demandCap}×, and switches off in any city where an admin turns on emergency mode. Airport trips add a fixed fee for airport access, rides between midnight and 5:00 add 10% (max $5), and rides near an event add 15% (max $8).`;
+vbars($('#c-hour'), S.byHour, { value: (r) => r.avgExtraCents, label: (r) => usd(r.avgExtraCents), tipText: (r) => `${r.key}:00 · ${r.n} rides · ${r.busy} with busy-time price · ${usd(r.avgExtraCents)} extra on average` });
+vbars($('#c-day'), S.byDay.map((d) => ({ ...d, normal: d.n - d.busy })), { stack: [{ key: 'busy', color: '--accent' }, { key: 'normal', color: '--bar3' }], label: (r) => fmt(r.n), tipText: (r, s) => `${r.key}: ${s.key === 'busy' ? r.busy + ' busy-time' : r.normal + ' normal'} of ${r.n} rides` });
+const evWhen = (e) => `${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][(e.day - 1) % 7]} ${String(e.from).padStart(2, '0')}:00–${String(e.to % 24).padStart(2, '0')}:00`;
+$('#t-events tbody').innerHTML = S.eventList.map((e) => { const g = S.events.find((x) => x.name.startsWith(e.name)); return `<tr><td>${esc(e.name)}, ${esc(e.city)}</td><td>${evWhen(e)}</td><td class="r">${fmt(g?.rides ?? 0)}</td><td class="r">${usd(g?.feeCents ?? 0)}</td></tr>`; }).join('');
+
+// Suppliers
+$('#t-suppliers tbody').innerHTML = S.suppliers.map((s) => `<tr><td>${esc(s.key)} <span class="sub">${esc(s.who)}</span></td><td class="r">${fmt(s.orders)}</td><td class="r">${usd(s.baseCents, 0)}</td><td class="r">${usd(s.commissionCents, 0)}</td><td class="r">${pct(s.rate)}</td><td class="r"><b>${usd(s.receivedCents, 0)}</b></td></tr>`).join('');
+
+// Markups
+const card = (o) => `<div class="card"><b>${esc(o.item || o.service)}</b><span class="muted" style="font-size:13px">${esc(o.name)}, ${esc(o.city)}${o.when ? ' · ' + esc(o.when) : ''}${o.service ? ' · ' + esc(o.service) : ''}</span><div class="lines"><div><span>Base price</span><span>${usd(o.base)}</span></div>${o.lines.map(([l, c, why]) => `<div data-tip="${esc(why)}"><span>+ ${esc(l)} <span class="muted">· ${esc(why)}</span></span><span>${usd(c)}</span></div>`).join('')}<div><b>Paid</b><b>${usd(o.total)} <span class="muted">(+${pct((o.total - o.base) / o.base)})</span></b></div></div></div>`;
+$('#markups').innerHTML = S.topMarkups.map(card).join('');
+$('#shipping').innerHTML = S.topShipping.map(card).join('');
+
+// People
+vbars($('#c-people'), S.personBands, { tipText: (r) => `${r.key} on top: ${r.n} people` });
+vbars($('#c-share'), S.shareBands, { tipText: (r) => `${r.key} above base: ${fmt(r.n)} orders` });
+$('#t-people tbody').innerHTML = S.topPeople.map((p) => `<tr><td><b>${esc(p.name)}</b><span class="sub">${p.age} · ${esc(p.city)} · ${esc(p.income)} income</span></td><td class="r">${p.orders}</td><td class="r">${usd(p.baseCents, 0)}</td><td class="r"><b>${usd(p.onTopCents, 0)}</b><span class="sub">${pct(p.onTopCents / p.baseCents)} of base</span></td><td>${p.reasons.slice(0, 3).map(([l, c]) => `${esc(l)} ${usd(c, 0)}`).join(' · ')}</td></tr>`).join('');
+
+// Checks
+const C = S.checks;
+$('#checks').innerHTML = [
+  ['Surcharges stayed under the cap', `Largest surcharge on any order: ${pct(C.maxSurchargeShare)} of its base price. The limit is ${pct(C.cap)}. The cap lowered the fees on ${fmt(C.guardHits)} orders, mostly short rides to the airport where the fixed airport fee would have been more than 35% of the fare.`],
+  ['Busy-time pricing stayed low', `Applied at ${C.demandApplied}×, never more, even when there were up to ${C.maxDemandRatio.toFixed(1)} requests per free driver. The hard limit is ${C.demandCap}×.`],
+  ['Same conditions, same price', `${fmt(C.identicalGroups)} groups of orders with the same base price, place, time and rules: ${C.inconsistent === 0 ? 'in every group the pricing rules charged exactly the same' : C.inconsistent + ' groups were charged differently'}. Prices never use who the customer is.`],
+  ['Every charge shown before paying', 'Each line above appeared on the checkout screen as its own item before the customer confirmed. Commission comes out of the base price and is shown to the supplier.'],
+  ['Emergency mode ready', C.emergencyCities.length ? `Emergency mode on in ${C.emergencyCities.join(', ')}.` : 'No emergencies in this run. An admin can switch off busy-time and event fees for any city in one tap.'],
+].map(([t, d]) => `<div class="check"><span class="pill ok">Passed</span><b>${esc(t)}</b><span class="muted">${esc(d)}</span></div>`).join('');
+
+// Orders
+let ORDERS = [], shown = 50;
+function render() {
+  const q = $('#q').value.trim().toLowerCase(), sv = $('#fsv').value, fee = $('#ffee').value, s = $('#fs').value;
+  let rows = ORDERS.filter((o) => (!sv || o[4] === sv) && (!fee || o[8].some((l) => l[0] === fee)) && (!q || o._t.includes(q)));
+  if (s === 'top') rows = rows.slice().sort((a, b) => b[7] - a[7]); else if (s === 'share') rows = rows.slice().sort((a, b) => b[7] / b[6] - a[7] / a[6]);
+  $('#count').textContent = `${fmt(rows.length)} orders`;
+  $('#t-orders tbody').innerHTML = rows.slice(0, shown).map((o) => `<tr><td><b>${esc(o[1])}</b><span class="sub">${esc(o[2])} · ${esc(o[3])}</span></td><td>${esc(o[5])}<span class="sub">${esc(o[4])}</span></td><td class="r">${usd(o[6])}</td><td>${o[8].length ? o[8].map(([l, c, why]) => `${esc(l)} <b class="num">${usd(c)}</b><span class="sub">${esc(why)}</span>`).join('') : '<span class="muted">Nothing on top</span>'}</td><td class="r"><b>${usd(o[6] + o[7])}</b></td><td class="r">${usd(o[10])}<span class="sub">incl. ${usd(o[9])} commission</span></td></tr>`).join('') || '<tr><td colspan="6" class="muted">No orders match. Clear the search or pick another filter.</td></tr>';
+  $('#more').hidden = rows.length <= shown;
+}
+['q', 'fsv', 'ffee', 'fs'].forEach((id) => $('#' + id).addEventListener('input', () => { shown = 50; render(); }));
+$('#more').addEventListener('click', () => { shown += 50; render(); });
+fetch('orders.json').then((r) => r.json()).then((rows) => {
+  ORDERS = rows.map((o) => Object.assign(o, { _t: [o[1], o[2], o[4], o[5], ...o[8].flat()].join(' ').toLowerCase() }));
+  [...new Set(rows.map((o) => o[4]))].sort().forEach((v) => $('#fsv').insertAdjacentHTML('beforeend', `<option>${esc(v)}</option>`));
+  [...new Set(rows.flatMap((o) => o[8].map((l) => l[0])))].sort().forEach((v) => $('#ffee').insertAdjacentHTML('beforeend', `<option>${esc(v)}</option>`));
+  render();
+}).catch(() => { $('#t-orders tbody').innerHTML = '<tr><td colspan="6" class="muted">The order list could not load. The summary above is complete.</td></tr>'; });
+</script>

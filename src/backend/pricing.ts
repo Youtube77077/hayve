@@ -18,7 +18,10 @@ import type { Cents, ID } from './types';
 
 export type PricedService = 'ride' | 'bites' | 'shop' | 'stay' | 'drive' | 'pay';
 export type Zone = 'airport' | 'station' | 'city_centre' | 'tourist';
-export type RuleComponent = 'surcharge' | 'service_fee' | 'booking_fee' | 'small_order_fee' | 'delivery_fee' | 'commission' | 'waiting_fee' | 'cancellation_fee' | 'fx_margin' | 'demand';
+export type RuleComponent = 'surcharge' | 'service_fee' | 'booking_fee' | 'small_order_fee' | 'delivery_fee' | 'commission' | 'waiting_fee' | 'cancellation_fee' | 'fx_margin' | 'demand'
+  /** Customer money that is not Hayve revenue: passed to the supplier, courier or insurer, or tax to remit. */
+  | 'pass_through'
+  | 'tax';
 
 export interface RuleConditions {
   zones?: Zone[];

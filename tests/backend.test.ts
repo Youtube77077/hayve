@@ -916,3 +916,42 @@ describe('Bites delivery area (found by the 1,000-person simulation)', () => {
     expect(api.bites.metro('Brooklyn, NY')).toBe(api.bites.metro('New York'));
   });
 });
+
+describe('price audit (found by the pricing analysis)', () => {
+  it('records the full amount a food customer paid, delivery fee included', () => {
+    as(SAM);
+    const r = getDb().restaurants.find((x) => x.isOpen && x.deliveryFeeCents > 0 && x.city === 'New York')!;
+    const item = getDb().menuItems.find((m) => m.restaurantId === r.id && m.available && !m.options.some((o) => o.required))!;
+    const lines = [{ key: '1', menuItemId: item.id, qty: Math.ceil(r.minOrderCents / item.priceCents) + 1, options: [] }];
+    const priced = api.bites.priceCart(r.id, lines);
+    const id = api.bites.placeFoodOrder({ restaurantId: r.id, lines, address: '1 Test Street, Brooklyn', method: 'card' });
+    const rec = getDb().priceRecords!.find((x) => x.refId === id)!;
+    expect(rec.breakdown.customerTotalCents).toBe(priced.totalCents);
+    expect(rec.breakdown.customerLines.some((l) => l.ruleId === 'restaurant_delivery' && l.cents === r.deliveryFeeCents)).toBe(true);
+    // The delivery fee goes to the courier, not to Hayve.
+    expect(rec.breakdown.hayveRevenueCents).toBe(priced.breakdown.hayveRevenueCents);
+  });
+
+  it('records stays and car rentals in full, matching what the host is paid', () => {
+    as(NOOR);
+    const day = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+    const prop = getDb().properties.find((p) => p.listed && p.cleaningFeeCents > 0 && p.hostId !== getDb().users.find((u) => u.email === NOOR)!.id)!;
+    const sq = api.bookings.quoteStay(prop.id, day(20), day(23));
+    const stayId = api.bookings.bookStay({ propertyId: prop.id, checkIn: day(20), checkOut: day(23), guests: 1, method: 'card' });
+    const sr = getDb().priceRecords!.find((x) => x.refId === stayId)!.breakdown;
+    expect(sr.customerTotalCents).toBe(sq.totalCents);
+    const hostCredit = (refId: string, hostId: string) => {
+      const txIds = new Set(getDb().transactions.filter((t) => t.ref?.id === refId).map((t) => t.id));
+      return getDb().entries.filter((e) => txIds.has(e.txId) && e.accountId === accountIdFor(hostId) && e.amountCents > 0).reduce((a, e) => a + e.amountCents, 0);
+    };
+    expect(sr.supplierPayoutCents).toBe(hostCredit(stayId, prop.hostId));
+    expect(sr.customerLines.find((l) => l.ruleId === 'stay_taxes')?.component).toBe('tax');
+
+    const v = getDb().vehicles.find((x) => x.listed && x.requirements.minAge <= 30)!;
+    const rq = api.bookings.quoteRental(v.id, day(30), day(33));
+    const rentalId = api.bookings.bookRental({ vehicleId: v.id, start: day(30), end: day(33), pickupLocation: v.location, returnLocation: v.location, method: 'card', driverAge: 30 });
+    const rr = getDb().priceRecords!.find((x) => x.refId === rentalId)!.breakdown;
+    expect(rr.customerTotalCents).toBe(rq.totalCents);
+    expect(rr.supplierPayoutCents).toBe(hostCredit(rentalId, v.hostId));
+  });
+});

@@ -18,7 +18,7 @@ import {
 } from './common';
 import { ratingFor } from './shop';
 import { getSessionUserId, me, requireRole } from './session';
-import { disclosed, priceFor, recordPrice } from './revenue';
+import { disclosed, priceFor, recordPrice, withExtras } from './revenue';
 
 /** Hayve Drive (car rentals), Hayve Stay (accommodation) and Hayve Host. */
 
@@ -157,7 +157,7 @@ export function bookRental(input: { vehicleId: ID; start: string; end: string; p
     ref: { kind: 'rental', id },
     waveBack: { category: 'services', baseCents: q.baseCents - q.discountCents },
   });
-  recordPrice('drive', id, q.breakdown);
+  recordPrice('drive', id, withExtras(q.breakdown, [{ ruleId: 'drive_insurance', label: 'Insurance', cents: q.insuranceCents, to: 'insurer', reason: 'trip insurance, paid to the insurer' }]));
   const rental: Rental = {
     id,
     reference: reference('HD'),
@@ -375,7 +375,18 @@ export function bookStay(input: { propertyId: ID; checkIn: string; checkOut: str
     ref: { kind: 'stay', id },
     waveBack: { category: 'services', baseCents: q.baseCents - q.discountCents + q.cleaningFeeCents },
   });
-  recordPrice('stay', id, q.breakdown);
+  recordPrice(
+    'stay',
+    id,
+    withExtras(
+      q.breakdown,
+      [
+        { ruleId: 'host_cleaning', label: 'Cleaning fee', cents: q.cleaningFeeCents, to: 'supplier', reason: "host's cleaning fee, paid to the host" },
+        { ruleId: 'stay_taxes', label: 'Taxes', cents: q.taxesCents, to: 'tax', reason: 'taxes collected to remit' },
+      ],
+      q.commissionCents,
+    ),
+  );
   const booking: StayBooking = {
     id,
     reference: reference('HY'),

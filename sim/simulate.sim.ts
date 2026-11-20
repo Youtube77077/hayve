@@ -9,7 +9,7 @@
  * Output: sim/out/results.json → node sim/report.mjs <dir>
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { it } from 'vitest';
+import { it, vi } from 'vitest';
 import * as api from '../src/backend/api';
 import { accountIdFor, balancesFor, ledgerIsBalanced } from '../src/backend/ledger';
 import { REGIONS } from '../src/backend/regions';
@@ -18,6 +18,9 @@ import { attachStorage, getDb, HayveError } from '../src/backend/store';
 import { addExampleCatalog } from './catalog';
 
 const N = Number(process.env.SIM_N ?? 1000);
+/** The simulated week starts Monday 23 Nov 2026, 00:00 (clock frozen to each step's simulated time). */
+const BASE = Date.UTC(2026, 10, 23);
+const WEEKDAY = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const OUT = process.env.SIM_OUT ?? 'sim/out/results.json';
 
 function rng(seed: number) {
@@ -147,7 +150,7 @@ function near(c: { lng: number; lat: number }, km: number) {
   return { lng: c.lng + (Math.cos(a) * d) / (111 * Math.cos((c.lat * Math.PI) / 180)), lat: c.lat + (Math.sin(a) * d) / 111 };
 }
 const dateIn = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
-const clock = (h: number) => `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.floor((h % 1) * 60)).padStart(2, '0')}`;
+const clock = (h: number) => `${String(Math.floor(h % 24)).padStart(2, '0')}:${String(Math.floor((h % 1) * 60)).padStart(2, '0')}`;
 
 function makePersona(i: number): Persona {
   const country = weighted(COUNTRY_MIX);
@@ -202,15 +205,36 @@ function makePersona(i: number): Persona {
 }
 
 it(`simulates ${N} people`, () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(BASE + 8 * 3_600_000);
   attachStorage(null);
   createSeedDatabase();
   api.session.signOut();
   const catalog = addExampleCatalog();
+  // Example events an admin would add (concerts, matches): rides nearby get the disclosed event fee.
+  const EVENTS: { name: string; city: string; day: number; from: number; to: number }[] = [
+    { name: 'Stadium concert', city: 'New York', day: 6, from: 18, to: 24 },
+    { name: 'Football final', city: 'London', day: 7, from: 14, to: 20 },
+    { name: 'Music festival', city: 'Berlin', day: 6, from: 12, to: 26 },
+    { name: 'Hockey game', city: 'Toronto', day: 5, from: 18, to: 23 },
+    { name: 'Marathon', city: 'Madrid', day: 7, from: 7, to: 14 },
+  ];
+  for (const e of EVENTS) {
+    const c = REGIONS.find((r) => r.city.name === e.city)!.city;
+    api.revenue.pricingState().events.push({ id: `ev_${e.city}`, name: `${e.name}, ${e.city}`, lng: c.lng, lat: c.lat, radiusKm: 8, startsAt: BASE + (e.day - 1) * 86_400_000 + e.from * 3_600_000, endsAt: BASE + (e.day - 1) * 86_400_000 + e.to * 3_600_000 });
+  }
+  /** Every priced order: what the customer paid above the base price, which rule added it and why. */
+  const priced: {
+    person: string; name: string; country: string; city: string; age: number; income: string; day: number; weekday: string; time: string; service: string; action: string; item: string;
+    baseCents: number; totalCents: number; customerLines: { ruleId: string; label: string; component: string; cents: number }[]; supplierLines: { ruleId: string; label: string; cents: number }[];
+    hayveCents: number; supplierCents: number; reasons: { ruleId: string; reason: string }[]; zones: string[]; demand?: number; events: string[]; guards: string[];
+  }[] = [];
+  const extras: { person: string; name: string; city: string; day: number; time: string; label: string; cents: number; why: string }[] = [];
   const people: Persona[] = [];
   const bugs: { persona: string; action: string; message: string; stack?: string }[] = [];
   const invariantFailures: string[] = [];
-  const openLinks: { id: string; ownerId: string; ownerName: string; title: string; amountCents: number; left: number }[] = [];
-  const t0 = Date.now();
+  const openLinks: { id: string; ownerId: string; ownerName: string; title: string; amountCents: number; left: number; expiresAt: number }[] = [];
+  const t0 = performance.now();
 
   for (let i = 0; i < N; i++) {
     const p = makePersona(i);
@@ -224,6 +248,8 @@ it(`simulates ${N} people`, () => {
 
     const step = (service: string, action: string, fn: () => { detail?: Step['detail']; spentCents?: number; feesCents?: number; thought?: string } | void, at?: number): boolean => {
       if (at != null) hour = at;
+      vi.setSystemTime(BASE + (day - 1) * 86_400_000 + Math.round(hour * 3_600_000));
+      const pr0 = getDb().priceRecords?.length ?? 0;
       const wb0 = p.userId ? waveBackTotal() : 0;
       const s: Step = { day, time: clock(hour), service, action, outcome: 'ok' };
       try {
@@ -245,6 +271,20 @@ it(`simulates ${N} people`, () => {
         s.balanceAfterCents = bal();
       }
       p.steps.push(s);
+      if (s.outcome === 'ok') for (const rec of (getDb().priceRecords ?? []).slice(pr0)) {
+        if (rec.kind !== 'charge') continue;
+        const b = rec.breakdown;
+        priced.push({
+          person: p.id, name: p.name, country: p.countryName, city: p.city, age: p.age, income: p.income, day: Math.floor((rec.at - BASE) / 86_400_000) + 1, weekday: WEEKDAY[(new Date(rec.at).getUTCDay() + 6) % 7], time: new Date(rec.at).toISOString().slice(11, 16), service: rec.service, action,
+          item: String(s.detail?.Item ?? s.detail?.From ?? s.detail?.Stay ?? s.detail?.Car ?? s.detail?.Type ?? ''),
+          baseCents: b.baseCents, totalCents: b.customerTotalCents,
+          customerLines: b.customerLines.map((l) => ({ ruleId: l.ruleId, label: l.label, component: l.component, cents: l.cents })),
+          supplierLines: b.supplierLines.map((l) => ({ ruleId: l.ruleId, label: l.label, cents: l.cents })),
+          hayveCents: b.hayveRevenueCents, supplierCents: b.supplierPayoutCents,
+          reasons: b.trace.filter((t) => t.matched).map((t) => ({ ruleId: t.ruleId, reason: t.reason })),
+          zones: rec.context.zones, demand: rec.context.demand, events: rec.context.eventNames ?? [], guards: b.guards,
+        });
+      }
       hour += between(0.2, 1.5);
       return s.outcome === 'ok';
     };
@@ -304,22 +344,71 @@ it(`simulates ${N} people`, () => {
         const a = { id: '', name: `${p.neighbourhood}`, address: `${p.neighbourhood}, ${p.city}`, ...near(center, 3) };
         const toName = chance(0.15) ? 'Airport' : pick(hoods.filter((h) => h !== p.neighbourhood).concat(['City centre', 'Train station']));
         const b = { id: '', name: toName, address: `${toName}, ${p.city}`, ...near(center, toName === 'Airport' ? 14 : 8) };
+        // When: commute, evening, or (younger people) a Friday/Saturday night out.
+        const wd = (day - 1) % 7;
+        const at = p.age < 35 && (wd === 4 || wd === 5) && chance(0.45) ? between(22, 27) : chance(0.5) ? between(7, 9.5) : between(17, 23.5);
+        hour = at;
+        vi.setSystemTime(BASE + (day - 1) * 86_400_000 + Math.round(hour * 3_600_000));
+        // Background demand: other riders waiting and drivers busy at rush hour, weekend nights and events.
+        const h = hour % 24, wdNow = (day - 1 + Math.floor(hour / 24)) % 7;
+        const eventOn = api.revenue.eventsNear(a).length > 0;
+        const level = eventOn ? 1 : (wdNow === 4 || wdNow === 5) && (h >= 22 || h < 3) ? 0.9 : (wdNow === 5 || wdNow === 6) && h < 4 ? 0.9 : wdNow < 5 && ((h >= 7.5 && h < 9.5) || (h >= 17 && h < 19)) ? 0.6 : 0.1;
+        const waiting = Math.max(0, Math.round(level * 5 + between(-1.5, 1)));
+        const onlineN = Math.max(1, 5 - Math.round(level * 4.5 + between(-0.5, 0.5)));
+        api.ride.rankDrivers({ pickup: a, riderId: p.userId, declinedBy: [], category: 'go' } as unknown as Parameters<typeof api.ride.rankDrivers>[0]);
+        const drivers = getDb().drivers;
+        const wasOnline = drivers.map((d) => d.online);
+        drivers.forEach((d, k) => (d.online = k < onlineN));
+        const bg = Array.from({ length: waiting }, (_, k) => ({ id: `bg_${p.id}_${k}`, riderId: 'u_background', driverId: null, pickup: { id: '', name: 'Nearby', address: '', ...near(a, 2) }, dropoff: { id: '', name: 'Elsewhere', address: '', ...near(a, 6) }, category: 'go' as const, priceCents: 0, distanceKm: 3, durationMin: 10, status: 'requested' as const, declinedBy: [], createdAt: Date.now() - Math.round(between(0, 5) * 60_000), timeline: [] }));
+        getDb().rides.push(...bg);
+        const restore = () => {
+          getDb().rides = getDb().rides.filter((r) => !r.id.startsWith('bg_'));
+          drivers.forEach((d, k) => (d.online = wasOnline[k]));
+        };
         let opts: ReturnType<typeof api.ride.quoteRide> = [];
+        const quotedAt = hour;
         if (!step('ride', 'Get ride prices', () => {
           opts = api.ride.quoteRide(a, b);
-          return { detail: Object.fromEntries(opts.map((o) => [o.label, `${usd(o.priceCents)} · pickup ${o.pickupEtaMin} min`])) };
-        }, chance(0.5) ? between(7, 9.5) : between(17, 23.5))) return;
-        if (!opts.length) return;
+          return { detail: { ...Object.fromEntries(opts.map((o) => [o.label, `${usd(o.priceCents)} · pickup ${o.pickupEtaMin} min`])), 'Riders waiting nearby': waiting, 'Drivers free': onlineN, 'Busy-time ratio': Math.round(api.ride.demandAt(a) * 100) / 100, ...(eventOn ? { Event: api.revenue.eventsNear(a)[0].name } : {}) } };
+        })) return restore();
+        if (!opts.length) return restore();
         const choice = p.priceSensitivity > 0.6 ? opts[0] : p.income === 'high' && chance(0.5) ? opts[opts.length - 1] : pick(opts);
         const fees = choice.fees.reduce((s, f) => s + f.cents, 0);
         const m = method(choice.priceCents);
         let rideId = '';
         if (!step('ride', 'Book a ride', () => {
           rideId = api.ride.requestRide(a, b, choice.category, m);
-          return { detail: { From: a.address, To: b.address, Type: choice.label, Fare: usd(choice.baseCents), ...Object.fromEntries(choice.fees.map((f) => [f.label, usd(f.cents)])), Total: usd(choice.priceCents), 'Paid with': methodLabel(m) }, spentCents: choice.priceCents, feesCents: fees, thought: fees / choice.priceCents > 0.25 ? `Fees were ${Math.round((fees / choice.priceCents) * 100)}% of the price (${choice.fees.map((f) => f.label).join(', ')}).` : undefined };
-        })) return;
-        for (let k = 0; k < 12 && api.ride.getRide(rideId).status !== 'completed'; k++) api.ride.simulateRideStep(rideId);
+          return { detail: { From: a.address, To: b.address, When: `${WEEKDAY[(day - 1 + Math.floor(hour / 24)) % 7]} ${clock(hour % 24)}`, Type: choice.label, Fare: usd(choice.baseCents), ...Object.fromEntries(choice.fees.map((f) => [f.label, usd(f.cents)])), Total: usd(choice.priceCents), 'Paid with': methodLabel(m) }, spentCents: choice.priceCents, feesCents: fees, thought: fees / choice.priceCents > 0.25 ? `Fees were ${Math.round((fees / choice.priceCents) * 100)}% of the price (${choice.fees.map((f) => f.label).join(', ')}).` : undefined };
+        }, quotedAt + 0.01)) return restore();
+        // The ride plays out on the simulated clock: pickup, how long the driver waits, the trip.
+        const lateRider = chance(0.12 * (1.2 - p.patience));
+        const cancels = chance(0.03);
+        for (let k = 0; k < 12; k++) {
+          const st = api.ride.getRide(rideId);
+          if (st.status === 'completed' || st.status === 'cancelled') break;
+          if (st.status === 'accepted') {
+            if (cancels) {
+              vi.setSystemTime(Date.now() + Math.round(between(3, 6) * 60_000));
+              api.ride.cancelRide(rideId);
+              break;
+            }
+            vi.setSystemTime(Date.now() + (st.matching.current?.etaMin ?? 4) * 60_000);
+          }
+          if (st.status === 'arriving') vi.setSystemTime(Date.now() + Math.round((lateRider ? between(5, 11) : between(0.5, 2.8)) * 60_000));
+          if (st.status === 'in_progress') vi.setSystemTime(Date.now() + st.durationMin * 60_000);
+          api.ride.simulateRideStep(rideId);
+        }
+        restore();
+        hour = (Date.now() - BASE - (day - 1) * 86_400_000) / 3_600_000;
         const v = api.ride.getRide(rideId);
+        for (const x of getDb().rides.find((r) => r.id === rideId)?.extraCharges ?? []) {
+          extras.push({ person: p.id, name: p.name, city: p.city, day, time: clock(hour % 24), label: x.label, cents: x.cents, why: x.label.toLowerCase().includes('wait') ? 'Rider kept the driver waiting past the free minutes' : 'Cancelled after the driver was already on the way' });
+          p.steps.push({ day, time: clock(hour % 24), service: 'ride', action: x.label, outcome: 'ok', detail: { Amount: usd(x.cents), 'Goes to': 'The driver' }, spentCents: x.cents, feesCents: x.cents, thought: x.label.toLowerCase().includes('wait') ? 'Fair enough, I kept them waiting.' : 'Annoying, but I did cancel late.' });
+          p.spentCents += x.cents;
+          p.feesCents += x.cents;
+          p.spentByService.ride = (p.spentByService.ride ?? 0) + x.cents;
+        }
+        if (v.status === 'cancelled') return;
         if (v.status !== 'completed') {
           p.steps.push({ day, time: clock(hour), service: 'ride', action: 'Ride', outcome: 'friction', message: `Stuck at ${v.status}`, thought: 'My ride never came.' });
           return;
@@ -337,33 +426,36 @@ it(`simulates ${N} people`, () => {
         const dest = chance(0.3) ? region : chance(0.5) ? REGIONS.find((r) => r.code === p.country && r.city.name !== p.city) ?? pick(others) : pick(others);
         const startIn = Math.round(between(3, 90));
         const nights = Math.round(between(1, 6));
+        // Dates are fixed once, so search and booking use the same days.
+        const ci = dateIn(startIn), co = dateIn(startIn + nights);
         const guests = p.household.includes('kids') ? 4 : p.household.includes('child') ? 3 : p.household.includes('partner') || p.household.includes('Couple') ? 2 : 1;
-        const props = api.bookings.listProperties({ destination: dest.city.name, guests, checkIn: dateIn(startIn), checkOut: dateIn(startIn + nights) });
-        if (!props.length) return skip('stay', 'Search stays', `Nothing free in ${dest.city.name} for my dates`, { Destination: dest.city.name, Dates: `${dateIn(startIn)} → ${dateIn(startIn + nights)}`, Guests: guests });
+        const props = api.bookings.listProperties({ destination: dest.city.name, guests, checkIn: ci, checkOut: co });
+        if (!props.length) return skip('stay', 'Search stays', `Nothing free in ${dest.city.name} for my dates`, { Destination: dest.city.name, Dates: `${ci} → ${co}`, Guests: guests });
         const wantsHotel = chance(p.income === 'high' ? 0.4 : 0.15);
         const pool = wantsHotel ? props.filter((x) => x.title.toLowerCase().includes('hotel')) : props;
         const prop = (pool.length ? pool : props).sort((x, y) => (p.priceSensitivity > 0.6 ? x.pricePerNightCents - y.pricePerNightCents : y.rating - x.rating))[0];
-        const q = api.bookings.quoteStay(prop.id, dateIn(startIn), dateIn(startIn + nights));
-        const detail = { Stay: prop.title, City: `${prop.city}, ${prop.country}`, Dates: `${dateIn(startIn)} → ${dateIn(startIn + nights)}`, Nights: q.nights, Guests: guests, 'Per night': usd(prop.pricePerNightCents), Cleaning: usd(q.cleaningFeeCents), Fees: usd(q.serviceFeeCents), Total: usd(q.totalCents) };
+        const q = api.bookings.quoteStay(prop.id, ci, co);
+        const detail = { Stay: prop.title, City: `${prop.city}, ${prop.country}`, Dates: `${ci} → ${co}`, Nights: q.nights, Guests: guests, 'Per night': usd(prop.pricePerNightCents), Cleaning: usd(q.cleaningFeeCents), Fees: usd(q.serviceFeeCents), Total: usd(q.totalCents) };
         if (q.totalCents > (p.income === 'low' ? 45000 : p.income === 'middle' ? 160000 : 600000)) return skip('stay', 'Book a stay', 'Too expensive for this trip', detail, `${usd(q.totalCents)} for ${q.nights} nights in ${prop.city} is too much for me.`);
         const m = method(q.totalCents);
         step('stay', 'Book a stay', () => {
-          api.bookings.bookStay({ propertyId: prop.id, checkIn: dateIn(startIn), checkOut: dateIn(startIn + nights), guests, method: m });
+          api.bookings.bookStay({ propertyId: prop.id, checkIn: ci, checkOut: co, guests, method: m });
           return { detail: { ...detail, 'Paid with': methodLabel(m) }, spentCents: q.totalCents, feesCents: q.serviceFeeCents, thought: dest.code === p.country && dest.city.name === p.city ? 'A staycation, booked in two minutes.' : `Booked ${prop.city} for ${q.nights} nights. ${wantsHotel ? 'Glad I could pick a hotel room.' : 'Liked seeing the full price per stay.'}` };
         });
       },
       cars: () => {
         const startIn = Math.round(between(2, 60));
         const days = Math.round(between(1, 6));
-        const list = api.bookings.listVehicles({ start: dateIn(startIn), end: dateIn(startIn + days) });
+        const ds = dateIn(startIn), de = dateIn(startIn + days);
+        const list = api.bookings.listVehicles({ start: ds, end: de });
         const local = list.filter((v) => v.location.includes(p.city) && v.requirements.minAge <= p.age);
-        if (!local.length) return skip('drive', 'Rent a car', list.length ? 'No car near me fits my age' : 'No cars free for those dates', { City: p.city, Dates: `${dateIn(startIn)} → ${dateIn(startIn + days)}` });
+        if (!local.length) return skip('drive', 'Rent a car', list.length ? 'No car near me fits my age' : 'No cars free for those dates', { City: p.city, Dates: `${ds} → ${de}` });
         const v = p.household.includes('kids') ? local.find((x) => x.seats >= 5 && (x.type === 'suv' || x.type === 'van')) ?? local[0] : p.priceSensitivity > 0.6 ? [...local].sort((x, y) => x.pricePerDayCents - y.pricePerDayCents)[0] : pick(local);
-        const q = api.bookings.quoteRental(v.id, dateIn(startIn), dateIn(startIn + days));
+        const q = api.bookings.quoteRental(v.id, ds, de);
         const m = method(q.totalCents);
         step('drive', 'Rent a car', () => {
-          api.bookings.bookRental({ vehicleId: v.id, start: dateIn(startIn), end: dateIn(startIn + days), pickupLocation: v.location, returnLocation: v.location, method: m, driverAge: p.age });
-          return { detail: { Car: `${v.make} ${v.model} (${v.type})`, Pickup: v.location, Dates: `${dateIn(startIn)} → ${dateIn(startIn + days)}`, Days: q.days, Rental: usd(q.baseCents - q.discountCents), Insurance: usd(q.insuranceCents), Fees: usd(q.feesCents), Total: usd(q.totalCents), Deposit: `${usd(q.depositCents)} (held, refunded)`, 'Paid with': methodLabel(m) }, spentCents: q.totalCents, feesCents: q.feesCents, thought: p.household.includes('kids') ? 'Room for the kids and the luggage.' : 'Picked it up around the corner.' };
+          api.bookings.bookRental({ vehicleId: v.id, start: ds, end: de, pickupLocation: v.location, returnLocation: v.location, method: m, driverAge: p.age });
+          return { detail: { Car: `${v.make} ${v.model} (${v.type})`, Pickup: v.location, Dates: `${ds} → ${de}`, Days: q.days, Rental: usd(q.baseCents - q.discountCents), Insurance: usd(q.insuranceCents), Fees: usd(q.feesCents), Total: usd(q.totalCents), Deposit: `${usd(q.depositCents)} (held, refunded)`, 'Paid with': methodLabel(m) }, spentCents: q.totalCents, feesCents: q.feesCents, thought: p.household.includes('kids') ? 'Room for the kids and the luggage.' : 'Picked it up around the corner.' };
         });
       },
       payments: () => {
@@ -376,12 +468,13 @@ it(`simulates ${N} people`, () => {
             const people = Math.round(between(2, 6));
             const id = unsure ? api.requests.create({ kind: 'split', title, amountCents: Math.round(between(10, 40)) * 100 }) : api.requests.create({ kind: 'split', title, splitTotalCents: total, people });
             const req = api.requests.get(id);
-            openLinks.push({ id, ownerId: p.userId!, ownerName: p.name, title, amountCents: req.amountCents, left: unsure ? 99 : people - 1 });
+            openLinks.push({ id, ownerId: p.userId!, ownerName: p.name, title, amountCents: req.amountCents, left: unsure ? 99 : people - 1, expiresAt: req.expiresAt });
             const detail: Record<string, string | number> = unsure ? { For: title, 'Each pays': usd(req.amountCents), People: 'Not sure yet', 'Link active': '72 hours' } : { For: title, Total: usd(total), People: people, 'Each pays': usd(req.amountCents), 'Link active': '72 hours' };
             return { detail, thought: unsure ? 'Not sure who is coming, so I just set an amount each.' : 'Sent the link to the group chat.' };
           });
         } else if (r < 0.8) {
-          const l = [...openLinks].reverse().find((x) => x.ownerId !== p.userId && x.left > 0);
+          // Friends pay within the 72 hours, so only links still open at this moment are paid.
+          const l = [...openLinks].reverse().find((x) => x.ownerId !== p.userId && x.left > 0 && x.expiresAt > Date.now() + 3_600_000 && x.expiresAt - 72 * 3_600_000 <= Date.now());
           if (!l) return skip('pay', 'Pay a link', 'No open links from friends');
           const m = bal() >= l.amountCents ? 'hayve' : 'card';
           step('pay', 'Pay a friend’s link', () => {
@@ -444,6 +537,7 @@ it(`simulates ${N} people`, () => {
       hour = between(7, 20);
       const n = Math.ceil(between(0.5, 2.5));
       for (let k = 0; k < n; k++) {
+        vi.setSystemTime(BASE + (day - 1) * 86_400_000 + Math.round(hour * 3_600_000));
         const what = weighted(p.interests);
         if (chance(Math.max(0.15, p.interests[what]))) actions[what]();
       }
@@ -515,6 +609,10 @@ it(`simulates ${N} people`, () => {
     x.netCents += r.breakdown.netRevenueCents;
   }
   mkdirSync(OUT.replace(/\/[^/]+$/, ''), { recursive: true });
-  writeFileSync(OUT, JSON.stringify({ generatedAt: new Date().toISOString(), n: N, ms: Date.now() - t0, catalog, people, bugs, invariantFailures, revenueByService }));
-  console.log(`done ${N} in ${Date.now() - t0}ms · bugs ${bugs.length} · invariant failures ${invariantFailures.length}`);
+  const guardsCfg = api.revenue.pricingState().guards;
+  const rulesCfg = api.revenue.pricingState().rules.map((r) => ({ id: r.id, name: r.name, service: r.service, label: r.label, component: r.component, payer: r.payer, enabled: r.enabled, amount: r.amount, conditions: r.conditions, rationale: r.rationale }));
+  writeFileSync(OUT.replace(/results\.json$/, 'pricing.json'), JSON.stringify({ base: BASE, events: EVENTS, guards: guardsCfg, rules: rulesCfg, priced, extras }));
+  vi.useRealTimers();
+  writeFileSync(OUT, JSON.stringify({ generatedAt: new Date().toISOString(), n: N, ms: Math.round(performance.now() - t0), catalog, people, bugs, invariantFailures, revenueByService }));
+  console.log(`done ${N} in ${Math.round(performance.now() - t0)}ms · bugs ${bugs.length} · invariant failures ${invariantFailures.length}`);
 });
