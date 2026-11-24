@@ -3,11 +3,11 @@
  * after onboarding they can also look around every service. Paying, booking and selling ask
  * them to save their setup (see useAction in lib/hooks.ts).
  */
-export const PUBLIC_ROOTS = new Set(['(auth)', 'u', 'product', 'paylink', 'track', 'privacy', 'claim', 'r', 'start']);
-const GUEST_ROOTS = new Set(['bites', 'stay', 'drive', 'sell', 'services']);
+export const PUBLIC_ROOTS = new Set(['(auth)', 'u', 'product', 'paylink', 'track', 'privacy', 'claim', 'r', 'start', 't']);
+const GUEST_ROOTS = new Set(['bites', 'stay', 'drive', 'sell', 'services', 'holidays']);
 const GUEST_TABS = new Set(['index', 'explore', 'shop', 'ride', 'bites', 'drive', 'stay']);
 /** Pages under a guest root that still need an account (orders and bookings). */
-const ACCOUNT_ONLY = /^\/(bites\/order|stay\/booking|drive\/booking)\//;
+const ACCOUNT_ONLY = /^\/(bites\/order|stay\/booking|drive\/booking|holidays\/trip)\//;
 
 export function guestCanOpen(segments: string[], pathname: string) {
   const [root, sub] = segments;

@@ -48,6 +48,12 @@ export default function MoreSheet() {
               <Icon name="chevron-forward" size={18} color={color.grey500} />
             </Pressable>
           ))}
+          <Pressable onPress={() => open('/holidays')} accessibilityRole="link" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, height: 56, borderBottomWidth: 1, borderBottomColor: color.grey200, opacity: pressed ? 0.6 : 1 })}>
+            <T style={{ flex: 1, fontSize: 18 }}>
+              <T style={{ fontSize: 18 }} weight="800">Hayve</T> Holidays
+            </T>
+            <Icon name="chevron-forward" size={18} color={color.grey500} />
+          </Pressable>
           <View style={{ height: 12 }} />
           <Row icon="search-outline" label="Search" to="/explore" />
           <Row icon="receipt-outline" label="Activity" to="/orders" />

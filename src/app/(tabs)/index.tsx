@@ -2,8 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
-import { bites, bookings, ride, shop, social, wallet } from '../../backend/api';
-import { Appear, color, Emoji, font, useHotkey, HScroll, Icon, type IconName, Photo, radius, Rating, Screen, Section, Split, T, tap, useLayout } from '../../design';
+import { bites, bookings, holidays, ride, shop, social, wallet } from '../../backend/api';
+import { Appear, color, Emoji, font, useHotkey, HScroll, Icon, type IconName, Photo, radius, Rating, Screen, Section, Split, Stars, T, tap, useLayout } from '../../design';
 import { ServiceShortcuts, StatusPill } from '../../features/common';
 import { ago, money, currencySymbol } from '../../lib/format';
 import { useLive } from '../../lib/hooks';
@@ -54,6 +54,7 @@ export default function Home() {
   // Onboarding answers: the goal they picked and the ways they'd like to earn.
   const prefs = usePersonalisation() as OnboardingAnswers;
   const goal = GOALS.find((g) => g.key === prefs.goal);
+  const tripToRate = useLive(() => holidays.tripToRate()).data;
   const hasLive = !!activeRide || food.length > 0 || shipped.length > 0 || stays.length > 0;
 
   const submitSearch = () => {
@@ -126,7 +127,7 @@ export default function Home() {
 
         {/* 3 · service shortcuts */}
         <View style={{ marginTop: 24 }}>
-          <ServiceShortcuts />
+          <ServiceShortcuts items={['shop', 'pay', 'ride', 'bites', 'drive', 'stay', 'holidays', 'all']} />
         </View>
 
         {/* 4 · live cards */}
@@ -144,6 +145,22 @@ export default function Home() {
             {stays.map((b) => (
               <LiveCard key={b.id} icon="bed-outline" title={`Upcoming stay in ${b.property.city}`} sub={`${b.checkIn} → ${b.checkOut}`} right={<StatusPill status={b.status} />} onPress={() => router.push(`/stay/booking/${b.id}`)} />
             ))}
+          </View>
+        )}
+
+        {/* 4a · just back from a holiday: ask how it was (tap a star to rate) */}
+        {tripToRate && (
+          <View style={{ marginTop: 24, padding: 16, borderRadius: radius.lg, borderWidth: 1.5, borderColor: color.indigo, gap: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Icon name="airplane-outline" size={24} />
+              <View style={{ flex: 1 }}>
+                <T variant="headline">How was {tripToRate.package.city}?</T>
+                <T variant="footnote" color={color.textSecondary}>
+                  Rate your trip and get your trip map to share
+                </T>
+              </View>
+            </View>
+            <Stars value={0} onChange={(n) => router.push(`/holidays/trip/${tripToRate.id}?stars=${n}`)} size={32} />
           </View>
         )}
 

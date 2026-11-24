@@ -549,6 +549,56 @@ export interface Property {
   createdAt: number;
 }
 
+export type HolidayBoard = 'all_inclusive' | 'half_board' | 'breakfast';
+
+/** A package holiday sold by a travel partner (tour operator): flights, hotel, transfers, meals. */
+export interface HolidayPackage {
+  id: ID;
+  /** The partner's Hayve business account (receives the payout). */
+  partnerId: ID;
+  partnerName: string;
+  title: string;
+  hotel: string;
+  city: string;
+  country: string;
+  lng: number;
+  lat: number;
+  airport: { name: string; lng: number; lat: number };
+  nights: number;
+  board: HolidayBoard;
+  includes: string[];
+  highlights: string[];
+  /** Places nearby that guests usually visit (used for the trip map). */
+  places: { name: string; lng: number; lat: number }[];
+  pricePerPersonCents: Cents;
+  departures: ISODate[];
+  images: string[];
+  rating: number;
+  reviewCount: number;
+  tags: string[];
+  createdAt: number;
+}
+
+export interface HolidayBooking {
+  id: ID;
+  reference: string;
+  packageId: ID;
+  userId: ID;
+  partnerId: ID;
+  departure: ISODate;
+  returnDate: ISODate;
+  travellers: number;
+  totalCents: Cents;
+  status: 'confirmed' | 'completed' | 'cancelled';
+  paymentTxId?: ID;
+  createdAt: number;
+  completedAt?: number;
+  /** "How was your trip?" (asked once the trip is over). */
+  review?: { stars: number; comment?: string; at: number };
+  /** Short public link for the shared trip map (hayve.app/t/CODE). */
+  shareCode?: string;
+}
+
 export interface StayBooking {
   id: ID;
   reference: string;
@@ -736,6 +786,8 @@ export interface Database {
   rentals: Rental[];
   properties: Property[];
   stayBookings: StayBooking[];
+  holidays?: HolidayPackage[];
+  holidayBookings?: HolidayBooking[];
   deliveries: Delivery[];
   threads: Thread[];
   messages: Message[];

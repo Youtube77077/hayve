@@ -57,7 +57,7 @@ export function ServiceShortcuts({ items = PRODUCT_KEYS }: { items?: ServiceKey[
               tap();
               router.push(s.route as never);
             }}
-            style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({ width: isWide ? `${100 / items.length}%` : '33.33%', alignItems: 'center', gap: 8, paddingVertical: 12, borderRadius: radius.md, backgroundColor: pressed || hovered ? color.grey100 : 'transparent' })}
+            style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({ width: isWide ? `${100 / items.length}%` : items.length > 6 ? '25%' : '33.33%', alignItems: 'center', gap: 8, paddingVertical: 12, borderRadius: radius.md, backgroundColor: pressed || hovered ? color.grey100 : 'transparent' })}
           >
             <Icon name={s.icon} size={26} />
             <T variant="subhead" weight="600">

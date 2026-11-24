@@ -6,8 +6,8 @@ import { Badge, Button, Card, Chip, color, Group, HScroll, Input, KeyValue, List
 import { money } from '../../lib/format';
 import { useAction, useLive } from '../../lib/hooks';
 
-const SERVICES = ['ride', 'bites', 'stay', 'drive', 'shop', 'pay'] as const;
-const NAMES: Record<string, string> = { ride: 'Hayve Ride', bites: 'Hayve Bites', stay: 'Hayve Stay', drive: 'Hayve Drive', shop: 'Hayve Shop', pay: 'Hayve Pay' };
+const SERVICES = ['ride', 'bites', 'stay', 'holiday', 'drive', 'shop', 'pay'] as const;
+const NAMES: Record<string, string> = { ride: 'Hayve Ride', bites: 'Hayve Bites', stay: 'Hayve Stay', drive: 'Hayve Drive', shop: 'Hayve Shop', pay: 'Hayve Pay', holiday: 'Hayve Holidays' };
 
 function amountText(r: PricingRule) {
   const a = r.amount;

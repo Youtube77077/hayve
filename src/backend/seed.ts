@@ -2,8 +2,10 @@ import { DEFAULT_FEE_TIERS, DEFAULT_WAVE_BACK } from './config';
 import { accountIdFor, createTransaction, ensureAccount, releaseTransaction, SYSTEM, systemAccounts } from './ledger';
 import { media } from './media';
 import { PLACES } from './places';
+import { fmtMoney } from './regions';
 import { setDatabase, simHash } from './store';
 import type {
+  HolidayPackage,
   Database,
   MenuItem,
   NotificationKind,
@@ -16,7 +18,7 @@ import type {
   User,
 } from './types';
 
-export const DB_VERSION = 11;
+export const DB_VERSION = 12;
 export const DEMO_PASSWORD = 'hayve123';
 
 export const DEMO_ACCOUNTS = [
@@ -129,6 +131,8 @@ export function createSeedDatabase(): Database {
     ['u_kemal', 'kemal@hayve.app', 'kemal', 'Kemal Yilmaz', ['customer', 'driver'], '', 'Hayve Driver, XL and airport runs.', { country: 'US', city: 'New York', currency: 'USD' }],
     ['u_sophie', 'sophie@hayve.app', 'sophiedw', 'Sophie de Wit', ['customer', 'driver'], '', 'Hayve Driver, evenings.', { country: 'US', city: 'New York', currency: 'USD' }],
     ['u_eva', 'eva@hayve.app', 'evasmit', 'Eva Smit', ['customer', 'seller'], media.avatars.eva, 'Home & interiors lover.', { country: 'IE', city: 'Dublin', currency: 'EUR' }],
+    ['u_sunway', 'partners@sunway.example', 'sunway.holidays', 'Sunway Holidays', ['customer', 'host'], '', 'Package holidays to the sun: flights, hotel and transfers in one booking.', { accountType: 'business', country: 'GB', city: 'London', currency: 'GBP' }],
+    ['u_bluewave', 'partners@bluewave.example', 'bluewave.travel', 'Bluewave Travel', ['customer', 'host'], '', 'All-inclusive beach holidays for families and couples.', { accountType: 'business', country: 'US', city: 'New York', currency: 'USD' }],
     ['u_jonas', 'jonas@hayve.app', 'jonas', 'Jonas Kramer', ['customer'], media.avatars.jonas, 'Private account.', { isPublic: false, wishlistVisibility: 'private', country: 'DE', city: 'Berlin', currency: 'EUR' }],
   ];
   for (const [id, email, username, name, roles, avatar, bio, extra] of people) {
@@ -514,8 +518,8 @@ export function createSeedDatabase(): Database {
   const nt = (userId: string, kind: NotificationKind, title: string, body: string, hours: number, link?: string, read = false) =>
     db.notifications.push({ id: `n_${db.notifications.length + 1}`, userId, kind, title, body, link, read, createdAt: t0 - hours * 3_600_000 });
   nt('u_sam', 'message', 'New message from Lucas', 'Happy to ship it with Hayve Send tomorrow…', 3, '/messages/th_1');
-  nt('u_sam', 'payment', 'Payment request', 'Eva Smit requested €18.00 · Concert tickets', 24, '/pay/requests');
-  nt('u_sam', 'payment', 'You received €24.50', 'Noor Haddad · Dinner at Baan Thai', 96, '/pay', true);
+  nt('u_sam', 'payment', 'Payment request', `Eva Smit requested ${fmtMoney(1800)} · Concert tickets`, 24, '/pay/requests');
+  nt('u_sam', 'payment', `You received ${fmtMoney(2450)}`, 'Noor Haddad · Dinner at Baan Thai', 96, '/pay', true);
   nt('u_sam', 'order', 'Order delivered', 'Upcycled vinyl record bowl was delivered.', 144, '/orders/o_seed_1', true);
   nt('u_lucas', 'message', 'New message from Sam', 'Is the turntable still available?', 5, '/messages/th_1');
 
@@ -581,5 +585,30 @@ export function createSeedDatabase(): Database {
   volume('u_noor', 3, 0, 0);
 
   db.audit.push({ id: 'au_1', actorId: null, action: 'seed', target: 'database', createdAt: t0 });
+  /* -------------------------------------------------------- holidays -- */
+  const S2 = media.stays;
+  const sat = (weeks: number) => {
+    const d = new Date(t0 + weeks * 7 * DAY);
+    d.setUTCDate(d.getUTCDate() + ((6 - d.getUTCDay() + 7) % 7));
+    return d.toISOString().slice(0, 10);
+  };
+  const departures = [1, 2, 3, 4, 6, 8, 10, 12].map(sat);
+  type H = Omit<HolidayPackage, 'createdAt' | 'departures' | 'partnerId' | 'partnerName'> & { partner: 'u_sunway' | 'u_bluewave' };
+  const hol = (h: H) => {
+    const { partner, ...rest } = h;
+    (db.holidays ??= []).push({ ...rest, partnerId: partner, partnerName: partner === 'u_sunway' ? 'Sunway Holidays' : 'Bluewave Travel', departures, createdAt: ago(30) });
+  };
+  const AI = ['Return flights', 'Hotel', 'Airport transfers', 'All meals and drinks', '20 kg bag each'];
+  hol({ id: 'hol_lisbon', partner: 'u_sunway', title: 'Lisbon and the Cascais coast', hotel: 'Farol Bay Hotel, Cascais', city: 'Lisbon', country: 'Portugal', lng: -9.4215, lat: 38.6979, airport: { name: 'Lisbon Airport', lng: -9.1359, lat: 38.7742 }, nights: 7, board: 'half_board', includes: ['Return flights', 'Hotel', 'Airport transfers', 'Breakfast and dinner', '20 kg bag each'], highlights: ['Sea-view rooms', 'Train to Lisbon in 40 minutes', 'Beach across the road'], places: [{ name: 'Belém Tower', lng: -9.2160, lat: 38.6916 }, { name: 'Pena Palace, Sintra', lng: -9.3904, lat: 38.7876 }, { name: 'Cabo da Roca', lng: -9.5007, lat: 38.7804 }, { name: 'Praia do Guincho', lng: -9.4726, lat: 38.7316 }, { name: 'Alfama', lng: -9.1300, lat: 38.7110 }], pricePerPersonCents: 89900, images: [S2.lisbon, S2.beach], rating: 4.7, reviewCount: 412, tags: ['City', 'Beach'] });
+  hol({ id: 'hol_mallorca', partner: 'u_sunway', title: 'Mallorca all inclusive', hotel: 'Alcúdia Sands Resort', city: 'Mallorca', country: 'Spain', lng: 3.1306, lat: 39.8372, airport: { name: 'Palma Airport', lng: 2.7388, lat: 39.5517 }, nights: 7, board: 'all_inclusive', includes: AI, highlights: ['Three pools and a kids club', 'Long sandy beach', 'Bikes to borrow'], places: [{ name: 'Alcúdia Old Town', lng: 3.1210, lat: 39.8536 }, { name: 'Cap de Formentor', lng: 3.2093, lat: 39.9603 }, { name: 'Pollença', lng: 3.0157, lat: 39.8770 }, { name: 'Sóller', lng: 2.7150, lat: 39.7667 }], pricePerPersonCents: 74900, images: [S2.villa, S2.beach], rating: 4.6, reviewCount: 980, tags: ['Beach', 'Family'] });
+  hol({ id: 'hol_crete', partner: 'u_sunway', title: 'Crete all inclusive', hotel: 'Hersonissos Blue Resort', city: 'Crete', country: 'Greece', lng: 25.3833, lat: 35.3167, airport: { name: 'Heraklion Airport', lng: 25.1803, lat: 35.3397 }, nights: 7, board: 'all_inclusive', includes: AI, highlights: ['Private beach', 'Greek tavern night', 'Adults-only pool'], places: [{ name: 'Knossos Palace', lng: 25.1630, lat: 35.2980 }, { name: 'Spinalonga', lng: 25.7380, lat: 35.2970 }, { name: 'Agios Nikolaos', lng: 25.7160, lat: 35.1900 }, { name: 'Lasithi Plateau', lng: 25.4730, lat: 35.1830 }], pricePerPersonCents: 81900, images: [S2.beach, S2.villa], rating: 4.8, reviewCount: 655, tags: ['Beach'] });
+  hol({ id: 'hol_cancun', partner: 'u_bluewave', title: 'Cancún all inclusive', hotel: 'Playa Turquesa Resort', city: 'Cancún', country: 'Mexico', lng: -86.7520, lat: 21.0950, airport: { name: 'Cancún Airport', lng: -86.8771, lat: 21.0365 }, nights: 7, board: 'all_inclusive', includes: AI, highlights: ['On the Hotel Zone beach', 'Six restaurants', 'Snorkel trip included'], places: [{ name: 'Playa Delfines', lng: -86.7800, lat: 21.0580 }, { name: 'Isla Mujeres ferry', lng: -86.8030, lat: 21.2050 }, { name: 'Puerto Morelos', lng: -86.8740, lat: 20.8480 }, { name: 'Cenote Azul', lng: -87.2290, lat: 20.5530 }], pricePerPersonCents: 129900, images: [S2.beach, S2.villa], rating: 4.7, reviewCount: 1520, tags: ['Beach', 'Family'] });
+  hol({ id: 'hol_tenerife', partner: 'u_bluewave', title: 'Tenerife winter sun', hotel: 'Costa Adeje Gardens', city: 'Tenerife', country: 'Spain', lng: -16.7290, lat: 28.0880, airport: { name: 'Tenerife South Airport', lng: -16.5725, lat: 28.0445 }, nights: 7, board: 'all_inclusive', includes: AI, highlights: ['24 °C in winter', 'Ocean-view rooms', 'Mount Teide day trip'], places: [{ name: 'Teide National Park', lng: -16.6420, lat: 28.2720 }, { name: 'Los Gigantes', lng: -16.8410, lat: 28.2460 }, { name: 'Masca', lng: -16.8410, lat: 28.3060 }, { name: 'Playa del Duque', lng: -16.7380, lat: 28.0920 }], pricePerPersonCents: 69900, images: [S2.villa, S2.beach], rating: 4.5, reviewCount: 730, tags: ['Beach', 'Winter sun'] });
+  hol({ id: 'hol_algarve', partner: 'u_sunway', title: 'Algarve family holiday', hotel: 'Albufeira Cliffs Resort', city: 'Algarve', country: 'Portugal', lng: -8.2500, lat: 37.0890, airport: { name: 'Faro Airport', lng: -7.9659, lat: 37.0144 }, nights: 7, board: 'all_inclusive', includes: AI, highlights: ['Water park next door', 'Family suites', 'Kids eat free'], places: [{ name: 'Benagil Cave', lng: -8.4260, lat: 37.0870 }, { name: 'Lagos', lng: -8.6730, lat: 37.1020 }, { name: 'Ponta da Piedade', lng: -8.6690, lat: 37.0810 }, { name: 'Tavira', lng: -7.6500, lat: 37.1270 }], pricePerPersonCents: 79900, images: [S2.beach, S2.villa], rating: 4.6, reviewCount: 540, tags: ['Beach', 'Family'] });
+  hol({ id: 'hol_orlando', partner: 'u_bluewave', title: 'Orlando theme parks', hotel: 'Lake Buena Vista Suites', city: 'Orlando', country: 'United States', lng: -81.5120, lat: 28.3850, airport: { name: 'Orlando Airport', lng: -81.3081, lat: 28.4312 }, nights: 7, board: 'breakfast', includes: ['Return flights', 'Hotel', 'Breakfast', 'Park shuttle', 'Car hire'], highlights: ['Free park shuttle', 'Two-bedroom suites', 'Car hire included'], places: [{ name: 'Magic Kingdom', lng: -81.5812, lat: 28.4177 }, { name: 'Universal Studios', lng: -81.4678, lat: 28.4743 }, { name: 'Kennedy Space Center', lng: -80.6490, lat: 28.5729 }, { name: 'Cocoa Beach', lng: -80.6077, lat: 28.3200 }], pricePerPersonCents: 109900, images: [S2.villa, S2.beach], rating: 4.4, reviewCount: 890, tags: ['Family', 'City'] });
+  hol({ id: 'hol_antalya', partner: 'u_sunway', title: 'Antalya ultra all inclusive', hotel: 'Belek Palace Resort', city: 'Antalya', country: 'Türkiye', lng: 31.0560, lat: 36.8620, airport: { name: 'Antalya Airport', lng: 30.8000, lat: 36.8987 }, nights: 10, board: 'all_inclusive', includes: AI, highlights: ['Ten nights', 'Spa and hammam', 'Golf next door'], places: [{ name: 'Antalya Old Town', lng: 30.7050, lat: 36.8840 }, { name: 'Aspendos Theatre', lng: 31.1720, lat: 36.9390 }, { name: 'Düden Waterfalls', lng: 30.7800, lat: 36.8510 }, { name: 'Side', lng: 31.3890, lat: 36.7670 }], pricePerPersonCents: 94900, images: [S2.villa, S2.beach], rating: 4.8, reviewCount: 1210, tags: ['Beach'] });
+  // Sam is just back from Lisbon: Home asks how it was, then offers the trip map to share.
+  (db.holidayBookings ??= []).push({ id: 'hb_seed_lisbon', reference: 'HH-LSB24Q', packageId: 'hol_lisbon', userId: 'u_sam', partnerId: 'u_sunway', departure: new Date(ago(8)).toISOString().slice(0, 10), returnDate: new Date(ago(1)).toISOString().slice(0, 10), travellers: 2, totalCents: 89900 * 2 + 1499, status: 'confirmed', createdAt: ago(60) });
+
   return db;
 }

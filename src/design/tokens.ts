@@ -109,7 +109,7 @@ export const shadow = {
   },
 } as const;
 
-export type ServiceKey = 'home' | 'explore' | 'shop' | 'pay' | 'ride' | 'bites' | 'drive' | 'stay' | 'send' | 'profile';
+export type ServiceKey = 'home' | 'explore' | 'shop' | 'pay' | 'ride' | 'bites' | 'drive' | 'stay' | 'holidays' | 'all' | 'send' | 'profile';
 
 export interface ServiceMeta {
   key: ServiceKey;
@@ -131,6 +131,8 @@ export const SERVICES: ServiceMeta[] = [
   { key: 'bites', name: 'Hayve Bites', short: 'Bites', route: '/bites', icon: 'fast-food-outline', iconActive: 'fast-food-outline', accent: BLACK, tagline: 'Food and groceries' },
   { key: 'drive', name: 'Hayve Drive', short: 'Drive', route: '/drive', icon: 'car-outline', iconActive: 'car-outline', accent: BLACK, tagline: 'Rent a car' },
   { key: 'stay', name: 'Hayve Stay', short: 'Stay', route: '/stay', icon: 'bed-outline', iconActive: 'bed-outline', accent: BLACK, tagline: 'Places to stay' },
+  { key: 'holidays', name: 'Hayve Holidays', short: 'Holidays', route: '/holidays', icon: 'airplane-outline', iconActive: 'airplane-outline', accent: BLACK, tagline: 'Package trips' },
+  { key: 'all', name: 'Everything in Hayve', short: 'All', route: '/services', icon: 'grid', iconActive: 'grid', accent: BLACK, tagline: 'Every service' },
   { key: 'explore', name: 'Search', short: 'Search', route: '/explore', icon: 'search-outline', iconActive: 'search-outline', accent: BLACK, tagline: 'Search everything' },
   { key: 'profile', name: 'Profile', short: 'Profile', route: '/profile', icon: 'person-outline', iconActive: 'person-outline', accent: BLACK, tagline: 'You' },
 ];

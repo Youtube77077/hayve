@@ -21,6 +21,7 @@ import { detectCountryAndRates } from '../lib/geo';
 import { setReturnTo, takeReturnTo } from '../lib/returnTo';
 import { loadOnboarding, useOnboarding } from '../features/onboarding/store';
 import { guestCanOpen, PUBLIC_ROOTS } from '../features/onboarding/access';
+import { CelebrationHost } from '../features/celebrate';
 import { deviceStorage } from '../lib/storage';
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -95,6 +96,7 @@ export default function RootLayout() {
                 <Stack.Screen name="services" options={{ presentation: 'transparentModal', animation: 'fade' }} />
               </Stack>
               <AuthGate />
+              <CelebrationHost />
             </>
           ) : (
             <View style={{ flex: 1, backgroundColor: color.bg }}>

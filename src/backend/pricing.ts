@@ -16,7 +16,7 @@
  */
 import type { Cents, ID } from './types';
 
-export type PricedService = 'ride' | 'bites' | 'shop' | 'stay' | 'drive' | 'pay';
+export type PricedService = 'ride' | 'bites' | 'shop' | 'stay' | 'drive' | 'pay' | 'holiday';
 export type Zone = 'airport' | 'station' | 'city_centre' | 'tourist';
 export type RuleComponent = 'surcharge' | 'service_fee' | 'booking_fee' | 'small_order_fee' | 'delivery_fee' | 'commission' | 'waiting_fee' | 'cancellation_fee' | 'fx_margin' | 'demand'
   /** Customer money that is not Hayve revenue: passed to the supplier, courier or insurer, or tax to remit. */
@@ -179,6 +179,9 @@ export const DEFAULT_RULES: PricingRule[] = [
   rule({ id: 'drive_service', name: 'Rental service fee', service: 'drive', component: 'service_fee', amount: { kind: 'percent', value: 0.08 }, conditions: {}, payer: 'customer', label: 'Service fee', rationale: 'Trip protection, support and payments.' }),
   rule({ id: 'drive_airport', name: 'Airport collection', service: 'drive', component: 'surcharge', amount: { kind: 'fixed', value: 1500 }, conditions: { zones: ['airport'] }, payer: 'customer', label: 'Airport collection fee', rationale: 'Airport parking and concession fees for handover.' }),
   // ---- Pay
+  // ---- Holidays (packages sold by travel partners)
+  rule({ id: 'holiday_commission', name: 'Partner commission', service: 'holiday', component: 'commission', amount: { kind: 'percent', value: 0.1 }, conditions: {}, payer: 'supplier', label: 'Hayve fee', rationale: 'Travel partners keep 90% of the package price.' }),
+  rule({ id: 'holiday_booking_fee', name: 'Booking fee', service: 'holiday', component: 'booking_fee', amount: { kind: 'fixed', value: 1499 }, conditions: {}, payer: 'customer', label: 'Booking fee', rationale: 'Trip support before and during the holiday, in one app.' }),
   rule({ id: 'pay_fx', name: 'Currency conversion', service: 'pay', component: 'fx_margin', amount: { kind: 'percent', value: 0.015 }, conditions: { crossCurrency: true }, payer: 'customer', label: 'Currency conversion', rationale: 'Paying in another currency: shown as a separate line before you pay.', enabled: false }),
 ];
 
@@ -299,7 +302,7 @@ export function priceTransaction(baseCents: number, ctx: PricingContext, rules: 
 /* ---------------------------------------------------------- simulator -- */
 
 /** Price elasticity of demand per service (share of orders lost per 1% higher customer price). */
-export const ELASTICITY: Record<PricedService, number> = { ride: 0.6, bites: 0.9, shop: 1.2, stay: 1.0, drive: 0.8, pay: 0.4 };
+export const ELASTICITY: Record<PricedService, number> = { ride: 0.6, bites: 0.9, shop: 1.2, stay: 1.0, drive: 0.8, pay: 0.4, holiday: 1.1 };
 
 export interface SimOrder {
   service: PricedService;
