@@ -197,9 +197,9 @@ export function PayMethodPicker({ value, onChange, totalCents, waveBackCents = 0
       )}
       {value === 'card' && waveBackCents > 0 && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4 }}>
-          <Icon name="sparkles-outline" size={16} color={color.indigo} />
+          <Icon name="sparkles-outline" size={16} color={color.black} />
           <T variant="footnote" color={color.black} style={{ flex: 1 }}>
-            Pay with your Hayve balance and get <T variant="footnote" weight="700" color={color.indigo}>{money(waveBackCents)} Wave Back</T>
+            Pay with your Hayve balance and get <T variant="footnote" weight="700" color={color.black}>{money(waveBackCents)} Wave Back</T>
           </T>
         </View>
       )}
@@ -320,8 +320,8 @@ export function WaveBackLine({ cents }: { cents: number }) {
   if (!cents) return null;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'center', paddingHorizontal: 12, height: 32, borderRadius: radius.pill, borderWidth: 1, borderColor: color.indigo }}>
-      <Icon name="sparkles-outline" size={15} color={color.indigo} />
-      <T variant="subhead" weight="700" color={color.indigo}>
+      <Icon name="sparkles-outline" size={15} color={color.black} />
+      <T variant="subhead" weight="700" color={color.black}>
         {money(cents)} Wave Back added
       </T>
     </View>

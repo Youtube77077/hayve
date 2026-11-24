@@ -32,8 +32,14 @@ export interface User {
 }
 
 /** Answers from onboarding before sign-up, kept on the account to personalise the app. */
+export type OnboardingGoal = 'ride' | 'food' | 'shop' | 'sell' | 'stay' | 'car' | 'money' | 'holiday';
+
 export interface OnboardingPrefs {
-  goal?: 'ride' | 'food' | 'shop' | 'sell' | 'stay' | 'car' | 'money';
+  goal?: OnboardingGoal;
+  /** Everything they'd use Hayve for, and the one they'll do most (the big centre button). */
+  interests?: OnboardingGoal[];
+  primary?: OnboardingGoal;
+  company?: 'solo' | 'partner' | 'family' | 'friends';
   cuisines?: string[];
   shopFor?: ProductCategory[];
   rideType?: RideCategory;

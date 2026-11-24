@@ -7,6 +7,7 @@ import { PayMethodPicker } from '../../features/common';
 import { cart, useCart } from '../../lib/cart';
 import { money } from '../../lib/format';
 import { useAction, NONE, useLive } from '../../lib/hooks';
+import { celebrate } from '../../features/celebrate';
 
 export default function Basket() {
   const c = useCart();
@@ -35,9 +36,9 @@ export default function Basket() {
 
   const place = () =>
     run(() => bites.placeFoodOrder({ restaurantId: restaurant.id, lines: c.lines, address, note, method }), {
-      success: 'Order placed 🎉',
       onDone: (id) => {
         cart.clear();
+        celebrate({ title: 'Order placed!', body: `${restaurant.name} is on it.`, emoji: '😋' });
         router.replace(`/bites/order/${id}`);
       },
     });
@@ -46,7 +47,7 @@ export default function Basket() {
     <Screen
       header={<Header back title="Checkout" subtitle={restaurant.name} fallback={`/bites/restaurant/${restaurant.id}`} />}
       keyboard
-      footer={<Button title={`Place order · ${money(priced.totalCents)}`} size="lg" full loading={busy} disabled={!priced.meetsMinimum || !restaurant.isOpen} onPress={place} />}
+      footer={<Button title={busy ? 'Placing your order…' : `Place order · ${money(priced.totalCents)}`} size="lg" full loading={busy} disabled={!priced.meetsMinimum || !restaurant.isOpen} onPress={place} />}
     >
       <Split
         left={

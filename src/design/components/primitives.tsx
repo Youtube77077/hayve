@@ -57,7 +57,7 @@ const BUTTON: Record<ButtonVariant, { bg: string; fg: string; border?: string }>
   dark: { bg: color.black, fg: color.white },
   secondary: { bg: color.grey100, fg: color.black },
   outline: { bg: color.white, fg: color.black, border: color.grey200 },
-  ghost: { bg: 'transparent', fg: color.indigo },
+  ghost: { bg: 'transparent', fg: color.black },
   danger: { bg: color.white, fg: color.black, border: color.black },
   glass: { bg: 'rgba(255,255,255,0.14)', fg: color.white },
 };

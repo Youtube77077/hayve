@@ -52,11 +52,11 @@ export default function Conversation() {
         </View>
         {t.context && (
           <Pressable onPress={() => router.push(`${CONTEXT_ROUTE[t.context!.kind]}${t.context!.kind === 'support' ? '' : t.context!.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingBottom: 10, maxWidth: layout.maxContent, width: '100%', alignSelf: 'center' }}>
-            <Icon name="link-outline" size={16} color={color.primary} />
-            <T variant="footnote" color={color.primary} weight="700" numberOfLines={1} style={{ flex: 1 }}>
+            <Icon name="link-outline" size={16} color={color.black} />
+            <T variant="footnote" color={color.black} weight="700" numberOfLines={1} style={{ flex: 1 }}>
               {t.context.title}
             </T>
-            <Icon name="chevron-forward" size={14} color={color.primary} />
+            <Icon name="chevron-forward" size={14} color={color.black} />
           </Pressable>
         )}
       </View>

@@ -37,7 +37,7 @@ export default function SignIn() {
         <Input label={t('Email')} icon="mail-outline" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" textContentType="emailAddress" placeholder="you@example.com" />
         <Input label={t('Password')} icon="lock-closed-outline" value={password} onChangeText={setPassword} secureTextEntry autoComplete="password" textContentType="password" placeholder="••••••••" error={error} onSubmitEditing={() => submit()} returnKeyType="go" />
         <Pressable onPress={() => router.push('/forgot')} style={{ alignSelf: 'flex-end' }} hitSlop={8}>
-          <T variant="subhead" color={color.primary} weight="700">
+          <T variant="subhead" color={color.black} weight="700">
             Forgot password?
           </T>
         </Pressable>

@@ -89,8 +89,7 @@ export default function ProductScreen() {
       <View style={{ flexDirection: 'row', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
         {p.isMine ? (
           <>
-            <Button title="Edit listing" icon="create-outline" style={{ flex: 1 }} onPress={() => router.push(`/sell?id=${p.id}`)} />
-            <Button title="Delete" variant="danger" icon="trash-outline" onPress={() => setConfirmDelete(true)} />
+            <Button title="Edit listing" icon="create-outline" size="lg" full onPress={() => router.push(`/sell?id=${p.id}`)} />
           </>
         ) : (
           <>
@@ -202,6 +201,11 @@ export default function ProductScreen() {
           })
         }
       />
+      {p.isMine && (
+        <View style={{ alignItems: 'center', marginTop: 40 }}>
+          <Button title="Delete listing" variant="ghost" size="sm" icon="trash-outline" onPress={() => setConfirmDelete(true)} />
+        </View>
+      )}
     </Screen>
   );
 }

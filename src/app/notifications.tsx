@@ -40,7 +40,7 @@ export default function Notifications() {
               style={({ pressed }) => ({ flexDirection: 'row', gap: 12, padding: 14, borderRadius: radius.lg, backgroundColor: pressed ? color.surfaceSunken : n.read ? color.surface : color.primarySoft, borderWidth: 1, borderColor: n.read ? color.line : color.primaryTint })}
             >
               <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: n.read ? color.surfaceSunken : color.surface, alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name={ICON[n.kind]} size={20} color={color.primary} />
+                <Icon name={ICON[n.kind]} size={20} color={color.black} />
               </View>
               <View style={{ flex: 1, gap: 2 }}>
                 <T variant="headline">{n.title}</T>

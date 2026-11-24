@@ -102,7 +102,7 @@ export default function Shop() {
           {products.length} {products.length === 1 ? 'item' : 'items'}
         </T>
         <Pressable onPress={() => setFiltersOpen(true)} hitSlop={8}>
-          <T variant="subhead" color={color.primary} weight="700">
+          <T variant="subhead" color={color.black} weight="700">
             {SORTS.find((s) => s.key === sort)?.label}
           </T>
         </Pressable>

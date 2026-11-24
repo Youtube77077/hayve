@@ -8,6 +8,7 @@ import { PayMethodPicker } from '../../features/common';
 import { money } from '../../lib/format';
 import { useAction, useLive } from '../../lib/hooks';
 import { Spec } from '../../features/cards';
+import { celebrate } from '../../features/celebrate';
 
 export default function VehicleDetail() {
   const params = useLocalSearchParams<{ id: string; start?: string; end?: string }>();
@@ -30,9 +31,9 @@ export default function VehicleDetail() {
 
   const book = () =>
     run(() => bookings.bookRental({ vehicleId: v.id, start: start!, end: end!, pickupLocation: pickup, returnLocation: ret, method, driverAge: age }), {
-      success: 'Request sent to the host',
       onDone: (id) => {
         setCheckout(false);
+        celebrate({ title: 'Car requested!', body: `${v.make} ${v.model}. We’ll tell you when the host confirms.`, emoji: '🚗' });
         router.replace(`/drive/booking/${id}`);
       },
     });

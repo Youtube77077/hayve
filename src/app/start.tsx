@@ -2,17 +2,17 @@ import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { regions, session } from '../backend/api';
+import { regions, revenue, session } from '../backend/api';
 import { Appear, Button, color, Emoji, font, HayveMark, Icon, MOTION, radius, SuccessMark, T, useReducedMotion } from '../design';
 import type { IconName } from '../design';
 import {
   CAR_TYPES,
+  COMPANY,
   CUISINES,
   EARN,
   GOALS,
   isAnswered,
   landingFor,
-  landingLabel,
   needsAccountToStart,
   nextStep,
   type OnboardingAnswers,
@@ -23,8 +23,10 @@ import {
   SHOP_FOR,
   type StepId,
   toPrefs,
-  TRAVELLERS,
+  TRAVELLERS_FOR,
+  withInterests,
 } from '../features/onboarding/model';
+import { addressAt, currentPosition } from '../features/address';
 import { completeOnboarding, setAnswers, useOnboarding } from '../features/onboarding/store';
 import { chooseCountry, detectedCountry } from '../lib/geo';
 import { useSessionId } from '../lib/hooks';
@@ -101,13 +103,9 @@ export default function Start() {
 
       <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: insets.bottom + 16, width: '100%', maxWidth: 560, alignSelf: 'center', gap: 4 }}>
         {step === 'done' ? (
+          <Button title="Let's go" size="lg" full onPress={() => finish(false)} />        ) : step === 'intro' ? (
           <>
-            <Button title={landingLabel(answers)} size="lg" full onPress={() => finish(false)} />
-            {!signedIn && !needsAccountToStart(answers) && <Button title="Save my setup first" variant="ghost" full onPress={() => finish(true)} />}
-          </>
-        ) : step === 'intro' ? (
-          <>
-            <Button title="Get started" size="lg" full onPress={next} />
+            <Button title="Let's go" size="lg" full onPress={next} />
             {!signedIn && <Button title="I already have an account" variant="ghost" full onPress={() => router.push('/sign-in')} />}
           </>
         ) : (
@@ -183,43 +181,80 @@ function toggle<T>(list: T[] | undefined, v: T) {
   return l.includes(v) ? l.filter((x) => x !== v) : [...l, v];
 }
 
-function StepBody({ step, answers, signedIn }: { step: StepId; answers: OnboardingAnswers; signedIn: boolean }) {
+function StepBody({ step, answers }: { step: StepId; answers: OnboardingAnswers; signedIn: boolean }) {
   const detected = detectedCountry();
   const countries = useMemo(() => [...regions.REGIONS].sort((a, b) => Number(b.code === detected) - Number(a.code === detected) || a.name.localeCompare(b.name)), [detected]);
+  const [locating, setLocating] = useState<'idle' | 'busy' | 'denied'>('idle');
+  const [pickCountry, setPickCountry] = useState(false);
+
+  const locate = async () => {
+    setLocating('busy');
+    const pos = await currentPosition();
+    if (!pos) return setLocating('denied');
+    const found = await addressAt(pos);
+    // No street address (offline or the lookup failed): still use the nearest city we know.
+    const near = found ? null : revenue.cityAt(pos);
+    const nearRegion = near ? regions.REGIONS.find((r) => r.code === near.country) : undefined;
+    const countryCode = found?.countryCode ?? near?.country ?? null;
+    const code = countryCode && regions.REGIONS.some((r) => r.code === countryCode) ? countryCode : null;
+    const address = found ? { line1: found.line1, city: found.city, postcode: found.postcode, country: found.country, countryCode: found.countryCode } : near ? { line1: '', city: near.name, postcode: '', country: nearRegion?.name ?? '', countryCode: near.country } : undefined;
+    setAnswers({ address: address ? { ...address, lng: pos.lng, lat: pos.lat } : undefined, ...(code ? { country: code } : {}) });
+    if (code) chooseCountry(code);
+    setLocating(address ? 'idle' : 'denied');
+  };
 
   switch (step) {
     case 'intro':
       return (
         <View style={{ flex: 1, justifyContent: 'center' }}>
-          <Guide big text="Hi! I'm Hayve. One account for rides, food, shopping, stays, cars and paying friends." />
-          <T color={color.grey500} style={{ textAlign: 'center' }}>
-            {signedIn ? 'Answer a few questions and we’ll set Hayve up around you again.' : 'A few quick taps and we’ll set it up around you. No account needed yet.'}
-          </T>
+          <Guide big text="Hi! I'm Hayve. Let's set things up." />
         </View>
       );
 
-    // Changes: the screen that opens after onboarding and what Home shows first.
-    case 'goal':
+    // Changes: what Home shows first and the actions in the centre button menu.
+    case 'interests':
       return (
         <>
-          <Guide text="What do you want to do first?" />
-          <Choices options={GOALS} isOn={(k) => answers.goal === k} onPick={(k) => setAnswers({ goal: k })} />
+          <Guide text="What would you use Hayve for? Pick all that fit." />
+          <Choices options={GOALS} isOn={(k) => !!answers.interests?.includes(k)} onPick={(k) => setAnswers(withInterests(answers, toggle(answers.interests, k)))} />
         </>
       );
 
-    // Changes: currency, local restaurants/stays/cars, map centre, bank and tax details.
-    case 'country':
+    // Changes: the big centre button and the first screen after onboarding.
+    case 'primary':
       return (
         <>
-          <Guide text="Where are you based?" />
-          <Choices
-            options={countries.map((r) => ({ key: r.code, title: r.name, hint: r.code === detected ? `Detected · ${r.currency}` : r.currency, icon: 'location-outline' as IconName }))}
-            isOn={(k) => answers.country === k}
-            onPick={(k) => {
-              setAnswers({ country: k });
-              chooseCountry(k);
-            }}
-          />
+          <Guide text="Which one will you do most? It gets the big button." />
+          <Choices options={GOALS.filter((g) => answers.interests?.includes(g.key))} isOn={(k) => answers.primary === k} onPick={(k) => setAnswers({ primary: k, goal: k })} />
+        </>
+      );
+
+    // Changes: delivery address, ride pickup, what's nearby, currency and tax.
+    case 'location':
+      return (
+        <>
+          <Guide text="Where are you?" />
+          {answers.address ? (
+            <OptionCard index={0} title={answers.address.line1 || answers.address.city} hint={answers.address.line1 ? answers.address.city : undefined} icon="location-outline" selected onPress={() => void locate()} />
+          ) : (
+            <OptionCard index={0} title={locating === 'busy' ? 'Finding you…' : 'Use my location'} hint={locating === 'denied' ? 'Location is off' : undefined} icon="navigate-outline" selected={false} onPress={() => void locate()} />
+          )}
+          {!pickCountry ? (
+            <T variant="subhead" weight="700" style={{ marginTop: 16, textAlign: 'center' }} onPress={() => setPickCountry(true)} accessibilityRole="button">
+              {answers.address ? 'Not right? Pick your country' : 'Or pick your country'}
+            </T>
+          ) : (
+            <View style={{ marginTop: 16 }}>
+              <Choices
+                options={countries.map((r) => ({ key: r.code, title: r.name, hint: r.currency, icon: 'flag-outline' as IconName }))}
+                isOn={(k) => answers.country === k}
+                onPick={(k) => {
+                  setAnswers({ country: k, address: undefined });
+                  chooseCountry(k);
+                }}
+              />
+            </View>
+          )}
         </>
       );
 
@@ -227,7 +262,7 @@ function StepBody({ step, answers, signedIn }: { step: StepId; answers: Onboardi
     case 'cuisines':
       return (
         <>
-          <Guide text="What are you in the mood for? Pick as many as you like." />
+          <Guide text="Favourite food? Pick as many as you like." />
           <Choices options={CUISINES} isOn={(k) => !!answers.cuisines?.includes(k)} onPick={(k) => setAnswers({ cuisines: toggle(answers.cuisines, k) })} />
         </>
       );
@@ -236,7 +271,7 @@ function StepBody({ step, answers, signedIn }: { step: StepId; answers: Onboardi
     case 'shopFor':
       return (
         <>
-          <Guide text="What do you like to shop for? Pick as many as you like." />
+          <Guide text="What do you love to shop for?" />
           <Choices options={SHOP_FOR} isOn={(k) => !!answers.shopFor?.includes(k)} onPick={(k) => setAnswers({ shopFor: toggle(answers.shopFor, k) })} />
         </>
       );
@@ -254,17 +289,8 @@ function StepBody({ step, answers, signedIn }: { step: StepId; answers: Onboardi
     case 'rideType':
       return (
         <>
-          <Guide text="What matters most when you ride?" />
+          <Guide text="How do you like to ride?" />
           <Choices options={RIDE_TYPES} isOn={(k) => answers.rideType === k} onPick={(k) => setAnswers({ rideType: k })} />
-        </>
-      );
-
-    // Changes: Stay search starts with this many guests.
-    case 'travellers':
-      return (
-        <>
-          <Guide text="Who's usually coming along?" />
-          <Choices options={TRAVELLERS} isOn={(k) => answers.travellers === k} onPick={(k) => setAnswers({ travellers: k })} />
         </>
       );
 
@@ -272,8 +298,17 @@ function StepBody({ step, answers, signedIn }: { step: StepId; answers: Onboardi
     case 'carType':
       return (
         <>
-          <Guide text="What kind of car do you need?" />
+          <Guide text="What kind of car?" />
           <Choices options={CAR_TYPES} isOn={(k) => answers.carType === k} onPick={(k) => setAnswers({ carType: k })} />
+        </>
+      );
+
+    // Changes: guests for stays and holidays, bigger cars for families, splitting bills for friends.
+    case 'company':
+      return (
+        <>
+          <Guide text="Who do you usually do things with?" />
+          <Choices options={COMPANY} isOn={(k) => answers.company === k} onPick={(k) => setAnswers({ company: k, travellers: TRAVELLERS_FOR[k] })} />
         </>
       );
 
@@ -281,7 +316,7 @@ function StepBody({ step, answers, signedIn }: { step: StepId; answers: Onboardi
     case 'earn':
       return (
         <>
-          <Guide text="Do you also want to earn with Hayve? Pick any, or not now." />
+          <Guide text="Want to earn with Hayve too?" />
           <Choices options={EARN} isOn={(k) => !!answers.earn?.includes(k)} onPick={(k) => setAnswers({ earn: toggle(answers.earn, k) })} />
           <View style={{ marginTop: 10 }}>
             <OptionCard index={EARN.length} title="Not now" icon="close-circle-outline" selected={Array.isArray(answers.earn) && answers.earn.length === 0} onPress={() => setAnswers({ earn: [] })} />
@@ -290,49 +325,16 @@ function StepBody({ step, answers, signedIn }: { step: StepId; answers: Onboardi
       );
 
     case 'done':
-      return <Done answers={answers} />;
-  }
-}
-
-/** What we set up, in plain words, so the next screen makes sense. */
-function Done({ answers }: { answers: OnboardingAnswers }) {
-  const reg = regions.region(answers.country ?? detectedCountry());
-  const goal = GOALS.find((g) => g.key === answers.goal);
-  const lines: { icon: IconName; text: string }[] = [
-    goal && { icon: goal.icon ?? 'sparkles-outline', text: `${goal.title} comes first when you open Hayve` },
-    { icon: 'location-outline' as IconName, text: `Prices in ${reg.currency}, places near ${reg.city.name}` },
-    answers.cuisines?.length ? { icon: 'restaurant-outline' as IconName, text: `${answers.cuisines.slice(0, 3).join(', ')} picked for you` } : null,
-    answers.goal === 'shop' && answers.shopFor?.length ? { icon: 'bag-handle-outline' as IconName, text: `${answers.shopFor.length} categor${answers.shopFor.length > 1 ? 'ies' : 'y'} picked for you` } : null,
-    answers.rideType ? { icon: 'taxi-outline' as IconName, text: `${RIDE_TYPES.find((r) => r.key === answers.rideType)?.hint} rides selected by default` } : null,
-    answers.travellers ? { icon: 'people-outline' as IconName, text: `Stays for ${answers.travellers} guest${answers.travellers > 1 ? 's' : ''}` } : null,
-    answers.carType ? { icon: 'car-outline' as IconName, text: `${CAR_TYPES.find((c) => c.key === answers.carType)?.title} cars first` } : null,
-    answers.earn?.length ? { icon: 'cash-outline' as IconName, text: `We’ll help you start earning (${answers.earn.length} way${answers.earn.length > 1 ? 's' : ''})` } : null,
-  ].filter(Boolean) as { icon: IconName; text: string }[];
-
-  return (
-    <View style={{ flex: 1, justifyContent: 'center', gap: 20, paddingTop: 32 }}>
-      <View style={{ alignItems: 'center', gap: 12 }}>
-        <SuccessMark size={88} />
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <T variant="title1" style={{ textAlign: 'center' }}>
-            You’re all set
-          </T>
-          <Emoji char="🎉" size={26} />
+      return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 16 }}>
+          <SuccessMark size={96} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <T variant="title1" center>
+              You’re all set
+            </T>
+            <Emoji char="🎉" size={28} />
+          </View>
         </View>
-        <T color={color.grey500} style={{ textAlign: 'center' }}>
-          {needsAccountToStart(answers) ? 'Create your account to send and receive money.' : 'Have a look around. You only need an account when you pay, book or sell.'}
-        </T>
-      </View>
-      <View style={{ borderWidth: 2, borderColor: color.grey200, borderRadius: radius.lg, padding: 16, gap: 14 }}>
-        {lines.map((l, i) => (
-          <Appear key={l.text} index={i}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <Icon name={l.icon} size={22} />
-              <T style={{ flex: 1 }}>{l.text}</T>
-            </View>
-          </Appear>
-        ))}
-      </View>
-    </View>
-  );
+      );
+  }
 }

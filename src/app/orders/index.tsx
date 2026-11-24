@@ -72,7 +72,7 @@ export default function Activity() {
                 <Photo uri={r.image} style={{ width: 56, height: 56 }} rounded={12} icon={r.icon} />
               ) : (
                 <View style={{ width: 56, height: 56, borderRadius: 12, backgroundColor: color.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name={r.icon} size={24} color={color.primary} />
+                  <Icon name={r.icon} size={24} color={color.black} />
                 </View>
               )}
               <View style={{ flex: 1, gap: 2 }}>

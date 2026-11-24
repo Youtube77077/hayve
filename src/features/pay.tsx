@@ -73,7 +73,7 @@ export function PersonPicker({ selected, onSelect }: { selected: PublicUser | nu
           </T>
         </View>
         <Pressable onPress={() => onSelect(null)} hitSlop={8}>
-          <T variant="subhead" color={color.indigo} weight="700">
+          <T variant="subhead" color={color.black} weight="700">
             Change
           </T>
         </Pressable>

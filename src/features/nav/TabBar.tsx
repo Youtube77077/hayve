@@ -8,6 +8,9 @@ import { Avatar, color, font, HayveLogo, Icon, type IconName, layout, T, tap } f
 import { useLive } from '../../lib/hooks';
 import { PRODUCT_ICON, type ProductKey, ProductWordmark } from './Wordmarks';
 import { useT } from '../../lib/i18n';
+import { usePersonalisation } from '../onboarding/store';
+import { primaryAction, sideTabs } from './actions';
+import { CentreButton } from './CentreButton';
 
 /** Tab route name for each destination. */
 const ROUTE: Record<string, string> = { home: 'index', shop: 'shop', pay: 'pay', ride: 'ride', bites: 'bites', drive: 'drive', stay: 'stay', explore: 'explore', profile: 'profile' };
@@ -29,19 +32,28 @@ function go(navigation: BottomTabBarProps['navigation'], key: string) {
 
 /* -------------------------------------------------------------- Mobile -- */
 
-const MOBILE: { key: string; label: string; icon: IconName }[] = [
-  { key: 'home', label: 'Home', icon: 'home-outline' },
-  { key: 'shop', label: 'Shop', icon: 'bag-handle-outline' },
-  { key: 'ride', label: 'Ride', icon: 'taxi-outline' },
-  { key: 'bites', label: 'Bites', icon: 'fast-food-outline' },
-];
+const TAB: Record<string, { label: string; icon: IconName }> = {
+  shop: { label: 'Shop', icon: 'bag-handle-outline' },
+  bites: { label: 'Bites', icon: 'fast-food-outline' },
+  ride: { label: 'Ride', icon: 'taxi-outline' },
+  pay: { label: 'Pay', icon: 'wallet-outline' },
+  stay: { label: 'Stay', icon: 'bed-outline' },
+  drive: { label: 'Drive', icon: 'car-outline' },
+};
 
+/**
+ * Phone bar: Home · two services · the big centre button · More. The centre button starts what
+ * this person does most (onboarding answer); hold it for every action. More lists everything else.
+ */
 function BottomBar(props: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const active = activeKey(props);
-  const inMore = !MOBILE.some((m) => m.key === active);
+  const prefs = usePersonalisation();
+  const primary = primaryAction(prefs);
+  const sides = sideTabs(primary);
   const unread = useLive(() => social.unreadNotificationCount() + social.unreadMessageCount()).data ?? 0;
   const t = useT();
+  const inMore = active !== 'home' && !sides.includes(active as never) && active !== primary.tab;
 
   const Item = ({ k, label, icon, onPress, on, badge }: { k: string; label: string; icon: IconName; onPress: () => void; on: boolean; badge?: boolean }) => (
     <Pressable key={k} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={t(label)} onPress={onPress} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4, paddingTop: 8, paddingBottom: 4 }}>
@@ -54,10 +66,11 @@ function BottomBar(props: BottomTabBarProps) {
   );
 
   return (
-    <View style={{ flexDirection: 'row', backgroundColor: color.white, borderTopWidth: 1, borderTopColor: color.grey200, paddingBottom: Math.max(insets.bottom, 8), paddingHorizontal: 4 }}>
-      {MOBILE.map((m) => (
-        <Item key={m.key} k={m.key} label={m.label} icon={m.icon} on={active === m.key} onPress={() => go(props.navigation, m.key)} />
-      ))}
+    <View style={{ flexDirection: 'row', alignItems: 'flex-start', backgroundColor: color.white, borderTopWidth: 1, borderTopColor: color.grey200, paddingBottom: Math.max(insets.bottom, 8), paddingHorizontal: 4, overflow: 'visible', zIndex: 10 }}>
+      <Item k="home" label="Home" icon="home-outline" on={active === 'home'} onPress={() => go(props.navigation, 'home')} />
+      <Item k={sides[0]} label={TAB[sides[0]].label} icon={TAB[sides[0]].icon} on={active === sides[0]} onPress={() => go(props.navigation, sides[0])} />
+      <CentreButton primary={primary} active={active === primary.tab} />
+      <Item k={sides[1]} label={TAB[sides[1]].label} icon={TAB[sides[1]].icon} on={active === sides[1]} onPress={() => go(props.navigation, sides[1])} />
       <Item k="more" label="More" icon="menu" on={inMore} badge={unread > 0} onPress={() => {
         tap();
         router.push('/services');

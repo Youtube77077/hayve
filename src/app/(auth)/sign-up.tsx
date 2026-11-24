@@ -24,8 +24,9 @@ export default function SignUp() {
   const [accountType, setType] = useState<'individual' | 'business'>('individual');
   // Country from where you are (IP address, then location), changeable here and in Settings.
   const [country, setCountry] = useState(() => onboarding.answers.country ?? detectedCountry());
-  const [addr, setAddr] = useState({ line1: '', city: '', postcode: '', country: '' });
-  const [locating, setLocating] = useState<'idle' | 'busy' | 'done' | 'denied'>('idle');
+  const known = onboarding.answers.address;
+  const [addr, setAddr] = useState({ line1: known?.line1 ?? '', city: known?.city ?? '', postcode: known?.postcode ?? '', country: known?.country ?? '' });
+  const [locating, setLocating] = useState<'idle' | 'busy' | 'done' | 'denied'>(onboarding.answers.address?.line1 ? 'done' : 'idle');
   const reg = regions.region(country);
 
   // Ask for location once: it fills in your address (you can fix it) and your country.
@@ -41,8 +42,9 @@ export default function SignUp() {
     setLocating('done');
   };
   useEffect(() => {
-    void locate();
-  }, []);
+    // Already found in onboarding: don't ask for location twice.
+    if (!known?.line1) void locate();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [error, setError] = useState<string | null>(null);
   const { run, busy } = useAction();
 
@@ -107,7 +109,7 @@ export default function SignUp() {
         <Button title={busy ? 'Setting up your Hayve…' : 'Set up my Hayve'} size="lg" full loading={busy} onPress={submit} />
         <T variant="footnote" color={color.textSecondary} center>
           By continuing you agree to the Hayve Terms and{' '}
-          <T variant="footnote" color={color.indigo} weight="700" onPress={() => router.push('/privacy')} accessibilityRole="link">
+          <T variant="footnote" color={color.black} weight="700" onPress={() => router.push('/privacy')} accessibilityRole="link">
             Privacy Policy
           </T>
           .

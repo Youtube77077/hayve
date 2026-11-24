@@ -138,7 +138,7 @@ export default function GiftCheckout() {
               <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
                 <Photo uri={q.product.image} style={{ width: 84, height: 100 }} rounded={radius.md} />
                 <View style={{ flex: 1, gap: 2 }}>
-                  <T variant="overline" color={color.primary}>
+                  <T variant="overline" color={color.black}>
                     From {q.recipient.displayName}'s wishlist
                   </T>
                   <T variant="headline" numberOfLines={2}>
@@ -167,7 +167,7 @@ export default function GiftCheckout() {
                   ['receipt-outline', 'You get the receipt', 'Track the order and delivery from your activity.'],
                 ].map(([icon, t, b]) => (
                   <View key={t} style={{ flexDirection: 'row', gap: 12 }}>
-                    <Icon name={icon as 'eye-off-outline'} size={20} color={color.primary} />
+                    <Icon name={icon as 'eye-off-outline'} size={20} color={color.black} />
                     <View style={{ flex: 1 }}>
                       <T variant="headline">{t}</T>
                       <T variant="footnote" color={color.textSecondary}>

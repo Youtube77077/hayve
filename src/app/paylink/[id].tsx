@@ -55,7 +55,7 @@ export default function PayLinkCheckout() {
       ) : (
         <View style={{ gap: 14, marginTop: 20 }}>
           <PayMethodPicker value={method} onChange={setMethod} totalCents={c.amountCents} />
-          <Button title={`Pay ${money(c.amountCents)}`} size="lg" full loading={busy} onPress={() => run(() => business.payCheckout(c.id, method), { success: `Paid ${c.merchant}`, onDone: setPaid })} />
+          <Button title={busy ? 'Processing payment…' : `Pay ${money(c.amountCents)}`} size="lg" full loading={busy} onPress={() => run(() => business.payCheckout(c.id, method), { success: `Paid ${c.merchant}`, onDone: setPaid })} />
         </View>
       )}
     </Screen>

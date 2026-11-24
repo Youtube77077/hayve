@@ -95,7 +95,8 @@ export function requireRole(role: Role) {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USERNAME_RE = /^[a-z0-9._]{3,20}$/;
 
-const GOALS = ['ride', 'food', 'shop', 'sell', 'stay', 'car', 'money'] as const;
+const GOALS = ['ride', 'food', 'shop', 'sell', 'stay', 'car', 'money', 'holiday'] as const;
+const COMPANY = ['solo', 'partner', 'family', 'friends'] as const;
 const EARN = ['seller', 'driver', 'courier', 'host', 'car_owner'] as const;
 const CATS = ['fashion', 'electronics', 'home', 'accessories', 'collectibles', 'books', 'sport', 'general'] as const;
 const RIDES = ['go', 'green', 'comfort', 'xl', 'priority'] as const;
@@ -107,6 +108,10 @@ export function cleanPrefs(p: OnboardingPrefs): OnboardingPrefs {
   const arr = <T extends string>(v: unknown, list: readonly T[]) => (Array.isArray(v) ? [...new Set(v.filter((x): x is T => inList(x, list)))].slice(0, 8) : undefined);
   const out: OnboardingPrefs = {};
   if (inList(p.goal, GOALS)) out.goal = p.goal;
+  const interests = arr(p.interests, GOALS);
+  if (interests) out.interests = interests;
+  if (inList(p.primary, GOALS)) out.primary = p.primary;
+  if (inList(p.company, COMPANY)) out.company = p.company;
   if (Array.isArray(p.cuisines)) out.cuisines = p.cuisines.filter((c) => typeof c === 'string' && c.length <= 30).slice(0, 8);
   const shop = arr(p.shopFor, CATS);
   if (shop) out.shopFor = shop;

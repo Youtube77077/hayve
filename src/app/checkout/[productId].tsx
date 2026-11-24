@@ -74,7 +74,7 @@ export default function Checkout() {
   return (
     <Screen
       header={<Header back title="Checkout" fallback={`/product/${p.id}`} />}
-      footer={<Button title={`Pay ${money(quote.totalCents)}`} size="lg" full loading={busy} disabled={(delivery === 'ship' && !addressId) || !p.available} onPress={() => run(() => shop.checkout(p.id, { addressId: addressId ?? undefined, method, delivery }), { onDone: setDone })} />}
+      footer={<Button title={busy ? 'Processing payment…' : `Pay ${money(quote.totalCents)}`} size="lg" full loading={busy} disabled={(delivery === 'ship' && !addressId) || !p.available} onPress={() => run(() => shop.checkout(p.id, { addressId: addressId ?? undefined, method, delivery }), { onDone: setDone })} />}
     >
       <Split
         left={

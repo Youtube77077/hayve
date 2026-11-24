@@ -7,6 +7,7 @@ import { Appear, Avatar, Button, Card, Chip, color, EmptyState, Header, HScroll,
 import { StatusPill } from '../../features/common';
 import { ago, money } from '../../lib/format';
 import { useAction, useLive } from '../../lib/hooks';
+import { celebrate } from '../../features/celebrate';
 
 const FILTERS: { key: PayRequestStatus | 'all'; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -29,7 +30,7 @@ export default function Requests() {
   const items = links?.items ?? [];
 
   return (
-    <Screen header={<Header back title="Requests" fallback="/pay" right={<Button title="New" icon="add" size="sm" onPress={() => router.push('/pay/request')} />} />} maxWidth={680}>
+    <Screen header={<Header back title="Requests" fallback="/pay" right={<Button title="New" icon="add" size="sm" variant="outline" onPress={() => router.push('/pay/request')} />} />} maxWidth={680}>
       {incoming.length > 0 && (
         <Section title="To pay" style={{ marginTop: 4 }}>
           <View style={{ gap: 10 }}>
@@ -45,10 +46,8 @@ export default function Requests() {
                   </View>
                   <T variant="title3">{money(r.amountCents)}</T>
                 </View>
-                <View style={{ flexDirection: 'row', gap: 10 }}>
-                  <Button title="Decline" variant="outline" style={{ flex: 1 }} onPress={() => run(() => wallet.respondToRequest(r.id, false), { success: 'Request declined' })} />
-                  <Button title={`Pay ${money(r.amountCents)}`} style={{ flex: 1.4 }} loading={busy} onPress={() => run(() => wallet.respondToRequest(r.id, true), { success: `Paid ${r.other.displayName}` })} />
-                </View>
+                <Button title={busy ? 'Processing payment…' : `Pay ${money(r.amountCents)}`} full loading={busy} onPress={() => run(() => wallet.respondToRequest(r.id, true), { onDone: () => celebrate({ title: `Paid ${r.other.displayName.split(' ')[0]}!`, body: `${money(r.amountCents)} sent from your balance.` }) })} />
+                <Button title="Decline" variant="ghost" size="sm" style={{ alignSelf: 'center' }} onPress={() => run(() => wallet.respondToRequest(r.id, false), { success: 'Request declined' })} />
               </Card>
             ))}
           </View>

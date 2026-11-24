@@ -72,7 +72,7 @@ export default function MyWishlist() {
         )}
         {visibility === 'link' && (
           <Pressable onPress={() => run(() => wishlist.resetWishlistLink(), { success: 'New link created. The old link no longer works.' })} style={{ marginTop: 8 }} accessibilityRole="button">
-            <T variant="footnote" color={color.indigo} weight="600">
+            <T variant="footnote" color={color.black} weight="600">
               Reset link
             </T>
           </Pressable>

@@ -72,7 +72,7 @@ export function MetricRow({ items }: { items: { label: string; value: string; ic
     <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
       {items.map((m) => (
         <Card key={m.label} style={{ flexGrow: 1, flexBasis: 140, gap: 6 }}>
-          <Icon name={m.icon} size={20} color={color.primary} />
+          <Icon name={m.icon} size={20} color={color.black} />
           <T variant="title3">{m.value}</T>
           <T variant="footnote" color={color.textSecondary}>
             {m.label}

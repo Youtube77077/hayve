@@ -55,7 +55,7 @@ export default function Pay() {
   const waveBack = wb && (
     <Card style={{ gap: 12 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Icon name="wave" size={20} color={color.indigo} />
+        <Icon name="wave" size={20} color={color.black} />
         <T variant="headline" style={{ flex: 1 }}>Wave Back</T>
         <T variant="footnote" color={color.textSecondary}>This month</T>
       </View>

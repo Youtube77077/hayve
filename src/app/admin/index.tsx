@@ -42,8 +42,8 @@ export default function AdminPanel() {
           Admin tools need a verified email and two-step verification.
         </T>
         <Group>
-          <ListRow icon="mail-outline" title="Verify your email" right={status.emailVerified ? <Icon name="checkmark" color={color.indigo} /> : undefined} onPress={status.emailVerified ? undefined : () => router.push('/settings')} />
-          <ListRow icon="shield-checkmark-outline" title="Turn on two-step verification" right={status.twoFactor ? <Icon name="checkmark" color={color.indigo} /> : undefined} onPress={status.twoFactor ? undefined : () => router.push('/settings')} />
+          <ListRow icon="mail-outline" title="Verify your email" right={status.emailVerified ? <Icon name="checkmark" color={color.black} /> : undefined} onPress={status.emailVerified ? undefined : () => router.push('/settings')} />
+          <ListRow icon="shield-checkmark-outline" title="Turn on two-step verification" right={status.twoFactor ? <Icon name="checkmark" color={color.black} /> : undefined} onPress={status.twoFactor ? undefined : () => router.push('/settings')} />
         </Group>
       </Screen>
     );

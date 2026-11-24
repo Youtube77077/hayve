@@ -32,7 +32,7 @@ export default function Welcome() {
 
         <View style={{ flexDirection: isWide ? 'row' : 'column', gap: isWide ? 48 : 24, alignItems: isWide ? 'center' : 'stretch', marginTop: isWide ? 48 : 24 }}>
           <View style={{ flex: 1, maxWidth: 560 }}>
-            <T variant="subhead" weight="700" color={color.indigo} style={{ marginBottom: 16 }}>
+            <T variant="subhead" weight="700" color={color.black} style={{ marginBottom: 16 }}>
               {t('In the US, Canada, the UK, Ireland and across Europe')}
             </T>
             <T weight="800" style={{ fontSize: headline, lineHeight: headline * 1.08, letterSpacing: -1.4 }}>
@@ -77,7 +77,7 @@ export default function Welcome() {
           <Icon name="information-circle" size={18} color={color.grey500} />
           <T variant="footnote" color={color.textSecondary} style={{ flex: 1 }}>
             Preview build. Payments, rides, rentals, stays and deliveries are simulated and marked Demo. No real money or services are involved.{' '}
-            <T variant="footnote" color={color.indigo} weight="700" onPress={() => router.push('/privacy')} accessibilityRole="link">
+            <T variant="footnote" color={color.black} weight="700" onPress={() => router.push('/privacy')} accessibilityRole="link">
               Privacy policy
             </T>
           </T>

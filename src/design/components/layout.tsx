@@ -166,7 +166,7 @@ export function Section({ title, action, onAction, children, style, subtitle }: 
           </View>
           {action && (
             <Pressable onPress={onAction} hitSlop={8} accessibilityRole="link">
-              <T variant="subhead" color={color.indigo} weight="600">
+              <T variant="subhead" color={color.black} weight="700">
                 {action}
               </T>
             </Pressable>

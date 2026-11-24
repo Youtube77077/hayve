@@ -47,7 +47,7 @@ export default function Profile() {
       </T>
       <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
         <Button title="View public profile" variant="outline" size="sm" icon="eye-outline" style={{ flex: 1 }} onPress={() => router.push(`/u/${me.profile.username}`)} />
-        <Button title="Edit" size="sm" icon="create-outline" onPress={() => router.push('/settings/profile')} />
+        <Button title="Edit" size="sm" variant="outline" icon="create-outline" onPress={() => router.push('/settings/profile')} />
       </View>
     </Card>
   );
@@ -148,7 +148,7 @@ export default function Profile() {
               }}
               style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.md, backgroundColor: a.email === me.user.email ? color.primarySoft : pressed ? color.surfaceSunken : color.surface, borderWidth: 1, borderColor: color.line })}
             >
-              <Icon name="person-circle-outline" size={26} color={color.primary} />
+              <Icon name="person-circle-outline" size={26} color={color.black} />
               <View style={{ flex: 1 }}>
                 <T variant="headline">{a.label}</T>
                 <T variant="footnote" color={color.textSecondary}>

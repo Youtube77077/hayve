@@ -33,7 +33,7 @@ export default function AddMoney() {
       <View style={{ marginTop: 12 }}>
         <SimNote text="Simulated: no card is charged. In the live app you pay in our payment provider's secure checkout." />
       </View>
-      <Sheet visible={checkout} onClose={() => setCheckout(false)} title={`Pay ${money(cents)}`} footer={<Button title={`Pay ${money(cents)}`} size="lg" full loading={busy} disabled={!card} onPress={() => run(() => wallet.addMoney(cents), { success: `${money(cents)} added`, onDone: () => router.replace('/pay') })} />}>
+      <Sheet visible={checkout} onClose={() => setCheckout(false)} title={busy ? 'Processing payment…' : `Pay ${money(cents)}`} footer={<Button title={busy ? 'Processing payment…' : `Pay ${money(cents)}`} size="lg" full loading={busy} disabled={!card} onPress={() => run(() => wallet.addMoney(cents), { success: `${money(cents)} added`, onDone: () => router.replace('/pay') })} />}>
         <CardForm onChange={onCard} />
       </Sheet>
     </Screen>

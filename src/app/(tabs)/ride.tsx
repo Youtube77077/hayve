@@ -447,7 +447,7 @@ function SheetContent(p: {
             <T variant="caption" color={color.textSecondary}>{t('Pickup')}</T>
             <T variant="headline" numberOfLines={1}>{p.moving ? 'Moving pin…' : p.pickup?.name ?? 'Locating…'}</T>
           </View>
-          <T variant="subhead" weight="700" color={color.indigo}>Edit</T>
+          <T variant="subhead" weight="700" color={color.black}>Edit</T>
         </Pressable>
         <View style={{ height: 1, backgroundColor: color.grey200 }} />
         {saved.map((x) => (

@@ -97,7 +97,7 @@ function Apply({ previous }: { previous: ReturnType<typeof business.myBusiness> 
               Passport or ID card plus a quick selfie. Simulated in this preview.
             </T>
           </View>
-          {idChecked ? <Icon name="checkmark" color={color.indigo} /> : <Button title="Start" size="sm" variant="dark" loading={checking} onPress={startIdCheck} />}
+          {idChecked ? <Icon name="checkmark" color={color.black} /> : <Button title="Start" size="sm" variant="dark" loading={checking} onPress={startIdCheck} />}
         </Card>
       </Section>
     </Screen>

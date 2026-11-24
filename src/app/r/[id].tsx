@@ -69,7 +69,7 @@ export default function PayRequestPage() {
             </T>
           </View>
           <View style={{ borderWidth: 1, borderColor: color.indigo, borderRadius: 999, paddingHorizontal: 10, height: 26, justifyContent: 'center' }}>
-            <T variant="caption" weight="700" color={color.indigo}>
+            <T variant="caption" weight="700" color={color.black}>
               {r.status === 'pending' ? 'Open' : r.status === 'paid' ? 'Paid' : r.status === 'expired' ? 'Expired' : 'Cancelled'}
             </T>
           </View>

@@ -11,6 +11,7 @@ import { SimNote } from '../features/common';
 import { money } from '../lib/format';
 import { useAction } from '../lib/hooks';
 import { usePersonalisation } from '../features/onboarding/store';
+import { celebrate } from '../features/celebrate';
 
 const SAMPLE_PHOTOS = Object.values(media.products);
 
@@ -87,13 +88,16 @@ export default function Sell() {
     if (!category) return toast('Choose a category', 'error');
     if (!condition) return toast('Choose the condition', 'error');
     return run(() => (id ? (shop.updateListing(id, input), id) : shop.createListing(input)), {
-      success: id ? 'Listing updated' : 'Your item is live on Hayve Shop 🎉',
-      onDone: (pid) => router.replace(`/product/${pid}`),
+      success: id ? 'Listing updated' : undefined,
+      onDone: (pid) => {
+        if (!id) celebrate({ title: 'Your item is live!', body: 'People can find and buy it on Hayve Shop now.' });
+        router.replace(`/product/${pid}`);
+      },
     });
   };
 
   return (
-    <Screen header={<Header back title={id ? 'Edit listing' : 'Sell an item'} fallback="/shop" />} maxWidth={720} keyboard footer={<Button title={id ? 'Save changes' : 'Upload listing'} size="lg" full loading={busy} onPress={submit} />}>
+    <Screen header={<Header back title={id ? 'Edit listing' : 'Sell an item'} fallback="/shop" />} maxWidth={720} keyboard footer={<Button title={busy ? (id ? 'Saving…' : 'Putting it live…') : id ? 'Save changes' : 'Put it live'} size="lg" full loading={busy} onPress={submit} />}>
       <T variant="headline" style={{ marginTop: 4, marginBottom: 10 }}>
         Photos <T variant="footnote" color={color.textTertiary}>({images.length}/8)</T>
       </T>
@@ -162,9 +166,9 @@ export default function Sell() {
 
 function AddTile({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => ({ width: 110, height: 140, borderRadius: radius.md, borderWidth: 1.5, borderStyle: 'dashed', borderColor: color.primary, backgroundColor: pressed ? color.primaryTint : color.primarySoft, alignItems: 'center', justifyContent: 'center', gap: 6 })}>
-      <Icon name={icon} size={26} color={color.primary} />
-      <T variant="subhead" weight="700" color={color.primary}>
+    <Pressable onPress={onPress} style={({ pressed }) => ({ width: 110, height: 140, borderRadius: radius.md, borderWidth: 1.5, borderStyle: 'dashed', borderColor: pressed ? color.black : color.grey500, backgroundColor: color.white, alignItems: 'center', justifyContent: 'center', gap: 6 })}>
+      <Icon name={icon} size={26} color={color.black} />
+      <T variant="subhead" weight="700" color={color.black}>
         {label}
       </T>
     </Pressable>

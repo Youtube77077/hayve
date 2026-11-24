@@ -7,6 +7,7 @@ import { addDays, Avatar, Badge, Button, Card, color, Divider, ErrorState, Galle
 import { PayMethodPicker } from '../../features/common';
 import { memberSince, money } from '../../lib/format';
 import { useAction, useLive, useSessionId } from '../../lib/hooks';
+import { celebrate } from '../../features/celebrate';
 
 const AMENITY_ICON: Record<string, IconName> = {
   'Wi-Fi': 'wifi',
@@ -53,9 +54,10 @@ export default function PropertyDetail() {
 
   const book = () =>
     run(() => bookings.bookStay({ propertyId: p.id, checkIn: checkIn!, checkOut: checkOut!, guests, method, message }), {
-      success: p.instantBook ? 'Reservation confirmed 🎉' : 'Request sent to your host',
+      success: p.instantBook ? undefined : 'Request sent to your host',
       onDone: (id) => {
         setCheckout(false);
+        if (p.instantBook) celebrate({ title: 'You’re booked!', body: `${p.title}. Have a great stay.` });
         router.replace(`/stay/booking/${id}`);
       },
     });
@@ -151,7 +153,7 @@ export default function PropertyDetail() {
             </Section>
             <Section title="Location">
               <Card tone="soft" style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-                <Icon name="location" size={22} color={color.primary} />
+                <Icon name="location" size={22} color={color.black} />
                 <View style={{ flex: 1 }}>
                   <T variant="headline">
                     {p.neighbourhood}, {p.city}

@@ -28,7 +28,7 @@ export default function Inbox() {
                   </T>
                 </View>
                 {t.context && (
-                  <T variant="caption" color={color.primary} weight="700" numberOfLines={1}>
+                  <T variant="caption" color={color.black} weight="700" numberOfLines={1}>
                     {CONTEXT_LABEL[t.context.kind]} · {t.context.title}
                   </T>
                 )}

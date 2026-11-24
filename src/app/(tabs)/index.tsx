@@ -84,7 +84,7 @@ export default function Home() {
           <View style={{ flexDirection: 'row', alignItems: 'center', height: 40, borderRadius: radius.pill, borderWidth: 1, borderColor: color.grey200 }}>
             <Pressable onPress={() => router.push('/pay')} accessibilityRole="link" accessibilityLabel={hidden ? 'Hayve Pay balance hidden. Open Hayve Pay' : `Hayve Pay balance ${money(w?.available ?? 0)}. Open Hayve Pay`} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 14, paddingRight: 6, height: '100%' }}>
               <Icon name="wallet-outline" size={17} />
-              <T variant="subhead" weight="700" color={color.indigo}>
+              <T variant="subhead" weight="700" color={color.black}>
                 {hidden ? `${currencySymbol()} •••••` : money(w?.available ?? 0)}
               </T>
             </Pressable>
@@ -150,7 +150,7 @@ export default function Home() {
 
         {/* 4a · just back from a holiday: ask how it was (tap a star to rate) */}
         {tripToRate && (
-          <View style={{ marginTop: 24, padding: 16, borderRadius: radius.lg, borderWidth: 1.5, borderColor: color.indigo, gap: 10 }}>
+          <View style={{ marginTop: 24, padding: 16, borderRadius: radius.lg, borderWidth: 1, borderColor: color.grey200, gap: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <Icon name="airplane-outline" size={24} />
               <View style={{ flex: 1 }}>
@@ -256,7 +256,7 @@ export default function Home() {
                         <T variant="subhead" weight="700">
                           {r.name}
                         </T>
-                        <T variant="caption" color={color.indigo} weight="600">
+                        <T variant="caption" color={color.black} weight="600">
                           {r.promo}
                         </T>
                         <Rating value={r.rating} count={r.ratingCount} size={12} />
@@ -291,8 +291,8 @@ export default function Home() {
 
 function LiveCard({ icon, title, sub, right, onPress }: { icon: IconName; title: string; sub: string; right?: ReactNode; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="link" style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: radius.lg, borderWidth: 1.5, borderColor: pressed || hovered ? color.black : color.indigo, backgroundColor: color.white })}>
-      <Icon name={icon} size={24} color={color.indigo} />
+    <Pressable onPress={onPress} accessibilityRole="link" style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: radius.lg, borderWidth: 1, borderColor: pressed || hovered ? color.black : color.grey200, backgroundColor: color.white })}>
+      <Icon name={icon} size={24} color={color.black} />
       <View style={{ flex: 1 }}>
         <T variant="headline" numberOfLines={1}>
           {title}

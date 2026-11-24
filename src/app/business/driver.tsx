@@ -121,7 +121,7 @@ function Dashboard() {
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               <T variant="title3">New ride request</T>
               <View style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: color.indigo, alignItems: 'center', justifyContent: 'center' }}>
-                <T variant="headline" color={color.indigo}>
+                <T variant="headline" color={color.black}>
                   {offer.offerSecondsLeft ?? 0}
                 </T>
               </View>
