@@ -48,6 +48,10 @@ jobs:
           xcodebuild -version
           swift --version
 
+      # Each build gets its own version (0.1.<build>) so AltStore/SideStore can see there's an update.
+      - name: Version this build
+        run: node -e "const fs=require('fs');const j=JSON.parse(fs.readFileSync('app.json','utf8'));j.expo.version='0.1.${{ github.run_number }}';j.expo.ios=j.expo.ios||{};j.expo.ios.buildNumber='${{ github.run_number }}';fs.writeFileSync('app.json',JSON.stringify(j,null,2))"
+
       - name: Generate native iOS project (Expo prebuild)
         run: npx expo prebuild --platform ios --clean --no-install
         env:
@@ -119,14 +123,46 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # AltStore / SideStore source: add it once and the app updates itself on every new build.
+          SIZE=$(stat -f%z Hayve.ipa 2>/dev/null || stat -c%s Hayve.ipa)
+          VERSION="0.1.${{ github.run_number }}"
+          cat > altstore.json <<JSON
+          {
+            "name": "Hayve",
+            "identifier": "com.hayve.source",
+            "sourceURL": "https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/altstore.json",
+            "apps": [
+              {
+                "name": "Hayve",
+                "bundleIdentifier": "com.hayve.app",
+                "developerName": "Hayve",
+                "localizedDescription": "One account for rides, food, shopping, stays, cars, holidays and paying friends.",
+                "iconURL": "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/assets/images/icon.png",
+                "versions": [
+                  {
+                    "version": "${VERSION}",
+                    "date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+                    "downloadURL": "https://github.com/${GITHUB_REPOSITORY}/releases/download/ios-latest/Hayve.ipa",
+                    "size": ${SIZE},
+                    "localizedDescription": "Build ${{ github.run_number }} (${GITHUB_SHA::7})"
+                  }
+                ]
+              }
+            ],
+            "news": []
+          }
+          JSON
+          python3 -m json.tool altstore.json > /dev/null
           gh release delete ios-latest --cleanup-tag --yes --repo "$GITHUB_REPOSITORY" || true
-          gh release create ios-latest Hayve.ipa \
+          gh release create ios-latest Hayve.ipa altstore.json \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Hayve for iPhone (latest)" \
             --latest \
             --notes "Newest Hayve build from main (build ${{ github.run_number }}, commit ${GITHUB_SHA::7}).
 
-          Install: download Hayve.ipa on your computer or iPhone and open it with AltStore, SideStore, Sideloadly or Feather; they sign it with your own Apple ID.
+          Install: download Hayve.ipa and open it with AltStore, SideStore, Sideloadly or Feather; they sign it with your own Apple ID.
+
+          Automatic updates: in AltStore or SideStore add this source once: https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/altstore.json
 
           Demo login: sam@hayve.app / hayve123. All payments and services in this build are simulated."

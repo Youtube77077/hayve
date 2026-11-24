@@ -20,7 +20,7 @@
 - Bump `DB_VERSION` in `src/backend/seed.ts` when the stored data shape changes (it reseeds local data).
 - Owner admin: `rojyarzakholi@gmail.com` (config.ts and migration 0005). Admin needs verified email + 2FA; only admins add admins. Preview codes: `SIM_CODE` 246810.
 - Hosting: DigitalOcean. Single droplet: `deploy/droplet/` (docker compose: Caddy + API + PostgreSQL; `setup.sh` one-liner, docs/DROPLET.md). App Platform alternative: `.do/app.yaml`, docs/HOSTING.md. The app still runs on the simulated backend.
-- iOS: pushing to `main`/`claude/**` builds an unsigned IPA via `.github/workflows/ios-ipa.yml` and publishes a pre-release; `main` also refreshes the `ios-latest` release (permanent link: releases/latest/download/Hayve.ipa).
+- iOS: pushing to `main`/`claude/**` builds an unsigned IPA via `.github/workflows/ios-ipa.yml` and publishes a pre-release; `main` also refreshes the `ios-latest` release (permanent link: releases/latest/download/Hayve.ipa) with an AltStore/SideStore source (releases/latest/download/altstore.json) for automatic updates; each build is versioned 0.1.<run>.
 - 1,000-person simulation (real backend, synthetic people): `npx vitest run --config sim/vitest.config.ts && node sim/report.mjs <outDir>` → HTML report + people.json. The sim adds its own example catalogue (`sim/catalog.ts`), never the app's seed. Re-run after big flow changes; it must report 0 crashes and a balanced ledger. Price analysis: `node sim/pricing-report.mjs <outDir>` (uses sim/out/pricing.json; the sim freezes the clock per step and models rush hours/events).
 - Price records (`recordPrice`) must equal what the customer paid: add non-engine parts (delivery, cleaning, taxes, insurance) with `withExtras()` in `api/revenue.ts`; pass-through money is never Hayve revenue.
 - Bites only lists/accepts restaurants in the customer's city (`bites.coverage()`, `metro()`); new restaurants need a `city`.
@@ -36,3 +36,8 @@
 - Every tap responds instantly (pressed state, "Processing payment…"); skeletons instead of blank screens; confirm success; errors say how to fix the problem.
 - Onboarding comes before sign-up (Duolingo style, `src/features/onboarding`); never pre-check marketing opt-ins or paid add-ons.
 - Audit and prioritised fix list: docs/HAYVE_AUDIT.md.
+- Holidays: `api/holidays.ts` (partner packages, post-trip rating, share code), screens `src/app/holidays/*`, public `/t/[code]`, trip card `src/features/holidays` (privacy zone around the hotel; never draw invented straight lines).
+- Centre button: `src/features/nav/CentreButton.tsx` + `actions.ts` (primary action from onboarding `primary`; hold for the half-circle menu). Celebrations: `celebrate()` from `src/features/celebrate.tsx` for good moments.
+- Admin import (demos): `src/features/admin/ImportPanel.tsx`, parser `importParse.ts`, backend `api/importer.ts`, server `/admin/import/fetch` (`server/src/pagefetch.ts`, public addresses only).
+- Driver/courier ID check (demo): `/verify?role=driver|courier`, `business.verifyIdentity`; registration requires a verified ID.
+- Growth plan: docs/GROWTH.md.
