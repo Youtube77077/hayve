@@ -10,3 +10,7 @@ export function takeReturnTo() {
   pending = null;
   return p;
 }
+
+export function peekReturnTo() {
+  return pending;
+}

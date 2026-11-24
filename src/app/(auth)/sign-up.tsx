@@ -8,16 +8,22 @@ import { detectedCountry } from '../../lib/geo';
 import { Button, Card, color, Header, HayveLogo, Icon, Input, Screen, Segmented, T } from '../../design';
 import { useAction } from '../../lib/hooks';
 import { languageFromLocale, useT } from '../../lib/i18n';
+import { landingFor, toPrefs } from '../../features/onboarding/model';
+import { useOnboarding } from '../../features/onboarding/store';
+import { peekReturnTo, setReturnTo } from '../../lib/returnTo';
 
 export default function SignUp() {
   const t = useT();
+  // Answers from onboarding come along: country, goal and tastes (no need to ask twice).
+  const onboarding = useOnboarding();
+  const fromOnboarding = !!onboarding.answers.goal;
   const [displayName, setName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [accountType, setType] = useState<'individual' | 'business'>('individual');
   // Country from where you are (IP address, then location), changeable here and in Settings.
-  const [country, setCountry] = useState(() => detectedCountry());
+  const [country, setCountry] = useState(() => onboarding.answers.country ?? detectedCountry());
   const [addr, setAddr] = useState({ line1: '', city: '', postcode: '', country: '' });
   const [locating, setLocating] = useState<'idle' | 'busy' | 'done' | 'denied'>('idle');
   const reg = regions.region(country);
@@ -41,9 +47,12 @@ export default function SignUp() {
   const { run, busy } = useAction();
 
   const submit = () =>
-    run(() => session.signUp({ email, password, displayName, username, accountType, country, language: languageFromLocale(Intl.DateTimeFormat().resolvedOptions().locale), address: addr.line1 ? { ...addr, country: addr.country || reg.name } : undefined }), {
+    run(() => session.signUp({ email, password, displayName, username, accountType, country, language: languageFromLocale(Intl.DateTimeFormat().resolvedOptions().locale), onboarding: fromOnboarding ? toPrefs(onboarding.answers) : undefined, address: addr.line1 ? { ...addr, country: addr.country || reg.name } : undefined }), {
       success: 'Welcome to Hayve 🎉',
-      onDone: () => router.replace(accountType === 'business' ? '/business' : '/'),
+      // The auth gate opens the return page: what they were doing, else their goal from onboarding.
+      onDone: () => {
+        if (!peekReturnTo()) setReturnTo(accountType === 'business' ? '/business' : fromOnboarding ? landingFor(onboarding.answers) : '/');
+      },
       onError: (e) => setError(e.message),
     });
 
@@ -52,9 +61,9 @@ export default function SignUp() {
       <View style={{ gap: 6, marginTop: 8, marginBottom: 24 }}>
         <HayveLogo height={30} />
         <T variant="title1" style={{ marginTop: 18 }}>
-          {t('Create your account')}
+          {fromOnboarding ? 'Save your setup' : t('Create your account')}
         </T>
-        <T color={color.textSecondary}>{t('One account for shopping, payments, rides, food, stays and more.')}</T>
+        <T color={color.textSecondary}>{fromOnboarding ? 'Your choices are kept. One account for shopping, payments, rides, food, stays and more.' : t('One account for shopping, payments, rides, food, stays and more.')}</T>
       </View>
       <View style={{ gap: 14 }}>
         <Segmented
@@ -95,7 +104,7 @@ export default function SignUp() {
         />
         <Input label={t('Email')} icon="mail-outline" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" textContentType="emailAddress" placeholder="you@example.com" />
         <Input label={t('Password')} icon="lock-closed-outline" value={password} onChangeText={setPassword} secureTextEntry textContentType="newPassword" placeholder="At least 8 characters" error={error} />
-        <Button title={t('Create account')} size="lg" full loading={busy} onPress={submit} />
+        <Button title={busy ? 'Setting up your Hayve…' : 'Set up my Hayve'} size="lg" full loading={busy} onPress={submit} />
         <T variant="footnote" color={color.textSecondary} center>
           By continuing you agree to the Hayve Terms and{' '}
           <T variant="footnote" color={color.indigo} weight="700" onPress={() => router.push('/privacy')} accessibilityRole="link">

@@ -8,6 +8,8 @@ import { ServiceShortcuts, StatusPill } from '../../features/common';
 import { ago, money, currencySymbol } from '../../lib/format';
 import { useLive } from '../../lib/hooks';
 import { useT } from '../../lib/i18n';
+import { EARN, EARN_ROUTE, GOALS, landingFor, landingLabel, type OnboardingAnswers } from '../../features/onboarding/model';
+import { usePersonalisation } from '../../features/onboarding/store';
 
 const HIDE_KEY = 'hayve.hideBalance';
 
@@ -49,6 +51,10 @@ export default function Home() {
   const deals = useLive(() => bites.listRestaurants({ openOnly: true }).filter((r) => r.promo)).data ?? [];
   const picks = useLive(() => shop.listProducts({ sort: 'recommended', limit: 8 })).data ?? [];
   const firstName = me?.profile.displayName.split(' ')[0] ?? '';
+  // Onboarding answers: the goal they picked and the ways they'd like to earn.
+  const prefs = usePersonalisation() as OnboardingAnswers;
+  const goal = GOALS.find((g) => g.key === prefs.goal);
+  const hasLive = !!activeRide || food.length > 0 || shipped.length > 0 || stays.length > 0;
 
   const submitSearch = () => {
     const term = q.trim();
@@ -66,6 +72,14 @@ export default function Home() {
             </T>
             <Emoji char="👋" size={isWide ? 28 : 22} />
           </View>
+          {!me ? (
+            <Pressable onPress={() => router.push('/sign-up')} accessibilityRole="button" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 8, height: 40, paddingHorizontal: 14, borderRadius: radius.pill, borderWidth: 1, borderColor: pressed ? color.black : color.grey200 })}>
+              <Icon name="person-outline" size={17} />
+              <T variant="subhead" weight="700">
+                Save my setup
+              </T>
+            </Pressable>
+          ) : (
           <View style={{ flexDirection: 'row', alignItems: 'center', height: 40, borderRadius: radius.pill, borderWidth: 1, borderColor: color.grey200 }}>
             <Pressable onPress={() => router.push('/pay')} accessibilityRole="link" accessibilityLabel={hidden ? 'Hayve Pay balance hidden. Open Hayve Pay' : `Hayve Pay balance ${money(w?.available ?? 0)}. Open Hayve Pay`} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 14, paddingRight: 6, height: '100%' }}>
               <Icon name="wallet-outline" size={17} />
@@ -77,6 +91,7 @@ export default function Home() {
               <Icon name={hidden ? 'eye-outline' : 'eye-off-outline'} size={17} color={color.grey500} />
             </Pressable>
           </View>
+          )}
         </View>
 
         {/* 2 · one big search */}
@@ -129,6 +144,16 @@ export default function Home() {
             {stays.map((b) => (
               <LiveCard key={b.id} icon="bed-outline" title={`Upcoming stay in ${b.property.city}`} sub={`${b.checkIn} → ${b.checkOut}`} right={<StatusPill status={b.status} />} onPress={() => router.push(`/stay/booking/${b.id}`)} />
             ))}
+          </View>
+        )}
+
+        {/* 4b · from onboarding: their goal (when nothing is live) and ways to earn */}
+        {((goal && !hasLive) || !!prefs.earn?.length) && (
+          <View style={{ marginTop: 24, gap: 10 }}>
+            {goal && !hasLive && <LiveCard icon={goal.icon ?? 'sparkles-outline'} title={landingLabel(prefs)} sub={goal.hint ?? ''} right={<Icon name="arrow-forward" size={20} />} onPress={() => router.push(landingFor(prefs) as never)} />}
+            {!!prefs.earn?.length && (
+              <LiveCard icon="cash-outline" title="Start earning with Hayve" sub={prefs.earn.map((k) => EARN.find((e) => e.key === k)?.title).filter(Boolean).join(' · ')} right={<Icon name="arrow-forward" size={20} />} onPress={() => router.push(EARN_ROUTE[prefs.earn![0]] as never)} />
+            )}
           </View>
         )}
 

@@ -23,8 +23,18 @@ async function getJson<T>(url: string, ms = 4000): Promise<T> {
   }
 }
 
+/** A country the visitor picked themselves (onboarding) beats the IP address and device language. */
+let chosen: string | null = null;
+
+/** Sets the visitor's country (currency, local supply, map centre) before they have an account. */
+export function chooseCountry(code: string) {
+  chosen = code;
+  regions.setGuestCountry(code);
+  session.refreshCurrency();
+}
+
 function apply(country: string | null, rates: Record<string, number> | null) {
-  if (country) regions.setGuestCountry(country);
+  if (country && !chosen) regions.setGuestCountry(country);
   if (rates) regions.setRates(rates);
   session.refreshCurrency();
 }

@@ -10,6 +10,7 @@ import { Button, color, Header, Input, parseEuro, Photo, radius, Screen, Select,
 import { SimNote } from '../features/common';
 import { money } from '../lib/format';
 import { useAction } from '../lib/hooks';
+import { usePersonalisation } from '../features/onboarding/store';
 
 const SAMPLE_PHOTOS = Object.values(media.products);
 
@@ -21,7 +22,9 @@ export default function Sell() {
   const [images, setImages] = useState<string[]>([]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState<ProductCategory | null>(null);
+  // Onboarding: "What will you sell first?" starts the form with that category.
+  const prefs = usePersonalisation();
+  const [category, setCategory] = useState<ProductCategory | null>(prefs.goal === 'sell' ? (prefs.shopFor?.[0] ?? null) : null);
   const [condition, setCondition] = useState<ProductCondition | null>(null);
   const [brand, setBrand] = useState('');
   const [size, setSize] = useState('');

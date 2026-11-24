@@ -3,7 +3,7 @@ import { OWNER_ADMIN_EMAILS, SIM_CODE } from '../config';
 import { ensureAccount } from '../ledger';
 import { defaultProfile } from '../seed';
 import { assert, commit, getDb, getStorage, HayveError, now, SESSION_KEY, simHash, uid, refresh } from '../store';
-import type { ID, Role, User } from '../types';
+import type { ID, Role, User, OnboardingPrefs } from '../types';
 
 /**
  * Authentication (simulated). The production adapter swaps these for Supabase
@@ -95,6 +95,44 @@ export function requireRole(role: Role) {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USERNAME_RE = /^[a-z0-9._]{3,20}$/;
 
+const GOALS = ['ride', 'food', 'shop', 'sell', 'stay', 'car', 'money'] as const;
+const EARN = ['seller', 'driver', 'courier', 'host', 'car_owner'] as const;
+const CATS = ['fashion', 'electronics', 'home', 'accessories', 'collectibles', 'books', 'sport', 'general'] as const;
+const RIDES = ['go', 'green', 'comfort', 'xl', 'priority'] as const;
+const CARS = ['compact', 'sedan', 'suv', 'electric', 'van', 'luxury'] as const;
+
+/** Keeps only known onboarding answers (they come from the device). */
+export function cleanPrefs(p: OnboardingPrefs): OnboardingPrefs {
+  const inList = <T extends string>(v: unknown, list: readonly T[]): v is T => list.includes(v as T);
+  const arr = <T extends string>(v: unknown, list: readonly T[]) => (Array.isArray(v) ? [...new Set(v.filter((x): x is T => inList(x, list)))].slice(0, 8) : undefined);
+  const out: OnboardingPrefs = {};
+  if (inList(p.goal, GOALS)) out.goal = p.goal;
+  if (Array.isArray(p.cuisines)) out.cuisines = p.cuisines.filter((c) => typeof c === 'string' && c.length <= 30).slice(0, 8);
+  const shop = arr(p.shopFor, CATS);
+  if (shop) out.shopFor = shop;
+  if (inList(p.rideType, RIDES)) out.rideType = p.rideType;
+  if (typeof p.travellers === 'number' && p.travellers >= 1 && p.travellers <= 16) out.travellers = Math.round(p.travellers);
+  if (inList(p.carType, CARS)) out.carType = p.carType;
+  const earn = arr(p.earn, EARN);
+  if (earn) out.earn = earn;
+  return out;
+}
+
+/** The signed-in person's onboarding answers (null when signed out or never answered). */
+export function myPreferences(): OnboardingPrefs | null {
+  if (!currentUserId) return null;
+  return getDb().profiles.find((p) => p.userId === currentUserId)?.onboarding ?? null;
+}
+
+/** Saves new onboarding answers for a signed-in person (redoing onboarding from Settings). */
+export function savePreferences(prefs: OnboardingPrefs) {
+  const user = me();
+  const p = getDb().profiles.find((x) => x.userId === user.id);
+  assert(p, 'not_found', 'Profile not found');
+  p.onboarding = cleanPrefs(prefs);
+  commit();
+}
+
 export function signUp(input: {
   email: string;
   password: string;
@@ -107,6 +145,8 @@ export function signUp(input: {
   language?: 'en' | 'es' | 'fr' | 'de' | 'nl';
   /** Home address (prefilled from the device location, checked by the person). */
   address?: { line1: string; city: string; postcode: string; country: string };
+  /** Answers from onboarding before sign-up (kept to personalise the app). */
+  onboarding?: OnboardingPrefs;
 }) {
   const db = getDb();
   const email = input.email.trim().toLowerCase();
@@ -131,6 +171,10 @@ export function signUp(input: {
   const reg = region(input.country ?? getGuestCountry() ?? DEFAULT_REGION);
   db.profiles.push({ ...defaultProfile(user.id, username, input.displayName.trim()), accountType: input.accountType ?? 'individual', country: reg.code, currency: reg.currency, city: reg.city.name, language: input.language ?? 'en' });
   ensureAccount(user.id);
+  if (input.onboarding) {
+    const p = db.profiles.find((x) => x.userId === user.id);
+    if (p) p.onboarding = cleanPrefs(input.onboarding);
+  }
   const a = input.address;
   if (a && a.line1.trim().length >= 3 && a.city.trim().length >= 2) {
     db.addresses.push({ id: uid('ad'), userId: user.id, label: 'Home', fullName: input.displayName.trim(), line1: a.line1.trim().slice(0, 120), city: a.city.trim().slice(0, 80), postcode: a.postcode.trim().slice(0, 16), country: a.country.trim() || reg.name, isDefault: true });

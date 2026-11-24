@@ -18,7 +18,8 @@ export default function SignIn() {
   const submit = (e = email, p = password) => {
     setError(null); // clear first so a repeated wrong password shakes again
     return run(() => session.signIn(e, p), {
-      onDone: () => router.replace('/'),
+      // The auth gate takes you back to where you were (or Home) once signed in.
+      onDone: () => {},
       onError: (err) => setTimeout(() => setError(err.message), 0),
     });
   };

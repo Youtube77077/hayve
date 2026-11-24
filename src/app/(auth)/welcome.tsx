@@ -25,7 +25,7 @@ export default function Welcome() {
           {isWide && (
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <Button title={t('Sign in')} variant="ghost" onPress={() => router.push('/sign-in')} />
-              <Button title={t('Create account')} variant="dark" onPress={() => router.push('/sign-up')} />
+              <Button title={t('Get started')} onPress={() => router.push('/start')} />
             </View>
           )}
         </View>
@@ -42,8 +42,8 @@ export default function Welcome() {
               {t('Shop and sell, pay friends, get a ride, order dinner, rent a car and book a stay. One login, one wallet.')}
             </T>
             <View style={{ gap: 8, marginTop: 32, flexDirection: isWide ? 'row' : 'column' }}>
-              <Button title={t('Create your account')} size="lg" full={!isWide} onPress={() => router.push('/sign-up')} />
-              <Button title={t('Sign in')} variant="outline" size="lg" full={!isWide} onPress={() => router.push('/sign-in')} />
+              <Button title={t('Get started')} size="lg" full={!isWide} onPress={() => router.push('/start')} />
+              <Button title={t('I already have an account')} variant="ghost" size="lg" full={!isWide} onPress={() => router.push('/sign-in')} />
             </View>
           </View>
           <View style={{ flex: isWide ? 1 : undefined }}>
@@ -62,7 +62,7 @@ export default function Welcome() {
           ))}
         </View>
 
-        <Pressable onPress={() => router.push('/sign-up')} accessibilityRole="button" style={({ pressed }) => ({ marginTop: 32, borderRadius: radius.lg, padding: 24, backgroundColor: color.black, flexDirection: isWide ? 'row' : 'column', gap: 16, alignItems: isWide ? 'center' : 'flex-start', opacity: pressed ? 0.92 : 1 })}>
+        <Pressable onPress={() => router.push('/start')} accessibilityRole="button" style={({ pressed }) => ({ marginTop: 32, borderRadius: radius.lg, padding: 24, backgroundColor: color.black, flexDirection: isWide ? 'row' : 'column', gap: 16, alignItems: isWide ? 'center' : 'flex-start', opacity: pressed ? 0.92 : 1 })}>
           <View style={{ flex: 1, gap: 4 }}>
             <T variant="title3" color={color.white}>Hayve for Business</T>
             <T color={color.grey200}>Open a verified Hayve Store, drive, deliver, host or accept Hayve Pay.</T>
@@ -91,7 +91,7 @@ function ProductCard({ product }: { product: (typeof PRODUCTS)[number] }) {
   const s = service(product);
   const [hovered, setHovered] = useState(false);
   return (
-    <Pressable onPress={() => router.push('/sign-up')} onHoverIn={() => setHovered(true)} onHoverOut={() => setHovered(false)} accessibilityRole="button" accessibilityLabel={s.name} style={{ borderWidth: 1, borderColor: hovered ? color.black : color.line, borderRadius: radius.lg, padding: 20, gap: 16, minHeight: 128, justifyContent: 'space-between' }}>
+    <Pressable onPress={() => router.push('/start')} onHoverIn={() => setHovered(true)} onHoverOut={() => setHovered(false)} accessibilityRole="button" accessibilityLabel={s.name} style={{ borderWidth: 1, borderColor: hovered ? color.black : color.line, borderRadius: radius.lg, padding: 20, gap: 16, minHeight: 128, justifyContent: 'space-between' }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6 }}>
           <ProductWordmark product={product as never} hovered={hovered} size={20} />

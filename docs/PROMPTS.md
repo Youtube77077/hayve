@@ -89,5 +89,5 @@ All tests, lint and build; click through every main flow as user and each partne
 | Prompt | Status |
 |---|---|
 | 0 Audit | Done: docs/HAYVE_AUDIT.md |
-| 16 A Onboarding | In progress |
+| 16 A Onboarding | Done: `src/app/start.tsx`, `src/features/onboarding/` (no sign-up wall, personalised first screen). Apple/Google/phone sign-up need the real auth server |
 | 1, 2, 3–14, 16 B–I, 15 | Not started (see the audit's fix list) |

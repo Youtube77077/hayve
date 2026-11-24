@@ -9,6 +9,7 @@ import { addDays, Button, Chip, color, EmptyState, Grid, HScroll, Input, prettyD
 import { PropertyCard } from '../../features/cards';
 import { StatusPill, TabHeader } from '../../features/common';
 import { useLive } from '../../lib/hooks';
+import { usePersonalisation } from '../../features/onboarding/store';
 
 export default function Stay() {
   const params = useLocalSearchParams<{ destination?: string }>();
@@ -16,7 +17,9 @@ export default function Stay() {
   const [destination, setDestination] = useState(params.destination ?? '');
   const [checkIn, setCheckIn] = useState<string | null>(addDays(todayISO(), 14));
   const [checkOut, setCheckOut] = useState<string | null>(addDays(todayISO(), 17));
-  const [guests, setGuests] = useState(2);
+  // Onboarding: "Who's usually coming along?" sets the starting number of guests.
+  const prefs = usePersonalisation();
+  const [guests, setGuests] = useState(prefs.travellers ?? 2);
   const [type, setType] = useState<PropertyType | 'all'>('all');
   const [amenities, setAmenities] = useState<string[]>([]);
   const [maxPrice, setMaxPrice] = useState<number | undefined>();

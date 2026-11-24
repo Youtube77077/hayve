@@ -6,7 +6,7 @@ import {
   PlusJakartaSans_800ExtraBold,
   useFonts,
 } from '@expo-google-fonts/plus-jakarta-sans';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
@@ -18,25 +18,35 @@ import { color, Loading, ToastProvider } from '../design';
 import { hydrateCart } from '../lib/cart';
 import { useSessionId } from '../lib/hooks';
 import { detectCountryAndRates } from '../lib/geo';
-import { takeReturnTo } from '../lib/returnTo';
+import { setReturnTo, takeReturnTo } from '../lib/returnTo';
+import { loadOnboarding, useOnboarding } from '../features/onboarding/store';
+import { guestCanOpen, PUBLIC_ROOTS } from '../features/onboarding/access';
 import { deviceStorage } from '../lib/storage';
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
-/** Routes anyone can open without an account (public web pages and shared links). */
-const PUBLIC_ROOTS = new Set(['(auth)', 'u', 'product', 'paylink', 'track', 'privacy', 'claim', 'r']);
-
 function AuthGate() {
   const sessionId = useSessionId();
-  const segments = useSegments();
+  const segments = useSegments() as string[];
+  const pathname = usePathname();
   const router = useRouter();
-  const root = segments[0] as string | undefined;
+  const { done } = useOnboarding();
+  const root = segments[0];
 
   useEffect(() => {
     const isPublic = root ? PUBLIC_ROOTS.has(root) : false;
-    if (!sessionId && !isPublic) router.replace('/welcome');
-    else if (sessionId && root === '(auth)') router.replace((takeReturnTo() ?? '/') as never);
-  }, [sessionId, root, router]);
+    if (sessionId) {
+      if (root === '(auth)') router.replace((takeReturnTo() ?? '/') as never);
+      return;
+    }
+    // First open: onboarding before anything else (the website's landing page stays public).
+    if (!done && !isPublic) router.replace('/start');
+    // Afterwards: look around freely; pages that need an account ask you to save your setup.
+    else if (done && !guestCanOpen(segments, pathname)) {
+      setReturnTo(pathname);
+      router.replace('/sign-up');
+    }
+  }, [sessionId, root, pathname, done, router]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return null;
 }
@@ -53,7 +63,7 @@ export default function RootLayout() {
   const ready = dataReady && (fontsLoaded || !!fontError);
 
   useEffect(() => {
-    Promise.all([initBackend(deviceStorage).catch(() => initBackend(null)), hydrateCart()])
+    Promise.all([initBackend(deviceStorage).catch(() => initBackend(null)), hydrateCart(), loadOnboarding()])
       .finally(() => {
         setReady(true);
         // Country (IP address) and exchange rates, in the background.
@@ -81,6 +91,7 @@ export default function RootLayout() {
               >
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="(auth)" options={{ animation: 'fade' }} />
+                <Stack.Screen name="start" options={{ animation: 'fade' }} />
                 <Stack.Screen name="services" options={{ presentation: 'transparentModal', animation: 'fade' }} />
               </Stack>
               <AuthGate />

@@ -31,6 +31,17 @@ export interface User {
   suspensionReason?: string;
 }
 
+/** Answers from onboarding before sign-up, kept on the account to personalise the app. */
+export interface OnboardingPrefs {
+  goal?: 'ride' | 'food' | 'shop' | 'sell' | 'stay' | 'car' | 'money';
+  cuisines?: string[];
+  shopFor?: ProductCategory[];
+  rideType?: RideCategory;
+  travellers?: number;
+  carType?: VehicleType;
+  earn?: ('seller' | 'driver' | 'courier' | 'host' | 'car_owner')[];
+}
+
 export interface Profile {
   userId: ID;
   username: string;
@@ -54,6 +65,8 @@ export interface Profile {
   twoFactor: boolean;
   /** Identity check (needed for drivers, couriers and payouts above the provider's limits). */
   kyc?: { status: 'pending' | 'verified'; verifiedAt?: number };
+  /** What they told us in onboarding (goal, tastes, roles they'd like to earn with). */
+  onboarding?: OnboardingPrefs;
 }
 
 export interface Address {

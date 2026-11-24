@@ -9,6 +9,7 @@ import type { ProductCategory, ProductCondition } from '../../backend/types';
 import { Button, useHotkey, Chip, color, EmptyState, Grid, HScroll, IconButton, Input, parseEuro, radius, Screen, Sheet, T, useLayout } from '../../design';
 import { ProductTile, TabHeader } from '../../features/common';
 import { useLive } from '../../lib/hooks';
+import { usePersonalisation } from '../../features/onboarding/store';
 
 const SORTS: { key: ProductSort; label: string }[] = [
   { key: 'recommended', label: 'Recommended' },
@@ -21,7 +22,10 @@ const SORTS: { key: ProductSort; label: string }[] = [
 export default function Shop() {
   const params = useLocalSearchParams<{ category?: string; q?: string; sort?: string }>();
   const { isWide } = useLayout();
-  const [category, setCategory] = useState<ProductCategory | 'all'>((params.category as ProductCategory) ?? 'all');
+  // Onboarding: "What do you like to shop for?" opens Shop on "Picked for you".
+  const prefs = usePersonalisation();
+  const forYou = prefs.shopFor ?? [];
+  const [category, setCategory] = useState<ProductCategory | 'all' | 'for_you'>((params.category as ProductCategory) ?? (forYou.length > 1 ? 'for_you' : 'all'));
   const [q, setQ] = useState(params.q ?? '');
   const inputRef = useRef<TextInput>(null);
   useHotkey('/', () => inputRef.current?.focus());
@@ -39,7 +43,10 @@ export default function Shop() {
 
   const minCents = parseEuro(min) ?? undefined;
   const maxCents = parseEuro(max) ?? undefined;
-  const products = useLive(() => shop.listProducts({ q, category, sort, minCents, maxCents, condition: conditions }), [q, category, sort, minCents, maxCents, conditions.join()]).data ?? [];
+  const products = useLive(() => {
+    const rows = shop.listProducts({ q, category: category === 'for_you' ? undefined : category, sort, minCents, maxCents, condition: conditions });
+    return category === 'for_you' ? rows.filter((p) => forYou.includes(p.category)) : rows;
+  }, [q, category, sort, minCents, maxCents, conditions.join(), forYou.join()]).data ?? [];
   const activeFilters = (minCents ? 1 : 0) + (maxCents ? 1 : 0) + conditions.length + (sort !== 'recommended' ? 1 : 0);
 
   return (
@@ -70,6 +77,7 @@ export default function Shop() {
         </Pressable>
       </View>
       <HScroll style={{ marginTop: 14 }} gap={8}>
+        {forYou.length > 1 && <Chip label="Picked for you" icon="sparkles-outline" selected={category === 'for_you'} onPress={() => setCategory('for_you')} />}
         <Chip label="All" selected={category === 'all'} onPress={() => setCategory('all')} />
         {(Object.keys(shop.CATEGORY_LABEL) as ProductCategory[]).map((c) => (
           <Chip key={c} label={shop.CATEGORY_LABEL[c]} selected={category === c} onPress={() => setCategory(c)} />

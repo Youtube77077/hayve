@@ -10,6 +10,7 @@ import { HayveMap, type LngLat, type MapMarker } from '../../features/map';
 import { money } from '../../lib/format';
 import { nearby, useMyArea } from '../../features/location';
 import { useLive } from '../../lib/hooks';
+import { usePersonalisation } from '../../features/onboarding/store';
 
 type Sort = 'recommended' | 'price_asc' | 'price_desc' | 'rating';
 type Panel = null | 'dates' | 'location' | 'type' | 'price' | 'seats' | 'transmission' | 'sort';
@@ -26,7 +27,9 @@ const SORTS: { k: Sort; label: string }[] = [
 export default function Drive() {
   const { isWide, isDesktop } = useLayout();
   const [location, setLocation] = useState('');
-  const [type, setType] = useState<VehicleType | 'all'>('all');
+  // Onboarding: "What kind of car do you need?" opens Drive on that type.
+  const prefs = usePersonalisation();
+  const [type, setType] = useState<VehicleType | 'all'>(prefs.carType ?? 'all');
   const [start, setStart] = useState<string | null>(addDays(todayISO(), 1));
   const [end, setEnd] = useState<string | null>(addDays(todayISO(), 4));
   const [sort, setSort] = useState<Sort>('recommended');

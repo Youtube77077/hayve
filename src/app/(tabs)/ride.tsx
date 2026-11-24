@@ -13,6 +13,7 @@ import { nearestEta, useNearbyCars, useUserLocation } from '../../features/ride/
 import { money, time } from '../../lib/format';
 import { NONE, useAction, useLive } from '../../lib/hooks';
 import { useT } from '../../lib/i18n';
+import { usePersonalisation } from '../../features/onboarding/store';
 
 const CAR_ICON: Record<RideCategory, IconName> = { go: 'taxi-outline', green: 'leaf-outline', priority: 'flash-outline', comfort: 'car-sport-outline', xl: 'bus-outline' };
 /** Simulated dispatch timings (ms) per status. */
@@ -47,7 +48,9 @@ export default function Ride() {
   const [dropoff, setDropoff] = useState<PlaceResult | null>(null);
   const [route, setRoute] = useState<RouteResult | null>(null);
   const [search, setSearch] = useState<null | 'pickup' | 'dropoff'>(null);
-  const [category, setCategory] = useState<RideCategory>('go');
+  // Onboarding: "What matters most when you ride?" pre-selects the ride type.
+  const prefs = usePersonalisation();
+  const [category, setCategory] = useState<RideCategory>(prefs.rideType ?? 'go');
   const [method, setMethod] = useState<PayMethod>('wallet');
   const [payOpen, setPayOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);

@@ -9,6 +9,7 @@ import { TabHeader } from '../../features/common';
 import { BasketBar } from '../../features/bites';
 import { money, currencySymbol } from '../../lib/format';
 import { useLive } from '../../lib/hooks';
+import { usePersonalisation } from '../../features/onboarding/store';
 
 const CUISINE_ICON: Record<string, IconName> = {
   Pizza: 'pizza-outline',
@@ -63,6 +64,9 @@ export default function Bites() {
   const list = useLive(() => bites.listRestaurants({ q, tag: tag ?? undefined, sort, groceries: mode === 'groceries' }), [q, tag, sort, mode]).data ?? [];
   const featured = useLive(() => bites.listRestaurants({ openOnly: true }).filter((r) => r.promo)).data ?? [];
   const area = useLive(() => bites.coverage()).data;
+  // Onboarding: "What are you in the mood for?" puts those restaurants first.
+  const cuisines = usePersonalisation().cuisines ?? [];
+  const forYou = useLive(() => (cuisines.length ? bites.listRestaurants({ openOnly: true }).filter((r) => r.tags.some((t) => cuisines.includes(t))) : []), [cuisines.join()]).data ?? [];
 
   return (
     <Screen header={<TabHeader service="bites" subtitle={area ? `Deliver to ${area.address ?? area.city}` : undefined} />}>
@@ -94,6 +98,16 @@ export default function Bites() {
             </Pressable>
           ))}
         </HScroll>
+      )}
+
+      {mode === 'food' && !q && !tag && forYou.length > 0 && (
+        <Section title="Picked for you" subtitle={cuisines.slice(0, 3).join(', ')}>
+          <HScroll>
+            {forYou.map((r) => (
+              <RestaurantCard key={r.id} r={r} wide />
+            ))}
+          </HScroll>
+        </Section>
       )}
 
       {mode === 'food' && !q && !tag && featured.length > 0 && (

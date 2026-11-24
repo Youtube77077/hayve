@@ -71,7 +71,7 @@ Every service runs on the simulated backend and demo data. Nothing moves real mo
 5. Payments: licensed partner (e-money/payment institution) must hold funds; ledger mirrors it (Prompt 3, `docs/PAYMENTS.md`).
 
 **P1: core experience**
-1. Onboarding before sign-up, Duolingo-style, with a personalised first Home (Prompt 16 A). ← doing next
+1. ~~Onboarding before sign-up, Duolingo-style, with a personalised first Home (Prompt 16 A).~~ Done 24 Nov.
 2. Three balances (Available / Pending / Reserved) with release dates (Prompt 3).
 3. Hayve Protection: one dispute system and the automatic refund rules (Prompt 4).
 4. Maps: provider abstraction, map-matching, smooth driver, deviation + re-route, route caching (Prompt 1).

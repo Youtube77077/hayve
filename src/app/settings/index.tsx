@@ -7,6 +7,7 @@ import { Button, color, Group, Header, Input, ListRow, Notice, Screen, Section, 
 import { useAction, useLive } from '../../lib/hooks';
 import { CountrySelect } from '../../features/payments';
 import { LANGUAGES, useT } from '../../lib/i18n';
+import { resetOnboarding } from '../../features/onboarding/store';
 
 const NOTIF: { kind: NotificationKind; label: string }[] = [
   { kind: 'order', label: 'Orders & purchases' },
@@ -66,6 +67,7 @@ export default function Settings() {
             <Section title="Privacy" style={{ marginTop: 8 }}>
               <Group>
                 <SwitchRow icon="globe-outline" title="Public profile" subtitle="Others can see your listings, reviews and bio" value={p.isPublic} onChange={(v) => run(() => social.updateProfile({ isPublic: v }))} />
+                <ListRow icon="sparkles-outline" title="Personalise Hayve again" subtitle="Answer the first questions again to change what you see first" onPress={() => { resetOnboarding(); router.push('/start'); }} />
                 <ListRow icon="gift-outline" title="Wishlist privacy" subtitle="Who can see your wishlist" value={p.wishlistVisibility === 'public' ? 'Public' : p.wishlistVisibility === 'link' ? 'Anyone with the link' : 'Private'} onPress={() => router.push('/wishlist')} />
               </Group>
               <T variant="footnote" color={color.textTertiary} style={{ marginTop: 8 }}>
