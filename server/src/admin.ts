@@ -6,6 +6,7 @@ import { bad, forbidden, notFound } from './errors.js';
 import { validateTiers } from './fees.js';
 import { anonymiseUser } from './me.js';
 import type { Storage } from './storage.js';
+import { fetchPublicPage } from './pagefetch.js';
 
 /**
  * Admin API. Every request must come from an admin with a verified email and an aal2
@@ -26,6 +27,19 @@ async function audit(tx: Tx, adminId: string, action: string, targetKind: string
 }
 
 export function adminRoutes(app: FastifyInstance, db: Db, storage: Storage | null) {
+  // Admin import (demos): reads a public page so the app can turn its preview data into a listing.
+  app.get('/admin/import/fetch', async (req, reply) => {
+    const adminId = await requireAdmin(db, req);
+    const { url } = z.object({ url: z.string().url().max(2000) }).parse(req.query);
+    try {
+      const html = await fetchPublicPage(url);
+      await asSystem(db, (tx) => audit(tx, adminId, 'import.fetch', 'url', url.slice(0, 200)));
+      return reply.type('text/html; charset=utf-8').send(html);
+    } catch (e) {
+      throw bad((e as Error).message);
+    }
+  });
+
   app.get('/admin/overview', async (req) => {
     await requireAdmin(db, req);
     const q = (sql: string) => db.query(sql).then((r) => Number(r.rows[0]?.n ?? 0)).catch(() => 0);

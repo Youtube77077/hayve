@@ -9,6 +9,7 @@ export * as bookings from './bookings';
 export * as business from './business';
 export * as ride from './ride';
 export * as holidays from './holidays';
+export * as importer from './importer';
 export * as send from './send';
 export * as session from './session';
 export * as shop from './shop';

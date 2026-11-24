@@ -8,11 +8,13 @@ import { Avatar, Badge, Button, Card, Chip, color, EmptyState, Group, Header, HS
 import { StatusPill } from '../../features/common';
 import { ago, money, shortDate } from '../../lib/format';
 import { useAction, useLive } from '../../lib/hooks';
+import { ImportPanel } from '../../features/admin/ImportPanel';
 
-type Tab = 'overview' | 'revenue' | 'verifications' | 'users' | 'reports' | 'content' | 'settings' | 'audit';
+type Tab = 'overview' | 'revenue' | 'import' | 'verifications' | 'users' | 'reports' | 'content' | 'settings' | 'audit';
 const TABS: [Tab, string][] = [
   ['overview', 'Overview'],
   ['revenue', 'Revenue & pricing'],
+  ['import', 'Import listings'],
   ['verifications', 'Verifications'],
   ['users', 'Users'],
   ['reports', 'Reports'],
@@ -64,6 +66,7 @@ function Panel() {
       <View style={{ marginTop: 20 }}>
         {tab === 'overview' && <Overview />}
         {tab === 'revenue' && <RevenuePanel />}
+        {tab === 'import' && <ImportPanel />}
         {tab === 'verifications' && <Verifications />}
         {tab === 'users' && <Users />}
         {tab === 'reports' && <Reports />}

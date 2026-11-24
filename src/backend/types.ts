@@ -114,6 +114,8 @@ export interface Product {
   status: 'active' | 'sold_out' | 'removed';
   location: string;
   createdAt: number;
+  /** Added by the admin import (demo): where it came from. */
+  imported?: { url: string; site: string; at: number };
 }
 
 export interface Favourite {
@@ -424,6 +426,8 @@ export interface Restaurant {
   isGrocery: boolean;
   promo?: string;
   createdAt: number;
+  /** Added by the admin import (demo): where it came from. */
+  imported?: { url: string; site: string; at: number };
 }
 
 export interface MenuOption {
@@ -507,6 +511,8 @@ export interface RentalVehicle {
   rating: number;
   trips: number;
   createdAt: number;
+  /** Added by the admin import (demo): where it came from. */
+  imported?: { url: string; site: string; at: number };
 }
 
 export type BookingStatus = 'requested' | 'confirmed' | 'declined' | 'active' | 'completed' | 'cancelled';
@@ -553,6 +559,8 @@ export interface Property {
   listed: boolean;
   blockedDates: ISODate[];
   createdAt: number;
+  /** Added by the admin import (demo): where it came from. */
+  imported?: { url: string; site: string; at: number };
 }
 
 export type HolidayBoard = 'all_inclusive' | 'half_board' | 'breakfast';
@@ -583,6 +591,8 @@ export interface HolidayPackage {
   reviewCount: number;
   tags: string[];
   createdAt: number;
+  /** Added by the admin import (demo): where it came from. */
+  imported?: { url: string; site: string; at: number };
 }
 
 export interface HolidayBooking {

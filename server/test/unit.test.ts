@@ -77,3 +77,11 @@ describe('security', () => {
     expect(verifyTotp(s, 'abc')).toBe(false);
   });
 });
+
+import { isPublicAddress } from '../src/pagefetch';
+describe('admin import page fetch', () => {
+  it('only reads public internet addresses', () => {
+    for (const ip of ['127.0.0.1', '10.1.2.3', '192.168.0.10', '172.20.0.1', '169.254.169.254', '100.64.0.1', '0.0.0.0', '::1', 'fd00::1', 'fe80::1', '::ffff:127.0.0.1', 'not-an-ip']) expect(isPublicAddress(ip)).toBe(false);
+    for (const ip of ['93.184.216.34', '8.8.8.8', '2606:4700::6810:84e5']) expect(isPublicAddress(ip)).toBe(true);
+  });
+});
