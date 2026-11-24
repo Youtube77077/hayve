@@ -2,7 +2,7 @@ import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Linking, Platform, View } from 'react-native';
-import { ride, social } from '../../backend/api';
+import { business, ride, social } from '../../backend/api';
 import type { RideCategory } from '../../backend/types';
 import { Appear, Avatar, Button, Card, color, Group, Header, Input, KeyValue, ListRow, ProgressBar, Screen, Section, Select, SwitchRow, T, useLayout, useToast } from '../../design';
 import { RouteMap } from '../../features/map';
@@ -19,6 +19,16 @@ export default function DriverDashboard() {
   );
 }
 
+function IdCheckFirst({ role }: { role: 'driver' | 'courier' }) {
+  return (
+    <Card style={{ gap: 10, marginTop: 8 }}>
+      <T variant="title3">Check your ID in 1 minute</T>
+      <T color={color.textSecondary}>{role === 'driver' ? 'Your driving licence, your ID and a quick face check.' : 'Your ID and a quick face check.'} Then add your {role === 'driver' ? 'car' : 'vehicle'}.</T>
+      <Button title="Check my ID" size="lg" full onPress={() => router.push(`/verify?role=${role}`)} />
+    </Card>
+  );
+}
+
 function RegisterDriver() {
   const [make, setMake] = useState('');
   const [model, setModel] = useState('');
@@ -27,6 +37,8 @@ function RegisterDriver() {
   const [license, setLicense] = useState('');
   const [category, setCategory] = useState<RideCategory>('go');
   const { run, busy } = useAction();
+  const kyc = useLive(() => business.identityStatus()).data;
+  if (kyc?.status !== 'verified') return <IdCheckFirst role="driver" />;
   return (
     <View style={{ gap: 14, marginTop: 8 }}>
       <T variant="title2">Drive with Hayve Ride</T>
@@ -41,7 +53,7 @@ function RegisterDriver() {
       </View>
       <Input label="Driving licence number" value={license} onChangeText={setLicense} />
       <Select label="Service level" value={category} onChange={setCategory} options={ride.RIDE_CATEGORIES.map((c) => ({ key: c.id, label: c.label, sub: c.blurb }))} />
-      <SimNote text="Background checks, licence verification and insurance are simulated in this build." />
+      <SimNote text="ID and licence checked (demo). Background checks and insurance are simulated in this build." />
       <Button title="Register as a driver" size="lg" full loading={busy} onPress={() => run(() => ride.registerDriver({ make, model, color: colour, plate, licenseNumber: license, category }), { success: "You're registered. Go online to get trips." })} />
     </View>
   );

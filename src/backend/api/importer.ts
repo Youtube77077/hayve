@@ -1,7 +1,6 @@
 import { ensureAccount } from '../ledger';
 import { convert, type CurrencyCode, REGIONS } from '../regions';
-import { simHash } from '../store';
-import { commit, getDb, now, uid } from '../store';
+import { commit, getDb, now, simHash, uid } from '../store';
 import type { HolidayBoard, ID, MenuItem, ProductCategory, PropertyType, VehicleType } from '../types';
 import { defaultProfile } from '../seed';
 import { requireAdmin } from './session';

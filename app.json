@@ -50,13 +50,20 @@
         "expo-image-picker",
         {
           "photosPermission": "Hayve uses your photo library so you can add photos to listings and your profile.",
-          "cameraPermission": "Hayve uses the camera so you can photograph items you want to sell."
+          "cameraPermission": "Hayve uses the camera to photograph items you sell and your ID when you sign up to drive or deliver."
         }
       ],
       [
         "expo-location",
         {
           "locationWhenInUsePermission": "Hayve uses your location to set your pickup point and show nearby rides, restaurants and cars."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Hayve uses the camera for a quick face check when you sign up to drive or deliver.",
+          "recordAudioAndroid": false
         }
       ],
       "@rnmapbox/maps"

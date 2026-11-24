@@ -103,3 +103,19 @@ describe('admin import into the app', () => {
     expect(getDb().menuItems.some((m) => m.restaurantId === rest.id)).toBe(false);
   });
 });
+
+describe('driver and courier ID check (demo)', () => {
+  it('needs a licence (drivers), an ID and three face photos before you can register', () => {
+    api.session.signIn('noor@hayve.app', 'hayve123');
+    expect(() => api.ride.registerDriver({ make: 'Toyota', model: 'Prius', color: 'White', plate: 'AB-123-C', licenseNumber: 'L1234567', category: 'go' })).toThrow(/Check your ID/);
+    expect(() => api.business.verifyIdentity({ role: 'driver', idPhoto: 'file://id.jpg', faces: ['a', 'b', 'c'] })).toThrow(/driving licence/);
+    expect(() => api.business.verifyIdentity({ role: 'courier', idPhoto: 'file://id.jpg', faces: ['a', 'b'] })).toThrow(/face check/);
+    const kyc = api.business.verifyIdentity({ role: 'driver', licencePhoto: 'file://l.jpg', idPhoto: 'file://id.jpg', faces: ['f', 'l', 'r'], profilePhoto: 'file://f.jpg' });
+    expect(kyc.status).toBe('verified');
+    expect(api.social.myProfile().profile.avatar).toBe('file://f.jpg');
+    api.ride.registerDriver({ make: 'Toyota', model: 'Prius', color: 'White', plate: 'AB-123-C', licenseNumber: 'L1234567', category: 'go' });
+    expect(api.business.myRoles()).toContain('driver');
+    api.send.registerCourier('e-bike');
+    expect(api.business.myRoles()).toContain('courier');
+  });
+});

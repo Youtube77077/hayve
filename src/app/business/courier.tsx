@@ -1,12 +1,23 @@
 import { useState } from 'react';
 import { View } from 'react-native';
-import { bites, send } from '../../backend/api';
+import { bites, business, send } from '../../backend/api';
+import { router } from 'expo-router';
 import type { CourierProfile } from '../../backend/types';
 import { Button, Card, color, Group, Header, ListRow, Screen, Section, Segmented, Select, SwitchRow, T, useLayout } from '../../design';
 import { Empty, EarningsCard, MetricRow, RoleGate } from '../../features/business';
 import { SimNote, StatusPill } from '../../features/common';
 import { money, shortDate } from '../../lib/format';
 import { useAction, useLive } from '../../lib/hooks';
+
+function IdCheckFirst({ role }: { role: 'driver' | 'courier' }) {
+  return (
+    <Card style={{ gap: 10, marginTop: 8 }}>
+      <T variant="title3">Check your ID in 1 minute</T>
+      <T color={color.textSecondary}>{role === 'driver' ? 'Your driving licence, your ID and a quick face check.' : 'Your ID and a quick face check.'} Then add your {role === 'driver' ? 'car' : 'vehicle'}.</T>
+      <Button title="Check my ID" size="lg" full onPress={() => router.push(`/verify?role=${role}`)} />
+    </Card>
+  );
+}
 
 export default function CourierDashboard() {
   return (
@@ -19,6 +30,8 @@ export default function CourierDashboard() {
 function RegisterCourier() {
   const [vehicle, setVehicle] = useState<CourierProfile['vehicle']>('e-bike');
   const { run, busy } = useAction();
+  const kyc = useLive(() => business.identityStatus()).data;
+  if (kyc?.status !== 'verified') return <IdCheckFirst role="courier" />;
   return (
     <View style={{ gap: 14, marginTop: 8 }}>
       <T variant="title2">Deliver with Hayve</T>
@@ -35,7 +48,7 @@ function RegisterCourier() {
           { key: 'van', label: 'Van (XL parcels)' },
         ]}
       />
-      <SimNote text="Identity checks and insurance are simulated in this build." />
+      <SimNote text="ID checked (demo). Insurance is simulated in this build." />
       <Button title="Register as a courier" size="lg" full loading={busy} onPress={() => run(() => send.registerCourier(vehicle), { success: "You're registered. Go online to get jobs." })} />
     </View>
   );

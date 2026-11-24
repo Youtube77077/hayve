@@ -70,7 +70,7 @@ export interface Profile {
   notificationPrefs: Record<NotificationKind, boolean>;
   twoFactor: boolean;
   /** Identity check (needed for drivers, couriers and payouts above the provider's limits). */
-  kyc?: { status: 'pending' | 'verified'; verifiedAt?: number };
+  kyc?: { status: 'pending' | 'verified'; verifiedAt?: number; demo?: boolean; checks?: { licence: boolean; id: boolean; faces: number } };
   /** What they told us in onboarding (goal, tastes, roles they'd like to earn with). */
   onboarding?: OnboardingPrefs;
 }

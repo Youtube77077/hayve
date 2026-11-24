@@ -190,6 +190,8 @@ export function simulateDeliveryStep(id: ID) {
 export function registerCourier(vehicle: CourierProfile['vehicle']) {
   const user = me();
   const db = getDb();
+  const kyc = db.profiles.find((x) => x.userId === user.id)?.kyc;
+  assert(kyc?.status === 'verified', 'invalid', 'Check your ID first. It takes about a minute.');
   if (!db.couriers.some((c) => c.userId === user.id)) db.couriers.push({ userId: user.id, vehicle, online: false, rating: 5, jobs: 0 });
   if (!user.roles.includes('courier')) user.roles.push('courier');
   commit();

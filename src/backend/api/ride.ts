@@ -440,6 +440,8 @@ function chargeExtra(r: Ride, label: string, cents: number) {
 export function registerDriver(input: { make: string; model: string; color: string; plate: string; licenseNumber: string; category: RideCategory }) {
   const user = me();
   const db = getDb();
+  const kyc = db.profiles.find((x) => x.userId === user.id)?.kyc;
+  assert(kyc?.status === 'verified', 'invalid', 'Check your ID first. It takes about a minute.');
   assert(input.make.trim() && input.model.trim() && input.color.trim(), 'invalid', 'Enter your vehicle details');
   assert(/^[A-Z0-9-]{4,10}$/i.test(input.plate.trim()), 'invalid', 'Enter a valid number plate');
   assert(input.licenseNumber.trim().length >= 5, 'invalid', 'Enter your driving licence number');

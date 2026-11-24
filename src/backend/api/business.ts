@@ -253,3 +253,29 @@ export function refundMerchantPayment(txId: ID) {
   if (payer) notify(payer, 'refund', 'Refund received', `${displayName(user.id)} refunded ${fmtMoney(tx.amountCents)}.`, `/pay/tx/${tx.id}`);
   commit();
 }
+
+/**
+ * Identity check for drivers and couriers: driving licence (drivers), ID document and a live face
+ * check (straight, left, right). In this demo build the checks pass automatically; a real build
+ * sends the photos to an identity provider and waits for its answer.
+ */
+export function verifyIdentity(input: { role: 'driver' | 'courier'; licencePhoto?: string; idPhoto: string; faces: string[]; profilePhoto?: string }) {
+  const user = me();
+  const db = getDb();
+  const p = find(db.profiles, (x) => x.userId === user.id, 'Profile');
+  if (input.role === 'driver') assert(!!input.licencePhoto, 'invalid', 'Add a photo of your driving licence');
+  assert(!!input.idPhoto, 'invalid', 'Add a photo of your ID');
+  assert(input.faces.length >= 3 && input.faces.every(Boolean), 'invalid', 'Finish the face check: look straight, then left, then right');
+  p.kyc = { status: 'verified', verifiedAt: now(), demo: true, checks: { licence: !!input.licencePhoto, id: true, faces: input.faces.length } };
+  if (input.profilePhoto) {
+    p.avatar = input.profilePhoto;
+    p.avatarThumb = input.profilePhoto;
+  }
+  commit();
+  return p.kyc;
+}
+
+export function identityStatus() {
+  const user = me();
+  return getDb().profiles.find((x) => x.userId === user.id)?.kyc ?? null;
+}
