@@ -89,7 +89,7 @@ export default function ProductScreen() {
       <View style={{ flexDirection: 'row', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
         {p.isMine ? (
           <>
-            <Button title="Edit listing" icon="create-outline" size="lg" full onPress={() => router.push(`/sell?id=${p.id}`)} />
+            <Button title="Edit listing" icon="create-outline" size="lg" full style={{ width: "100%" }} onPress={() => router.push(`/sell?id=${p.id}`)} />
           </>
         ) : (
           <>
