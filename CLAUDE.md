@@ -24,3 +24,15 @@
 - 1,000-person simulation (real backend, synthetic people): `npx vitest run --config sim/vitest.config.ts && node sim/report.mjs <outDir>` → HTML report + people.json. The sim adds its own example catalogue (`sim/catalog.ts`), never the app's seed. Re-run after big flow changes; it must report 0 crashes and a balanced ledger. Price analysis: `node sim/pricing-report.mjs <outDir>` (uses sim/out/pricing.json; the sim freezes the clock per step and models rush hours/events).
 - Price records (`recordPrice`) must equal what the customer paid: add non-engine parts (delivery, cleaning, taxes, insurance) with `withExtras()` in `api/revenue.ts`; pass-through money is never Hayve revenue.
 - Bites only lists/accepts restaurants in the customer's city (`bites.coverage()`, `metro()`); new restaurants need a `city`.
+
+## Shared rules for all Hayve work (from the owner's prompt pack, docs/PROMPTS.md)
+- Hayve is one app, one account, one balance: Pay, Shop, Rides, Eats, Stays, Rentals, plus partner apps (sellers, drivers, couriers, restaurants, hosts, rental owners).
+- White interface, indigo accent, black text and black line icons. No coloured or tinted service tiles. Calm, lots of whitespace.
+- Buyers see fees only as a "Fees" amount, never a percentage. Money back is real balance money, never "cashback".
+- Before changing anything: read the code, then list what exists, what's broken and what you'll change. Refactor step by step; don't rewrite working features; keep the app running.
+- Every new feature: loading, empty and error (with retry) states; mobile first. Keys only in .env (placeholder in .env.example).
+- Tests for logic (money, statuses, timers, route maths). Run tests and the build before saying done. End with: files changed, how to test by hand, what's unfinished.
+- Screens: one obvious primary action; primary button full width, bottom third, indigo, the only indigo element; advanced options hidden until needed; never two equal buttons side by side; delete/cancel smaller and away from the primary.
+- Every tap responds instantly (pressed state, "Processing payment…"); skeletons instead of blank screens; confirm success; errors say how to fix the problem.
+- Onboarding comes before sign-up (Duolingo style, `src/features/onboarding`); never pre-check marketing opt-ins or paid add-ons.
+- Audit and prioritised fix list: docs/HAYVE_AUDIT.md.
