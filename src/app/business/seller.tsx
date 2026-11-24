@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { business, shop } from '../../backend/api';
-import { Button, Card, color, Grid, Header, Photo, radius, Screen, Section, Segmented, T, useLayout } from '../../design';
+import { Button, Card, color, Grid, Header, Icon, Photo, radius, Screen, Section, Segmented, T, useLayout } from '../../design';
 import { Empty, EarningsCard, MetricRow, RoleGate } from '../../features/business';
 import { StatusPill } from '../../features/common';
 import { money, shortDate } from '../../lib/format';
@@ -86,18 +86,29 @@ function Dashboard() {
           ) : (
             <Grid min={isWide ? 260 : 300} gap={10}>
               {listings.map((l) => (
-                <Pressable key={l.id} onPress={() => router.push(`/product/${l.id}`)} style={{ flexDirection: 'row', gap: 12, alignItems: 'center', padding: 10, borderRadius: radius.lg, backgroundColor: color.surface, borderWidth: 1, borderColor: color.line }}>
-                  <Photo uri={l.image} style={{ width: 60, height: 72 }} rounded={radius.sm} />
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <T variant="headline" numberOfLines={1}>
+                <Pressable key={l.id} onPress={() => router.push(`/product/${l.id}`)} accessibilityRole="button" accessibilityLabel={l.title} style={({ pressed }) => ({ flexDirection: 'row', gap: 12, alignItems: 'center', padding: 12, borderRadius: radius.lg, backgroundColor: pressed ? color.grey100 : color.surface, borderWidth: 1, borderColor: color.line })}>
+                  <Photo uri={l.image} style={{ width: 64, height: 64 }} rounded={radius.md} />
+                  <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+                    <T variant="headline" numberOfLines={2}>
                       {l.title}
                     </T>
-                    <T variant="footnote" color={color.textSecondary}>
-                      {money(l.priceCents)} · {l.quantity} in stock · ♥ {l.favouriteCount}
+                    <T variant="subhead" weight="700">
+                      {money(l.priceCents)}
                     </T>
-                    <StatusPill status={l.available ? 'active' : 'sold'} />
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                      <StatusPill status={l.available ? 'active' : 'sold'} />
+                      <T variant="footnote" color={color.textSecondary}>
+                        {l.quantity} in stock
+                      </T>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                        <Icon name="heart-outline" size={13} color={color.textSecondary} />
+                        <T variant="footnote" color={color.textSecondary}>
+                          {l.favouriteCount}
+                        </T>
+                      </View>
+                    </View>
                   </View>
-                  <Button title="Edit" size="sm" variant="secondary" onPress={() => router.push(`/sell?id=${l.id}`)} />
+                  <Button title="Edit" size="sm" variant="outline" onPress={() => router.push(`/sell?id=${l.id}`)} />
                 </Pressable>
               ))}
             </Grid>

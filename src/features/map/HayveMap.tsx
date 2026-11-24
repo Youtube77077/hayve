@@ -3,21 +3,24 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState }
 import { Platform, Pressable, View } from 'react-native';
 import AppleMapView, { Marker, Polyline, type Region } from 'react-native-maps';
 import { MAPBOX_STYLE_URL, MAPBOX_TOKEN, mapProvider } from './config';
-import { DEFAULT_CENTER, bounds, type LngLat } from './geo';
+import { DEFAULT_CENTER, bounds, type LngLat, safePadding, tinySpan } from './geo';
 import { CarGlyph, MarkerView, useGlide, UserDot } from './markers';
 import { PreviewMap } from './PreviewMap';
 import { ROUTE_STYLE, routeParts, useRouteReveal } from './route';
+import { useSafeMapProps } from './safe';
 import { hayveMapboxStyle, MAP_COLORS } from './style';
 import { type HayveMapHandle, type HayveMapProps, type MapCar, type MapMarker, NO_PADDING } from './types';
 
 if (MAPBOX_TOKEN) Mapbox.setAccessToken(MAPBOX_TOKEN);
 const STYLE_JSON = JSON.stringify(hayveMapboxStyle());
+const EMPTY = { type: 'FeatureCollection' as const, features: [] };
 
 /**
  * iOS/Android map. Mapbox Maps SDK when a token is configured; on iPhone/iPad without a token,
  * Apple Maps (free, no key). Android without a token uses the built-in preview.
  */
-export const HayveMap = forwardRef<HayveMapHandle, HayveMapProps>(function HayveMap(props, ref) {
+export const HayveMap = forwardRef<HayveMapHandle, HayveMapProps>(function HayveMap(raw, ref) {
+  const props = useSafeMapProps(raw);
   const provider = mapProvider(Platform.OS === 'ios' ? 'ios' : 'android');
   if (provider === 'mapbox') return <NativeMapbox ref={ref} {...props} />;
   if (provider === 'apple') return <AppleMap ref={ref} {...props} />;
@@ -29,26 +32,32 @@ export const HayveMap = forwardRef<HayveMapHandle, HayveMapProps>(function Hayve
 const NativeMapbox = forwardRef<HayveMapHandle, HayveMapProps>(function NativeMapbox({ center = DEFAULT_CENTER, zoom = 13, markers = [], cars = [], route, routeProgress = 0, fit, padding = NO_PADDING, userLocation, interactive = true, onMove, onIdle, style, accessibilityLabel }, ref) {
   const camera = useRef<Camera>(null);
   const userMoving = useRef(false);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  const pad = safePadding(padding, size.w, size.h);
   const reveal = useRouteReveal(route);
   const parts = useMemo(() => routeParts(route, reveal, routeProgress), [route, reveal, routeProgress]);
 
   const fitTo = (pts: LngLat[]) => {
     if (!pts.length) return;
-    if (pts.length === 1) return camera.current?.setCamera({ centerCoordinate: pts[0], zoomLevel: 15, animationDuration: 600 });
+    if (pts.length === 1 || tinySpan(pts)) return camera.current?.setCamera({ centerCoordinate: pts[0], zoomLevel: 15, animationDuration: 600 });
     const [sw, ne] = bounds(pts);
-    camera.current?.fitBounds(ne, sw, [padding.top + 56, padding.right + 56, padding.bottom + 56, padding.left + 56], 700);
+    // Fit inside what's left of the map above the sheet (padding never larger than the map).
+    const p = safePadding(padding, size.w, size.h, 56);
+    camera.current?.fitBounds(ne, sw, [p.top, p.right, p.bottom, p.left], 700);
   };
   useImperativeHandle(ref, () => ({ flyTo: (c, z) => camera.current?.setCamera({ centerCoordinate: c, zoomLevel: z, animationDuration: 600 }), fitTo }));
 
   const fitKey = fit ? fit.map((p) => p.join(',')).join(';') : '';
   useEffect(() => {
-    if (fit && fit.length) fitTo(fit);
-  }, [fitKey, padding.bottom, padding.left]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (fit && fit.length && size.w) fitTo(fit);
+  }, [fitKey, size.w, padding.bottom, padding.left]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const line = (coords: LngLat[]) => ({ type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: coords.length > 1 ? coords : [] } });
+  // Sources and layers stay mounted (an empty collection when there's no line): adding and removing
+  // layers while the route animates is what crashed Mapbox on iPhone.
+  const line = (coords: LngLat[]) => (coords.length > 1 ? { type: 'FeatureCollection' as const, features: [{ type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: coords } }] } : EMPTY);
 
   return (
-    <View style={[{ overflow: 'hidden', backgroundColor: MAP_COLORS.land }, style]} accessibilityLabel={accessibilityLabel ?? 'Map'}>
+    <View style={[{ overflow: 'hidden', backgroundColor: MAP_COLORS.land }, style]} accessibilityLabel={accessibilityLabel ?? 'Map'} onLayout={(e) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
       <MapView
         style={{ flex: 1 }}
         styleURL={MAPBOX_STYLE_URL || undefined}
@@ -68,18 +77,14 @@ const NativeMapbox = forwardRef<HayveMapHandle, HayveMapProps>(function NativeMa
           userMoving.current = false;
         }}
       >
-        <Camera ref={camera} defaultSettings={{ centerCoordinate: center, zoomLevel: zoom }} padding={{ paddingTop: padding.top, paddingBottom: padding.bottom, paddingLeft: padding.left, paddingRight: padding.right }} />
-        {parts.done.length > 1 && (
-          <ShapeSource id="hayve-route-done" shape={line(parts.done)}>
-            <LineLayer id="hayve-route-done-line" style={{ lineColor: ROUTE_STYLE.done, lineWidth: ROUTE_STYLE.width, lineCap: 'round', lineJoin: 'round' }} />
-          </ShapeSource>
-        )}
-        {parts.todo.length > 1 && (
-          <ShapeSource id="hayve-route" shape={line(parts.todo)}>
-            <LineLayer id="hayve-route-casing" style={{ lineColor: ROUTE_STYLE.casing, lineWidth: ROUTE_STYLE.casingWidth, lineCap: 'round', lineJoin: 'round' }} />
-            <LineLayer id="hayve-route-line" style={{ lineColor: ROUTE_STYLE.line, lineWidth: ROUTE_STYLE.width, lineCap: 'round', lineJoin: 'round' }} />
-          </ShapeSource>
-        )}
+        <Camera ref={camera} defaultSettings={{ centerCoordinate: center, zoomLevel: zoom }} padding={{ paddingTop: pad.top, paddingBottom: pad.bottom, paddingLeft: pad.left, paddingRight: pad.right }} />
+        <ShapeSource id="hayve-route-done" shape={line(parts.done)}>
+          <LineLayer id="hayve-route-done-line" style={{ lineColor: ROUTE_STYLE.done, lineWidth: ROUTE_STYLE.width, lineCap: 'round', lineJoin: 'round' }} />
+        </ShapeSource>
+        <ShapeSource id="hayve-route" shape={line(parts.todo)}>
+          <LineLayer id="hayve-route-casing" style={{ lineColor: ROUTE_STYLE.casing, lineWidth: ROUTE_STYLE.casingWidth, lineCap: 'round', lineJoin: 'round' }} />
+          <LineLayer id="hayve-route-line" style={{ lineColor: ROUTE_STYLE.line, lineWidth: ROUTE_STYLE.width, lineCap: 'round', lineJoin: 'round' }} />
+        </ShapeSource>
         {userLocation && (
           <RNMarkerView coordinate={userLocation} allowOverlap>
             <UserDot />
@@ -167,10 +172,13 @@ const AppleMap = forwardRef<HayveMapHandle, HayveMapProps>(function AppleMap({ c
   };
   const fitTo = (pts: LngLat[]) => {
     if (!pts.length) return;
-    if (pts.length === 1) return flyTo(pts[0], 15);
+    if (pts.length === 1 || tinySpan(pts)) return flyTo(pts[0], 15);
+    const { w, h } = sizeRef.current;
+    if (!w || !h) return;
     programmatic.current = true;
-    const p = padRef.current;
-    map.current?.fitToCoordinates(pts.map(ll), { edgePadding: { top: p.top + 56, right: p.right + 56, bottom: p.bottom + 56, left: p.left + 56 }, animated: true });
+    // MapKit crashes ("Invalid Region") when the padding is taller or wider than the map, which
+    // happened as soon as the ride sheet opened over a route. Keep at least 30% of the map free.
+    map.current?.fitToCoordinates(pts.map(ll), { edgePadding: safePadding(padRef.current, w, h, 56), animated: true });
   };
   useImperativeHandle(ref, () => ({ flyTo, fitTo }));
 

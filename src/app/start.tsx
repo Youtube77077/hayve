@@ -224,7 +224,7 @@ function StepBody({ step, answers }: { step: StepId; answers: OnboardingAnswers;
     case 'primary':
       return (
         <>
-          <Guide text="Which one will you do most? It gets the big button." />
+          <Guide text="Which one will you do most?" />
           <Choices options={GOALS.filter((g) => answers.interests?.includes(g.key))} isOn={(k) => answers.primary === k} onPick={(k) => setAnswers({ primary: k, goal: k })} />
         </>
       );

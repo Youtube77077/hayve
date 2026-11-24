@@ -4,10 +4,11 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState }
 import { createPortal } from 'react-dom';
 import { Pressable, View } from 'react-native';
 import { MAPBOX_STYLE_URL, MAPBOX_TOKEN, MAPTILER_KEY, mapProvider, OPENFREEMAP_STYLE } from './config';
-import { DEFAULT_CENTER, bounds, type LngLat } from './geo';
+import { DEFAULT_CENTER, bounds, type LngLat, safePadding, tinySpan } from './geo';
 import { CarGlyph, MarkerView, useGlide, UserDot } from './markers';
 import { PreviewMap } from './PreviewMap';
 import { ROUTE_STYLE, routeParts, useRouteReveal } from './route';
+import { useSafeMapProps } from './safe';
 import { hayveMapboxStyle, hayveMaplibreStyle, MAP_COLORS } from './style';
 import { type HayveMapHandle, type HayveMapProps, type MapCar, type MapMarker, NO_PADDING } from './types';
 
@@ -15,7 +16,8 @@ type GL = any;
 type GLMap = any;
 
 /** Web map: Mapbox GL JS with a token, otherwise MapLibre with real OpenStreetMap tiles (OpenFreeMap). */
-export const HayveMap = forwardRef<HayveMapHandle, HayveMapProps>(function HayveMap(props, ref) {
+export const HayveMap = forwardRef<HayveMapHandle, HayveMapProps>(function HayveMap(raw, ref) {
+  const props = useSafeMapProps(raw);
   const provider = mapProvider('web');
   if (provider !== 'mapbox' && provider !== 'maplibre') return <PreviewMap ref={ref} {...props} />;
   return <GLHayveMap ref={ref} provider={provider} {...props} />;
@@ -71,7 +73,10 @@ const GLHayveMap = forwardRef<HayveMapHandle, HayveMapProps & { provider: 'mapbo
   }, [provider]);
 
   useEffect(() => {
-    map?.setPadding(padding);
+    if (!map) return;
+    const el = map.getContainer();
+    // Leave at least 45% of the map free, or fitting a route silently does nothing.
+    map.setPadding(safePadding(padding, el.clientWidth, el.clientHeight, 0, 0.45));
   }, [map, padding.top, padding.bottom, padding.left, padding.right]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const reveal = useRouteReveal(route);
@@ -84,8 +89,14 @@ const GLHayveMap = forwardRef<HayveMapHandle, HayveMapProps & { provider: 'mapbo
 
   const fitTo = (pts: LngLat[]) => {
     if (!map || !pts.length) return;
-    if (pts.length === 1) return map.easeTo({ center: pts[0], zoom: 15, duration: 600 });
-    map.fitBounds(bounds(pts), { padding: 56, duration: 700, maxZoom: 16 });
+    if (pts.length === 1 || tinySpan(pts)) return map.easeTo({ center: pts[0], zoom: 15, duration: 600 });
+    const el = map.getContainer();
+    const room = Math.min(el.clientWidth, el.clientHeight);
+    try {
+      map.fitBounds(bounds(pts), { padding: Math.max(8, Math.min(56, room / 8)), duration: 700, maxZoom: 16 });
+    } catch {
+      map.easeTo({ center: pts[0], zoom: 14, duration: 600 });
+    }
   };
   useImperativeHandle(ref, () => ({ flyTo: (c, z) => map?.easeTo({ center: c, zoom: z ?? map.getZoom(), duration: 600 }), fitTo }));
 

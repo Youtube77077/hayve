@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useReducedMotion } from 'react-native-reanimated';
-import { type LngLat, sliceLine } from './geo';
+import { cleanLine, type LngLat, simplifyLine, sliceLine } from './geo';
 
 /**
  * Hayve route style (indigo, like the logo wave-v): the route draws itself from the start
@@ -17,9 +17,15 @@ export function useRouteReveal(route: LngLat[] | null | undefined) {
     if (!key || reduced) return setT(1);
     const t0 = Date.now();
     const D = 700;
+    // About 20 steps: smooth to the eye, but the native map isn't asked to redraw every frame.
+    let last = 0;
     const tick = () => {
-      const x = Math.min(1, (Date.now() - t0) / D);
-      setT(1 - (1 - x) ** 3);
+      const now = Date.now();
+      const x = Math.min(1, (now - t0) / D);
+      if (x >= 1 || now - last >= 34) {
+        last = now;
+        setT(1 - (1 - x) ** 3);
+      }
       if (x < 1) raf.current = requestAnimationFrame(tick);
     };
     setT(0);
@@ -34,4 +40,12 @@ export function routeParts(route: LngLat[] | null | undefined, reveal: number, p
   if (!route || route.length < 2) return { done: [] as LngLat[], todo: [] as LngLat[] };
   const p = Math.max(0, Math.min(progress, reveal));
   return { done: p > 0 ? sliceLine(route, 0, p) : [], todo: sliceLine(route, p, reveal) };
+}
+
+/** The route made safe to draw: invalid points dropped and long road routes thinned out. */
+export function useSafeRoute(route: LngLat[] | null | undefined): LngLat[] | null {
+  return useMemo(() => {
+    const line = simplifyLine(cleanLine(route));
+    return line.length > 1 ? line : null;
+  }, [route]);
 }

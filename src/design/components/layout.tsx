@@ -26,7 +26,9 @@ export function useLayout() {
   const isDesktop = width >= layout.desktop;
   const contentWidth = Math.min(width - (isWide ? layout.sidebar : 0), layout.maxContent);
   const gutter = isWide ? space.xxl : space.lg;
-  const columns = (min: number) => Math.max(2, Math.floor((contentWidth - gutter * 2 + 12) / (min + 12)));
+  // Small tiles (product cards) always pair up on a phone; wide cards and rows get the full width
+  // rather than being squeezed into half a phone.
+  const columns = (min: number) => Math.max(min <= 200 ? 2 : 1, Math.floor((contentWidth - gutter * 2 + 12) / (min + 12)));
   return { width, height, isWide, isDesktop, contentWidth, gutter, columns, isPhone: !isWide };
 }
 

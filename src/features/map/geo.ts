@@ -131,3 +131,65 @@ export function sliceLine(line: LngLat[], a: number, b: number): LngLat[] {
   }
   return out;
 }
+
+/* Safety: map engines (MapKit in particular) crash on NaN coordinates or impossible padding. */
+
+export function isLngLat(p: unknown): p is LngLat {
+  return Array.isArray(p) && p.length >= 2 && Number.isFinite(p[0]) && Number.isFinite(p[1]) && Math.abs(p[1] as number) <= 90 && Math.abs(p[0] as number) <= 180;
+}
+
+/** Drops invalid points and repeats so a line is always safe to hand to a map engine. */
+export function cleanLine(line: readonly unknown[] | null | undefined): LngLat[] {
+  const out: LngLat[] = [];
+  for (const p of line ?? []) {
+    if (!isLngLat(p)) continue;
+    const last = out[out.length - 1];
+    if (last && last[0] === p[0] && last[1] === p[1]) continue;
+    out.push([p[0], p[1]]);
+  }
+  return out;
+}
+
+/**
+ * Fewer points, same shape: keeps a point only when it's more than `minM` metres from the last kept
+ * one (or a sharp turn), always keeping both ends. Road routes from Apple come with thousands of
+ * points; drawing them every animation frame is what made the map stutter and crash.
+ */
+export function simplifyLine(line: LngLat[], maxPoints = 400): LngLat[] {
+  if (line.length <= maxPoints) return line;
+  const minM = lineLength(line) / maxPoints;
+  const out: LngLat[] = [line[0]];
+  for (let i = 1; i < line.length - 1; i++) {
+    const last = out[out.length - 1];
+    const d = haversineM(last, line[i]);
+    const sharp = out.length > 1 && Math.abs(turn(bearing(out[out.length - 2], last), bearing(last, line[i]))) > 50 && d > minM / 4;
+    if (d >= minM || sharp) out.push(line[i]);
+  }
+  out.push(line[line.length - 1]);
+  return out;
+}
+
+/**
+ * Padding that leaves at least `keep` of the map visible (default 30% of each side). Without this,
+ * a tall bottom sheet plus the header could ask the map to fit a route into less than zero pixels.
+ */
+export function safePadding(p: { top: number; right: number; bottom: number; left: number }, w: number, h: number, extra = 0, keep = 0.3) {
+  const fix = (a: number, b: number, size: number) => {
+    a = Math.max(0, (Number.isFinite(a) ? a : 0) + extra);
+    b = Math.max(0, (Number.isFinite(b) ? b : 0) + extra);
+    if (!size || size <= 0) return [a, b];
+    const room = size * (1 - keep);
+    if (a + b <= room) return [a, b];
+    const k = room / (a + b);
+    return [Math.floor(a * k), Math.floor(b * k)];
+  };
+  const [top, bottom] = fix(p.top, p.bottom, h);
+  const [left, right] = fix(p.left, p.right, w);
+  return { top, right, bottom, left };
+}
+
+/** True when the points are so close together that "fit" should just centre on them. */
+export function tinySpan(pts: LngLat[]) {
+  const [sw, ne] = bounds(pts);
+  return haversineM(sw, ne) < 30;
+}
