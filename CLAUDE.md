@@ -41,3 +41,4 @@
 - Admin import (demos): `src/features/admin/ImportPanel.tsx`, parser `importParse.ts`, backend `api/importer.ts`, server `/admin/import/fetch` (`server/src/pagefetch.ts`, public addresses only).
 - Driver/courier ID check (demo): `/verify?role=driver|courier`, `business.verifyIdentity`; registration requires a verified ID.
 - Growth plan: docs/GROWTH.md.
+- Playbook (UX, onboarding, motion, words, money, maps lessons, ship checklist): docs/APP_PLAYBOOK.md. Follow it for every screen.
